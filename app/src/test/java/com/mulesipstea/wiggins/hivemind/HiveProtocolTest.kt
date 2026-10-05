@@ -110,6 +110,28 @@ class HiveProtocolTest {
         assertEquals("imperial", sentSession.str("system_unit"))
     }
 
+    /** A reconnect in the same session hands OVOS's state back in the new connection's HELLO. */
+    @Test fun carriedSessionGoesInHello() {
+        val session = Vectors.cases("full_session.json", "sessions")[0]
+        val inputs = session.getValue("inputs").jsonObject
+        val negotiated = session.getValue("negotiated").jsonObject
+        val carried = "{\"session_id\":\"s1\",\"utterance_states\":{\"ovos-skill-alerts.openvoiceos\":\"response\"}}".json().jsonObject
+        val proto = HiveProtocol(
+            useragent = "Wiggins",
+            password = inputs.str("password"),
+            sessionId = "s1",
+            handshake = PasswordHandshake(inputs.str("password"), inputs.hex("client_iv_hex")),
+            initialSession = carried,
+        ).also { it.setSession(context) }
+        val sent = session.arr("frames").map { it.jsonObject }.filter { it.str("dir") == "hub->client" && !it.bool("encrypted") }
+            .flatMap { proto.onFrame(it.str("wire")) }.filterIsInstance<HiveProtocol.Output.Send>()
+        val hub = FrameCipher(negotiated.hex("key_hex"), HiveCipher.CHACHA20_POLY1305, HiveEncoding.JSON_B64)
+        val hello = hub.open(sent.last().text).json().jsonObject.getValue("payload").jsonObject.getValue("session").jsonObject
+        assertEquals("response", hello.getValue("utterance_states").jsonObject.str("ovos-skill-alerts.openvoiceos"))
+        assertEquals("en-US", hello.str("lang"))
+        assertEquals(carried, proto.handedBackSession)
+    }
+
     @Test fun envelopeHasOnlyKnownKeys() {
         val text = HiveProtocol.hiveMessage("bus", JsonObject(emptyMap()))
         assertEquals(setOf("msg_type", "payload"), text.json().jsonObject.keys)

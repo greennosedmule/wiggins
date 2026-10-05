@@ -27,6 +27,8 @@ class HiveProtocol(
     val sessionId: String = UUID.randomUUID().toString(),
     private val handshake: PasswordHandshake = PasswordHandshake(password),
     private val nonces: ((Int) -> ByteArray)? = null,
+    /** The session OVOS last handed back, carried over from an earlier connection in the same session. */
+    initialSession: JsonObject? = null,
 ) {
     sealed interface Output {
         data class Send(val text: String) : Output
@@ -43,7 +45,10 @@ class HiveProtocol(
     private var hubPeer: String? = null
 
     /** The session as OVOS last sent it back for our session_id; see [sessionJson]. */
-    private var hubSession: JsonObject? = null
+    private var hubSession: JsonObject? = initialSession
+
+    /** The session OVOS last handed back, to carry into the next connection for the same [sessionId]. */
+    val handedBackSession: JsonObject? get() = hubSession
 
     val isReady get() = stage == Stage.READY
 
@@ -164,7 +169,7 @@ class HiveProtocol(
 
         val context = session ?: return fail("No session context set")
         val hello = buildJsonObject {
-            put("session", context.toSessionJson(sessionId, siteId))
+            put("session", sessionJson(context))
             put("site_id", siteId)
         }
         // The hub's HELLO named us with a "default" session; ours replaces it (§11.2).

@@ -8,6 +8,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -27,7 +28,7 @@ class ConversationStoreTest {
     private fun waitForSave(expectedEntries: Int) {
         val deadline = System.currentTimeMillis() + 5_000
         while (System.currentTimeMillis() < deadline) {
-            val saved = runCatching { Json.parseToJsonElement(file.readText()).jsonArray.size }.getOrNull()
+            val saved = runCatching { Json.parseToJsonElement(file.readText()).jsonObject.getValue("entries").jsonArray.size }.getOrNull()
             if (saved == expectedEntries) return
             Thread.sleep(50)
         }
@@ -78,11 +79,44 @@ class ConversationStoreTest {
         assertEquals(emptyList<Any>(), ConversationStore(file, scope).entries.value)
     }
 
-    @Test fun clearIsSaved() {
+    @Test fun newSessionClearsAndIsSaved() {
         val store = ConversationStore(file, scope)
         store.add(Who.USER, "hello")
         waitForSave(1)
-        store.clear()
+        val before = store.sessionId
+        store.newSession()
         waitForSave(0)
+        assertTrue(store.sessionId != before)
+        assertEquals(store.sessionId, ConversationStore(file, scope).sessionId)
+    }
+
+    @Test fun sessionAndActivitySurviveRestart() {
+        var now = 1_000_000L
+        val store = ConversationStore(file, scope, clock = { now })
+        store.add(Who.USER, "hi")
+        now += 5_000
+        store.touch()
+        waitForSave(1)
+        val reloaded = ConversationStore(file, scope, clock = { now })
+        assertEquals(store.sessionId, reloaded.sessionId)
+        assertEquals(now, reloaded.lastActivity)
+    }
+
+    @Test fun idleIsMeasuredFromTheLastActivity() {
+        var now = 0L
+        val store = ConversationStore(null, scope, clock = { now })
+        now = 29 * 60_000L
+        assertEquals(false, store.idleFor(30 * 60_000L))
+        store.touch()
+        now += 31 * 60_000L
+        assertTrue(store.idleFor(30 * 60_000L))
+    }
+
+    @Test fun firstFormatStillLoads() {
+        file.writeText("""[{"id":3,"who":"USER","text":"old","delivery":"PENDING"}]""")
+        val store = ConversationStore(file, scope)
+        assertEquals("old", store.entries.value.single().text)
+        assertEquals(Delivery.NOT_SENT, store.entries.value.single().delivery)
+        assertTrue(store.sessionId.isNotBlank())
     }
 }

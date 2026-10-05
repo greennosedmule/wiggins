@@ -36,6 +36,9 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
     private var protocol: HiveProtocol? = null
     private var session: SessionContext? = null
 
+    /** OVOS's session state from the last connection, kept for a reconnect in the same session. */
+    private var carried: Pair<String, JsonObject>? = null
+
     /**
      * Connects as OVOS session [sessionId], with [transport], which carries the auth
      * mode's TLS settings (a client certificate), and with any [headers] the reverse
@@ -52,7 +55,8 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
         headers: Map<String, String> = emptyMap(),
     ) = synchronized(lock) {
         close()
-        val proto = HiveProtocol(USERAGENT, password, sessionId = sessionId).also { it.setSession(context) }
+        val seed = carried?.takeIf { it.first == sessionId }?.second
+        val proto = HiveProtocol(USERAGENT, password, sessionId = sessionId, initialSession = seed).also { it.setSession(context) }
         protocol = proto
         session = context
         _state.value = ConnectionState.Connecting
@@ -81,6 +85,12 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
 
     private fun close() {
         socket?.close(NORMAL_CLOSURE, null)
+        forget()
+    }
+
+    /** Drops the connection's state, keeping OVOS's session for a reconnect in the same session. */
+    private fun forget() {
+        protocol?.let { p -> p.handedBackSession?.let { carried = p.sessionId to it } }
         socket = null
         protocol = null
     }
@@ -102,8 +112,7 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
                     is HiveProtocol.Output.Fail -> {
                         Log.w(TAG, "protocol failure: ${out.reason}")
                         webSocket.close(NORMAL_CLOSURE, null)
-                        socket = null
-                        protocol = null
+                        forget()
                         _state.value = ConnectionState.Failed(out.reason, retryable = false)
                     }
                 }
@@ -148,8 +157,7 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
         }
 
         private fun ended(reason: String, retryable: Boolean, httpCode: Int? = null) {
-            socket = null
-            protocol = null
+            forget()
             _state.value = ConnectionState.Failed(reason, retryable, httpCode)
         }
     }

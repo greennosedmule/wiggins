@@ -62,9 +62,13 @@ class Assistant(private val app: WigginsApp) {
     private var panel: ConversationStore? = null
 
     // OVOS keeps conversation memory on the hub keyed by session_id: a persona's chat
-    // history, active skills. The app and the panel share one session, which changes
-    // when the conversation is cleared.
-    private var sessionId = newSessionId()
+    // history, active skills. The app and the panel share the saved conversation's
+    // session, which ends when the conversation is cleared or after IDLE_SESSION_MS
+    // without a question or reply. The hub can't be asked whether it still remembers,
+    // so the idle time is the best guess at when it's stale; ending it also clears the
+    // screen, so what's shown is what the hub knows.
+    private val sessionId get() = saved.sessionId
+    private var idleExpiry: Job? = null
 
     /** Where questions and replies go right now: the panel while it's open, else the saved conversation. */
     private val conversation get() = panel ?: saved
@@ -143,6 +147,7 @@ class Assistant(private val app: WigginsApp) {
     /** A Wiggins screen is visible: cancel any pending idle disconnect and connect. */
     fun onForeground() {
         visibleScreens++
+        expireIfIdle()
         refreshPrerequisites()
         retries = 0
         forceTokenRefresh = false
@@ -208,6 +213,7 @@ class Assistant(private val app: WigginsApp) {
     fun send(text: String) {
         val utterance = text.trim()
         if (utterance.isEmpty()) return
+        expireIfIdle()
         followUp = false
         speaker.stop()
         deliver(conversation.add(Who.USER, utterance, Delivery.PENDING))
@@ -223,10 +229,24 @@ class Assistant(private val app: WigginsApp) {
 
     /** Clears the saved conversation, and starts a new hub session so OVOS forgets it too. */
     fun clearConversation() {
-        saved.clear()
         endTurn()
-        sessionId = newSessionId()
+        saved.newSession()
         switchSession()
+    }
+
+    /** Ends the conversation if it has been idle too long; see [sessionId]. */
+    private fun expireIfIdle() {
+        if (saved.idleFor(IDLE_SESSION_MS)) clearConversation()
+    }
+
+    /** A question or reply passed: the session is in use. Re-arms the idle check. */
+    private fun touchSession() {
+        saved.touch()
+        idleExpiry?.cancel()
+        idleExpiry = scope.launch {
+            delay(IDLE_SESSION_MS + 1_000)
+            expireIfIdle()
+        }
     }
 
     /** Stops reading aloud; the reply stays on screen. A pending follow-up won't auto-listen. */
@@ -283,6 +303,7 @@ class Assistant(private val app: WigginsApp) {
         val text = store.get(id)?.text ?: return
         if (client.sendUtterance(text, sessionContext())) {
             store.setDelivery(id, Delivery.SENT)
+            touchSession()
             finishReply()
             turnOpen = true
             setThinking(true)
@@ -391,6 +412,7 @@ class Assistant(private val app: WigginsApp) {
     private fun onHubEvent(event: HubEvent) {
         when (event) {
             is HubEvent.Speak -> {
+                touchSession()
                 setThinking(false)
                 addToReply(event.utterance)
                 if (event.expectResponse) {
@@ -486,8 +508,6 @@ class Assistant(private val app: WigginsApp) {
         )
     }
 
-    private fun newSessionId() = java.util.UUID.randomUUID().toString()
-
     private companion object {
         const val TAG = "Wiggins"
         const val IDLE_DISCONNECT_MS = 60_000L
@@ -496,6 +516,7 @@ class Assistant(private val app: WigginsApp) {
         const val RETRY_BASE_MS = 1_000L
         const val THINKING_TIMEOUT_MS = 30_000L
         const val REPLY_TIMEOUT_MS = 15_000L
+        const val IDLE_SESSION_MS = 30 * 60 * 1000L
         val NOT_CONFIGURED = Problem("Set up the hub connection to start.", Problem.Fix.SETTINGS)
     }
 }
