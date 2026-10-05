@@ -10,3 +10,8 @@ captures/
 *.apk
 *.aab
 tools/vectors/.venv/
+
+# Release signing (see app/build.gradle.kts)
+keystore.properties
+*.jks
+*.keystore

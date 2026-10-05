@@ -2,7 +2,15 @@
 
 An Android [HiveMind](https://github.com/JarbasHiveMind) client for OpenVoiceOS: it sends your questions to a HiveMind hub, shows and speaks the replies, and (from M4) runs phone actions the hub asks for, within limits you set on the phone. See [SPEC.md](SPEC.md).
 
-Status: **M2, assistant**. Wiggins can be the default digital assistant: the assist gesture opens it and starts your speech recognizer (for example FUTO Voice Input), replies are shown and spoken with the system TTS engine, and it listens again when the hub asks a follow-up question. Typing always works. A setup screen checks for the recognizer, TTS engine, assistant role and hub.
+Status: **M3, first release**. Wiggins can be the default digital assistant: the assist gesture opens a panel over the current app and starts your speech recognizer (for example FUTO Voice Input), replies are shown and spoken with the system TTS engine, and it listens again when the hub asks a follow-up question. Typing always works. It reaches the hub on a LAN or VPN, with a client certificate, or by signing in through an identity-aware proxy. A setup screen checks for the recognizer, TTS engine, assistant role and hub.
+
+## Install
+
+Signed APKs are on the [releases page](https://github.com/greennosedmule/wiggins/releases). To get updates, add `https://github.com/greennosedmule/wiggins` to [Obtainium](https://github.com/ImranR98/Obtainium). Every release is signed with the same key; its certificate's SHA-256 is:
+
+```
+FB:B1:B0:F2:66:DC:35:D4:C9:84:20:C8:74:4D:D5:46:91:A7:1D:B2:B9:47:39:0F:44:FE:08:5C:49:F3:C8:75
+```
 
 ## Build
 
@@ -30,6 +38,13 @@ The URL is `ws://host:5678` on a LAN or VPN (HiveMind encrypts payloads either w
 - `app/src/main/java/.../hivemind/`: the HiveMind protocol. `HiveProtocol` is the transport-free state machine, `PasswordHandshake` and `FrameCipher` are the crypto, and `HiveMindClient` is the OkHttp websocket.
 - `docs/hivemind-protocol.md`: the wire protocol as spoken by the targeted hivemind-core, with sources.
 - `tools/vectors/`: regenerates the Python test vectors in `app/src/test/resources/hivemind-vectors/` from the hub image.
+- `design/`: Wiggins himself. `wiggins.svg` is the source; `make_drawables.py` generates the launcher icon and in-app drawables.
+
+## Releasing
+
+`tools/release.sh 0.2.0 --push` sets the version in `app/build.gradle.kts` (bumping `versionCode`), commits, tags `v0.2.0` and pushes. The tag starts `.github/workflows/release.yml`, which checks the tag against the version, runs the tests, builds the release with R8, signs it, checks it's signed by the release key above, and publishes it with GitHub's generated notes. A version with a suffix (`0.2.0-beta1`) becomes a pre-release.
+
+Signing uses repository secrets (`WIGGINS_KEYSTORE_BASE64`, `WIGGINS_KEYSTORE_PASSWORD`, `WIGGINS_KEY_ALIAS`, `WIGGINS_KEY_PASSWORD`). Without them, `./gradlew assembleRelease` builds an unsigned APK; locally, a gitignored `keystore.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`) signs it.
 
 ## License
 

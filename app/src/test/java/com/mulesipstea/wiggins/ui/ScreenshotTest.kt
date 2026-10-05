@@ -63,7 +63,7 @@ class ScreenshotTest {
             ChatScreen(
                 connection = connection, transcript = transcript, thinking = thinking, banner = banner,
                 onSend = {}, onResend = {}, onClearConversation = {}, canListen = true, onListen = {},
-                onOpenSetup = {}, onOpenSettings = {}, onOpenMessages = {},
+                onOpenSetup = {}, onOpenSettings = {}, onOpenMessages = {}, onOpenAbout = {},
             )
         }
 

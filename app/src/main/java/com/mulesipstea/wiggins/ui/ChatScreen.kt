@@ -43,6 +43,7 @@ fun ChatScreen(
     onOpenSetup: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenMessages: () -> Unit,
+    onOpenAbout: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -71,6 +72,7 @@ fun ChatScreen(
                             enabled = transcript.isNotEmpty(),
                             onClick = { menu = false; onClearConversation() },
                         )
+                        DropdownMenuItem(text = { Text("About") }, onClick = { menu = false; onOpenAbout() })
                     }
                 },
             )

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -19,8 +21,30 @@ android {
         manifestPlaceholders["appAuthRedirectScheme"] = "com.mulesipstea.wiggins"
     }
 
+    // Release signing: environment variables in CI (the release workflow decodes the
+    // keystore from repository secrets), or keystore.properties (untracked) locally,
+    // with keys storeFile, storePassword, keyAlias, keyPassword. Without either the
+    // release build is unsigned, so anyone (F-Droid included) can still build it.
+    val keystoreProperties = Properties().apply {
+        rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+    }
+    fun signingValue(env: String, property: String): String? =
+        providers.environmentVariable(env).orNull ?: keystoreProperties.getProperty(property)
+    val releaseKeystore = signingValue("WIGGINS_KEYSTORE", "storeFile")
+    if (releaseKeystore != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = rootProject.file(releaseKeystore)
+                storePassword = signingValue("WIGGINS_KEYSTORE_PASSWORD", "storePassword")
+                keyAlias = signingValue("WIGGINS_KEY_ALIAS", "keyAlias")
+                keyPassword = signingValue("WIGGINS_KEY_PASSWORD", "keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

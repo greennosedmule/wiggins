@@ -10,7 +10,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mulesipstea.wiggins.MainViewModel
 import com.mulesipstea.wiggins.ui.theme.WigginsTheme
 
-enum class Screen { CHAT, SETTINGS, MESSAGES, SETUP }
+enum class Screen { CHAT, SETTINGS, MESSAGES, SETUP, ABOUT }
 
 @Composable
 fun WigginsRoot(viewModel: MainViewModel) {
@@ -54,6 +54,7 @@ fun WigginsRoot(viewModel: MainViewModel) {
                 onOpenSetup = { screen = Screen.SETUP },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenMessages = { screen = Screen.MESSAGES },
+                onOpenAbout = { screen = Screen.ABOUT },
             )
             Screen.SETTINGS -> SettingsScreen(
                 initial = settings,
@@ -67,6 +68,7 @@ fun WigginsRoot(viewModel: MainViewModel) {
                 onOpenHubSettings = { screen = Screen.SETTINGS },
                 onBack = { screen = Screen.CHAT },
             )
+            Screen.ABOUT -> AboutScreen(onBack = { screen = Screen.CHAT })
             Screen.MESSAGES -> MessagesScreen(
                 messages = log,
                 onClear = assistant::clearLog,
