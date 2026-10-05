@@ -79,6 +79,12 @@ class Assistant(private val app: WigginsApp) {
     /** What's stopping Wiggins right now, if anything; cleared once it's fixed. */
     val problem: StateFlow<Problem?> = _problem.asStateFlow()
 
+    /** Wiggins is reading a reply aloud. */
+    val speaking: StateFlow<Boolean> = speaker.speaking
+
+    /** Replies are spoken as well as shown (a setting, on by default). */
+    val speakReplies: StateFlow<Boolean> = app.settings.speakReplies.stateIn(scope, SharingStarted.Eagerly, true)
+
     private val _thinking = MutableStateFlow(false)
 
     /** A question reached the hub and its answer hasn't arrived yet. */
@@ -211,6 +217,18 @@ class Assistant(private val app: WigginsApp) {
     }
 
     fun clearConversation() = saved.clear()
+
+    /** Stops reading aloud; the reply stays on screen. A pending follow-up won't auto-listen. */
+    fun stopSpeaking() {
+        followUp = false
+        speaker.stop()
+    }
+
+    /** Turns spoken replies on or off; turning them off also stops any speech now. */
+    fun setSpeakReplies(on: Boolean) {
+        if (!on) stopSpeaking()
+        scope.launch { app.settings.setSpeakReplies(on) }
+    }
 
     /**
      * The assistant panel opened: start a fresh conversation that lives only while
@@ -360,7 +378,12 @@ class Assistant(private val app: WigginsApp) {
                     followUp = true
                     finishReply()
                 }
-                speaker.speak(event.utterance)
+                if (speakReplies.value) {
+                    speaker.speak(event.utterance)
+                } else if (!speaker.isSpeaking) {
+                    // Silent: nothing to wait for before listening for an answer.
+                    onSpeechIdle()
+                }
             }
             HubEvent.Listen -> {
                 followUp = true

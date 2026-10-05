@@ -62,6 +62,7 @@ class ScreenshotTest {
         shoot(name, dark) {
             ChatScreen(
                 connection = connection, transcript = transcript, thinking = thinking, banner = banner,
+                speaking = false, speakReplies = true, onStopSpeaking = {}, onSpeakRepliesChange = {},
                 onSend = {}, onResend = {}, onClearConversation = {}, canListen = true, onListen = {},
                 onOpenSetup = {}, onOpenSettings = {}, onOpenMessages = {}, onOpenAbout = {},
             )
@@ -93,6 +94,7 @@ class ScreenshotTest {
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF3A6EA5), Color(0xFF9BC4E2))))) {
             AssistPanel(
                 connection = ConnectionState.Connected("hub"), transcript = transcript, thinking = thinking, banner = null,
+                speaking = !thinking && transcript.isNotEmpty(), speakReplies = !thinking, onStopSpeaking = {}, onSpeakRepliesChange = {},
                 canListen = true, onSend = {}, onResend = {}, onListen = {}, onOpenApp = {}, onClosed = {}, startVisible = true,
             )
         }

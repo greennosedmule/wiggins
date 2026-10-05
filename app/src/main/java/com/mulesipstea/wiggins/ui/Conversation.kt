@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -183,9 +184,18 @@ internal fun EmptyConversation(canListen: Boolean, onAsk: (String) -> Unit, comp
     }
 }
 
-/** The text box with a mic button when it's empty and a send button when it isn't. */
+/**
+ * The text box and its button: send when there's text; otherwise stop while a reply is
+ * being read aloud, else the mic.
+ */
 @Composable
-internal fun InputRow(onSend: (String) -> Unit, canListen: Boolean, onListen: () -> Unit) {
+internal fun InputRow(
+    onSend: (String) -> Unit,
+    canListen: Boolean,
+    onListen: () -> Unit,
+    speaking: Boolean,
+    onStopSpeaking: () -> Unit,
+) {
     var text by rememberSaveable { mutableStateOf("") }
     val submit = {
         if (text.isNotBlank()) {
@@ -213,9 +223,31 @@ internal fun InputRow(onSend: (String) -> Unit, canListen: Boolean, onListen: ()
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { submit() }),
         )
-        val listening = text.isBlank() && canListen
-        FilledIconButton(onClick = if (listening) onListen else submit, modifier = Modifier.size(52.dp)) {
-            if (listening) Icon(painterResource(R.drawable.ic_mic), "Speak") else Icon(Icons.AutoMirrored.Filled.Send, "Send")
+        when {
+            text.isNotBlank() -> FilledIconButton(onClick = submit, modifier = Modifier.size(52.dp)) {
+                Icon(Icons.AutoMirrored.Filled.Send, "Send")
+            }
+            speaking -> FilledIconButton(onClick = onStopSpeaking, modifier = Modifier.size(52.dp)) {
+                Icon(painterResource(R.drawable.ic_stop), "Stop speaking")
+            }
+            canListen -> FilledIconButton(onClick = onListen, modifier = Modifier.size(52.dp)) {
+                Icon(painterResource(R.drawable.ic_mic), "Speak")
+            }
+            else -> FilledIconButton(onClick = submit, enabled = false, modifier = Modifier.size(52.dp)) {
+                Icon(Icons.AutoMirrored.Filled.Send, "Send")
+            }
+        }
+    }
+}
+
+/** Turns spoken replies on or off; with them off, replies are text only. */
+@Composable
+internal fun SpeechToggle(speakReplies: Boolean, onChange: (Boolean) -> Unit) {
+    IconButton(onClick = { onChange(!speakReplies) }) {
+        if (speakReplies) {
+            Icon(painterResource(R.drawable.ic_volume_up), "Replies are spoken; tap for text only")
+        } else {
+            Icon(painterResource(R.drawable.ic_volume_off), "Replies are text only; tap to speak them")
         }
     }
 }

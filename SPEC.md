@@ -72,7 +72,7 @@ Speech-to-text and TTS are the user's apps; understanding happens on the hub.
 1. **Trigger:** Wiggins holds the Android assistant role, so the assist gesture or long-press opens its assistant panel (see "Conversation screen"). A text box is always available. It qualifies through an exported `ACTION_ASSIST` activity, as Dicio does, not a `VoiceInteractionService`, so it never registers a recognition service or changes the system's default recognizer. The role can't be requested from inside the app, so the setup screen opens the system's assistant settings. An assist invocation starts listening at once, except from a keyboard shortcut.
 2. **Speech to text:** Wiggins starts `RecognizerIntent.ACTION_RECOGNIZE_SPEECH`, and the user's recognizer appears in the foreground and returns the transcript. Wiggins never touches the microphone, so it needs no `RECORD_AUDIO` permission.
 3. **Uplink:** the transcript goes to the hub as a `recognizer_loop:utterance` message.
-4. **Reply:** the hub's `speak` messages are read aloud with Android `TextToSpeech` using the system engine, and shown as text.
+4. **Reply:** the hub's `speak` messages are read aloud with Android `TextToSpeech` using the system engine, and shown as text. While a reply is being read, the mic button becomes a stop button; a speaker toggle in the app bar and panel turns spoken replies off (text only) until turned back on, and is remembered. With speech off, a follow-up question opens the recognizer straight away. The volume keys control the voice's volume on Wiggins' screens.
 5. **Follow-ups:** when a `speak` message expects a response, or the hub sends `mycroft.mic.listen`, Wiggins relaunches the recognizer after speech finishes.
 
 ## Conversation screen

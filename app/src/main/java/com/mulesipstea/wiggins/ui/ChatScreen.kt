@@ -34,6 +34,10 @@ fun ChatScreen(
     connection: ConnectionState,
     transcript: List<TranscriptEntry>,
     thinking: Boolean,
+    speaking: Boolean,
+    speakReplies: Boolean,
+    onStopSpeaking: () -> Unit,
+    onSpeakRepliesChange: (Boolean) -> Unit,
     banner: Banner?,
     onSend: (String) -> Unit,
     onResend: (Long) -> Unit,
@@ -61,6 +65,7 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    SpeechToggle(speakReplies, onSpeakRepliesChange)
                     IconButton(onClick = onOpenMessages) { Icon(Icons.AutoMirrored.Filled.List, "Hub messages") }
                     IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, "Settings") }
                     var menu by remember { mutableStateOf(false) }
@@ -88,7 +93,7 @@ fun ChatScreen(
             ) {
                 EmptyConversation(canListen, onAsk = onSend)
             }
-            InputRow(onSend, canListen, onListen)
+            InputRow(onSend, canListen, onListen, speaking, onStopSpeaking)
         }
     }
 }

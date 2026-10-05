@@ -2,6 +2,7 @@ package com.mulesipstea.wiggins
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.util.Log
@@ -40,6 +41,8 @@ class AssistActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // The volume keys adjust Wiggins' voice, even between sentences.
+        volumeControlStream = AudioManager.STREAM_MUSIC
         assistant.openPanel()
         setContent {
             WigginsTheme {
@@ -49,10 +52,16 @@ class AssistActivity : ComponentActivity() {
                 val problem by assistant.problem.collectAsStateWithLifecycle()
                 val prerequisites by assistant.prerequisites.collectAsStateWithLifecycle()
                 val thinking by assistant.thinking.collectAsStateWithLifecycle()
+                val speaking by assistant.speaking.collectAsStateWithLifecycle()
+                val speakReplies by assistant.speakReplies.collectAsStateWithLifecycle()
                 AssistPanel(
                     connection = connection,
                     transcript = transcript,
                     thinking = thinking,
+                    speaking = speaking,
+                    speakReplies = speakReplies,
+                    onStopSpeaking = assistant::stopSpeaking,
+                    onSpeakRepliesChange = assistant::setSpeakReplies,
                     banner = problem?.let { p ->
                         when (p.fix) {
                             Problem.Fix.SETTINGS -> Banner(p.message, "Open app", isProblem = true, ::openApp)

@@ -1,6 +1,7 @@
 package com.mulesipstea.wiggins
 
 import android.content.ActivityNotFoundException
+import android.media.AudioManager
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.util.Log
@@ -28,6 +29,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // The volume keys adjust Wiggins' voice, even between sentences.
+        volumeControlStream = AudioManager.STREAM_MUSIC
         setContent { WigginsRoot(viewModel) }
 
         lifecycleScope.launch {

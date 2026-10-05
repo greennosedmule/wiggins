@@ -4,6 +4,9 @@ import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 import java.util.UUID
 
@@ -20,6 +23,15 @@ class Speaker(context: Context) {
     private val pending = mutableListOf<String>()
     private var active = 0
 
+    private val _speaking = MutableStateFlow(false)
+
+    /** True while queued speech is playing or waiting for the engine. */
+    val speaking: StateFlow<Boolean> = _speaking.asStateFlow()
+
+    private fun updateSpeaking() {
+        _speaking.value = active > 0 || pending.isNotEmpty()
+    }
+
     /** Called when queued speech has finished, or at once if there's no engine. Any thread. */
     var onIdle: (() -> Unit)? = null
 
@@ -30,6 +42,7 @@ class Speaker(context: Context) {
             val queued = pending.toList()
             pending.clear()
             queued.forEach(::enqueue)
+            updateSpeaking()
         }
         if (!isSpeaking) onIdle?.invoke()
     }
@@ -57,6 +70,7 @@ class Speaker(context: Context) {
                 Engine.STARTING -> pending += text
                 Engine.UNAVAILABLE -> Unit
             }
+            updateSpeaking()
             engine == Engine.UNAVAILABLE
         }
         if (idleNow) onIdle?.invoke()
@@ -67,6 +81,7 @@ class Speaker(context: Context) {
         synchronized(lock) {
             pending.clear()
             active = 0
+            updateSpeaking()
         }
         tts.stop()
     }
@@ -84,6 +99,7 @@ class Speaker(context: Context) {
         val nowIdle = synchronized(lock) {
             if (active == 0) return
             active--
+            updateSpeaking()
             active == 0 && pending.isEmpty()
         }
         if (nowIdle) onIdle?.invoke()

@@ -26,6 +26,8 @@ fun WigginsRoot(viewModel: MainViewModel) {
         val prerequisites by assistant.prerequisites.collectAsStateWithLifecycle()
         val problem by assistant.problem.collectAsStateWithLifecycle()
         val thinking by assistant.thinking.collectAsStateWithLifecycle()
+        val speaking by assistant.speaking.collectAsStateWithLifecycle()
+        val speakReplies by assistant.speakReplies.collectAsStateWithLifecycle()
         val hubConfigured = settings?.isComplete == true
 
         // At most one banner: what's broken now, else what's left to set up.
@@ -45,6 +47,10 @@ fun WigginsRoot(viewModel: MainViewModel) {
                 connection = connection,
                 transcript = transcript,
                 thinking = thinking,
+                speaking = speaking,
+                speakReplies = speakReplies,
+                onStopSpeaking = assistant::stopSpeaking,
+                onSpeakRepliesChange = assistant::setSpeakReplies,
                 banner = banner,
                 onSend = assistant::send,
                 onResend = assistant::resend,

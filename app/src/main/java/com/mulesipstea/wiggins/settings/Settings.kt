@@ -2,6 +2,7 @@ package com.mulesipstea.wiggins.settings
 
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -69,6 +70,13 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    /** Whether replies are spoken as well as shown. On by default. */
+    val speakReplies: Flow<Boolean> = context.dataStore.data.map { it[SPEAK_REPLIES] ?: true }
+
+    suspend fun setSpeakReplies(on: Boolean) {
+        context.dataStore.edit { it[SPEAK_REPLIES] = on }
+    }
+
     /** Stores refreshed tokens without touching the rest of the settings. */
     suspend fun saveAuthState(authState: String) = withContext(Dispatchers.Default) {
         val encrypted = secrets.encrypt(AUTH_STATE.name, authState)
@@ -97,5 +105,6 @@ class SettingsRepository(private val context: Context) {
         val SIGN_IN_CLIENT_ID = stringPreferencesKey("sign_in_client_id")
         val SIGN_IN_SCOPE = stringPreferencesKey("sign_in_scope")
         val AUTH_STATE = stringPreferencesKey("auth_state_enc")
+        val SPEAK_REPLIES = booleanPreferencesKey("speak_replies")
     }
 }

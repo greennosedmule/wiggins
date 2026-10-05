@@ -46,6 +46,10 @@ fun AssistPanel(
     connection: ConnectionState,
     transcript: List<TranscriptEntry>,
     thinking: Boolean,
+    speaking: Boolean,
+    speakReplies: Boolean,
+    onStopSpeaking: () -> Unit,
+    onSpeakRepliesChange: (Boolean) -> Unit,
     banner: Banner?,
     canListen: Boolean,
     onSend: (String) -> Unit,
@@ -102,6 +106,7 @@ fun AssistPanel(
                             Text("Wiggins", style = MaterialTheme.typography.titleMedium)
                             StatusLine(connection)
                         }
+                        SpeechToggle(speakReplies, onSpeakRepliesChange)
                         TextButton(onClick = onOpenApp) { Text("Open app") }
                     }
                     banner?.let { BannerRow(it) }
@@ -114,7 +119,7 @@ fun AssistPanel(
                     ) {
                         EmptyConversation(canListen, onAsk = onSend, compact = true)
                     }
-                    InputRow(onSend, canListen, onListen)
+                    InputRow(onSend, canListen, onListen, speaking, onStopSpeaking)
                 }
             }
         }
