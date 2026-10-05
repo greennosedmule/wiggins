@@ -1,6 +1,12 @@
 package com.mulesipstea.wiggins.ui
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,8 +46,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -96,7 +105,10 @@ internal fun Bubble(entry: TranscriptEntry, onResend: (Long) -> Unit) {
                 shape = if (user) RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp) else RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp),
                 modifier = Modifier.weight(0.85f, fill = false).alpha(if (entry.delivery == Delivery.PENDING) 0.6f else 1f),
             ) {
-                Text(entry.text, Modifier.padding(horizontal = 16.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyLarge)
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    Text(entry.text, style = MaterialTheme.typography.bodyLarge)
+                    if (entry.streaming) MoreToCome(Modifier.padding(top = 6.dp))
+                }
             }
             if (!user) Spacer(Modifier.weight(0.15f))
         }
@@ -111,6 +123,30 @@ internal fun Bubble(entry: TranscriptEntry, onResend: (Long) -> Unit) {
             Delivery.NOT_SENT -> TextButton(onClick = { onResend(entry.id) }) {
                 Text("Not sent · Retry", color = colors.error, style = MaterialTheme.typography.labelMedium)
             }
+        }
+    }
+}
+
+/**
+ * Three small bubbles that swell and fade in turn: more of this reply is on its
+ * way (the hub hasn't finished handling the question).
+ */
+@Composable
+private fun MoreToCome(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "more")
+    val color = MaterialTheme.colorScheme.primary
+    Row(modifier.semantics { contentDescription = "More to come" }, horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+        repeat(3) { i ->
+            val phase by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(tween(durationMillis = 700, delayMillis = i * 200), RepeatMode.Reverse),
+                label = "bubble$i",
+            )
+            Box(
+                Modifier.size(11.dp).scale(0.65f + 0.35f * phase).alpha(0.45f + 0.55f * phase)
+                    .border(2.dp, color, CircleShape),
+            )
         }
     }
 }

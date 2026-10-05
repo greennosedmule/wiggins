@@ -69,6 +69,14 @@ class ScreenshotTest {
 
     @Test fun chatLight() = chat("chat", false, conversation, thinking = true)
     @Test fun chatDark() = chat("chat", true, conversation, thinking = true)
+    @Test fun streamingLight() = chat(
+        "streaming", false,
+        listOf(
+            TranscriptEntry(1, Who.USER, "Tell me about honeybees"),
+            TranscriptEntry(2, Who.HUB, "Honeybees live in colonies of up to sixty thousand. Each colony has a single queen.", streaming = true),
+        ),
+    )
+
     @Test fun emptyLight() = chat("empty", false, emptyList())
     @Test fun emptyDark() = chat("empty", true, emptyList())
 

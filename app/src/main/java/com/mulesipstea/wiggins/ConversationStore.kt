@@ -38,9 +38,9 @@ class ConversationStore(private val file: File?, private val scope: CoroutineSco
     private val saveLock = Mutex()
     private var pendingSave: Job? = null
 
-    fun add(who: Who, text: String, delivery: Delivery = Delivery.SENT): Long {
+    fun add(who: Who, text: String, delivery: Delivery = Delivery.SENT, streaming: Boolean = false): Long {
         val id = ids.incrementAndGet()
-        _entries.update { (it + TranscriptEntry(id, who, text, delivery)).takeLast(limit) }
+        _entries.update { (it + TranscriptEntry(id, who, text, delivery, streaming)).takeLast(limit) }
         changed()
         return id
     }
@@ -49,6 +49,18 @@ class ConversationStore(private val file: File?, private val scope: CoroutineSco
 
     fun setDelivery(id: Long, delivery: Delivery) {
         _entries.update { list -> list.map { if (it.id == id) it.copy(delivery = delivery) else it } }
+        changed()
+    }
+
+    /** Adds the next sentence of a streaming reply. */
+    fun append(id: Long, text: String) {
+        _entries.update { list -> list.map { if (it.id == id) it.copy(text = it.text + " " + text) else it } }
+        changed()
+    }
+
+    /** The reply is complete. */
+    fun finish(id: Long) {
+        _entries.update { list -> list.map { if (it.id == id) it.copy(streaming = false) else it } }
         changed()
     }
 
@@ -70,9 +82,11 @@ class ConversationStore(private val file: File?, private val scope: CoroutineSco
 
     private fun load(): List<TranscriptEntry> = runCatching {
         if (file == null || !file.exists()) return emptyList()
-        // A question still pending when the app died never reached the hub.
-        json.decodeFromString(serializer, file.readText())
-            .map { if (it.delivery == Delivery.PENDING) it.copy(delivery = Delivery.NOT_SENT) else it }
+        // A question still pending when the app died never reached the hub, and no
+        // more of a reply that was still arriving will come.
+        json.decodeFromString(serializer, file.readText()).map {
+            it.copy(delivery = if (it.delivery == Delivery.PENDING) Delivery.NOT_SENT else it.delivery, streaming = false)
+        }
     }.getOrDefault(emptyList())
 
     private fun save(file: File, entries: List<TranscriptEntry>) {

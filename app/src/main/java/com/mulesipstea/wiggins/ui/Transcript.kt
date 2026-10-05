@@ -9,9 +9,19 @@ enum class Who { USER, HUB }
 @Serializable
 enum class Delivery { SENT, PENDING, NOT_SENT }
 
-/** One line of the conversation: only what was said (SPEC "Conversation screen"). */
+/**
+ * One line of the conversation: only what was said (SPEC "Conversation screen").
+ * A hub reply is [streaming] while more of it may still arrive: OVOS can speak an
+ * answer a sentence at a time, and the sentences join into one entry.
+ */
 @Serializable
-data class TranscriptEntry(val id: Long, val who: Who, val text: String, val delivery: Delivery = Delivery.SENT)
+data class TranscriptEntry(
+    val id: Long,
+    val who: Who,
+    val text: String,
+    val delivery: Delivery = Delivery.SENT,
+    val streaming: Boolean = false,
+)
 
 data class LoggedMessage(val id: Long, val timeMillis: Long, val hiveType: String, val busType: String?, val json: String)
 

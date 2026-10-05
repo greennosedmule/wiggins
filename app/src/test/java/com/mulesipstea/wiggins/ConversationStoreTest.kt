@@ -46,6 +46,19 @@ class ConversationStoreTest {
         assertEquals(Delivery.NOT_SENT, reloaded.last().delivery)
     }
 
+    @Test fun streamingReplyJoinsSentencesAndLoadsFinished() {
+        val store = ConversationStore(file, scope)
+        val id = store.add(Who.HUB, "Honeybees live in colonies.", streaming = true)
+        store.append(id, "A colony has one queen.")
+        assertEquals("Honeybees live in colonies. A colony has one queen.", store.get(id)?.text)
+        assertTrue(store.get(id)!!.streaming)
+        waitForSave(1)
+        // If the app dies mid-reply, no more of it will come.
+        assertEquals(false, ConversationStore(file, scope).entries.value.single().streaming)
+        store.finish(id)
+        assertEquals(false, store.get(id)!!.streaming)
+    }
+
     @Test fun idsKeepIncreasingAfterReload() {
         val first = ConversationStore(file, scope)
         val a = first.add(Who.USER, "one")

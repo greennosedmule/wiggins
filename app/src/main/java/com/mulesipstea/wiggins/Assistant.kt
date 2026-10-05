@@ -85,6 +85,13 @@ class Assistant(private val app: WigginsApp) {
     val thinking: StateFlow<Boolean> = _thinking.asStateFlow()
     private var thinkingTimeout: Job? = null
 
+    /** A question reached the hub and OVOS hasn't finished handling it (ovos.utterance.handled). */
+    private var turnOpen = false
+
+    /** The reply being built from this turn's speak messages, which OVOS may send a sentence at a time. */
+    private var reply: Pair<ConversationStore, Long>? = null
+    private var replyTimeout: Job? = null
+
     private val _log = MutableStateFlow<List<LoggedMessage>>(emptyList())
     val log: StateFlow<List<LoggedMessage>> = _log.asStateFlow()
 
@@ -216,6 +223,7 @@ class Assistant(private val app: WigginsApp) {
         _panelTranscript.value = store.entries
         followUp = false
         setThinking(false)
+        endTurn()
         client.resetSession()
     }
 
@@ -226,6 +234,7 @@ class Assistant(private val app: WigginsApp) {
         panel = null
         _panelTranscript.value = null
         followUp = false
+        endTurn()
         speaker.stop()
         client.resetSession()
     }
@@ -236,6 +245,8 @@ class Assistant(private val app: WigginsApp) {
         val text = store.get(id)?.text ?: return
         if (client.sendUtterance(text, sessionContext())) {
             store.setDelivery(id, Delivery.SENT)
+            finishReply()
+            turnOpen = true
             setThinking(true)
             return
         }
@@ -302,7 +313,10 @@ class Assistant(private val app: WigginsApp) {
 
     private fun onConnectionState(state: ConnectionState) {
         // No answer is coming over a connection that's gone.
-        if (state is ConnectionState.Failed || state is ConnectionState.Disconnected) setThinking(false)
+        if (state is ConnectionState.Failed || state is ConnectionState.Disconnected) {
+            setThinking(false)
+            endTurn()
+        }
         when (state) {
             is ConnectionState.Connected -> {
                 retries = 0
@@ -340,8 +354,12 @@ class Assistant(private val app: WigginsApp) {
         when (event) {
             is HubEvent.Speak -> {
                 setThinking(false)
-                conversation.add(Who.HUB, event.utterance)
-                if (event.expectResponse) followUp = true
+                addToReply(event.utterance)
+                if (event.expectResponse) {
+                    // A question ends this reply; the answer starts the next exchange.
+                    followUp = true
+                    finishReply()
+                }
                 speaker.speak(event.utterance)
             }
             HubEvent.Listen -> {
@@ -350,11 +368,48 @@ class Assistant(private val app: WigginsApp) {
             }
             is HubEvent.Downlink -> {
                 Log.i(TAG, "downlink ${event.hiveType} ${event.busType}")
-                if (event.busType == "ovos.utterance.handled") setThinking(false)
+                if (event.busType == "ovos.utterance.handled") {
+                    setThinking(false)
+                    endTurn()
+                }
                 val entry = LoggedMessage(logIds.incrementAndGet(), System.currentTimeMillis(), event.hiveType, event.busType, event.raw.toString())
                 _log.update { (listOf(entry) + it).take(LOG_LIMIT) }
             }
         }
+    }
+
+    /**
+     * Shows a sentence of the hub's reply. During a turn, sentences join one streaming
+     * entry until the turn ends; speech the hub starts by itself (a timer going off)
+     * is an entry of its own.
+     */
+    private fun addToReply(text: String) {
+        val open = reply?.takeIf { it.first === conversation }
+        when {
+            !turnOpen -> conversation.add(Who.HUB, text)
+            open != null -> open.first.append(open.second, text)
+            else -> reply = conversation to conversation.add(Who.HUB, text, streaming = true)
+        }
+        if (reply != null) {
+            replyTimeout?.cancel()
+            // In case the end of the turn never arrives.
+            replyTimeout = scope.launch {
+                delay(REPLY_TIMEOUT_MS)
+                finishReply()
+            }
+        }
+    }
+
+    /** No more is coming for the reply being built. */
+    private fun finishReply() {
+        reply?.let { (store, id) -> store.finish(id) }
+        reply = null
+        replyTimeout?.cancel()
+    }
+
+    private fun endTurn() {
+        finishReply()
+        turnOpen = false
     }
 
     /** Shows the hub working on an answer, for at most [THINKING_TIMEOUT_MS]. */
@@ -395,6 +450,7 @@ class Assistant(private val app: WigginsApp) {
         const val MAX_RETRIES = 5
         const val RETRY_BASE_MS = 1_000L
         const val THINKING_TIMEOUT_MS = 30_000L
+        const val REPLY_TIMEOUT_MS = 15_000L
         val NOT_CONFIGURED = Problem("Set up the hub connection to start.", Problem.Fix.SETTINGS)
     }
 }
