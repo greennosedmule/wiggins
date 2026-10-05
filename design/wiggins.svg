@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+<!-- Wiggins: the figure in navy on a transparent 200x200 canvas. The app uses it in
+     amber on navy (see wiggins-sheet.png). -->
+<g fill="#1B2440">
+  <!-- jacket and popped collar -->
+  <path d="M 30 200 C 34 182 46 170 66 162 L 73 141 L 80 148 L 106 151 L 118 139 L 122 162 C 138 170 148 184 152 200 Z"/>
+  <!-- neck, face, newsboy cap, and short ragged hair down the back to the nape -->
+  <path d="
+    M 80 156
+    C 79 147 76 138 72 128
+    C 70 130 66 131 61 130
+    C 63 128 64 126 63 124
+    C 59 124 55 121 53 117
+    C 56 117 57 115 57 113
+    C 53 111 50 107 49 102
+    C 52 103 54 102 54 100
+    C 52 97 51 94 52 91
+    C 53 90 55 89 56 89
+    C 52 82 48 76 52 68
+    C 58 52 76 40 98 40
+    C 118 40 132 47 137 56
+    C 139 61 136 64 131 65
+    L 139 69
+    C 140 72 138 74 134 74
+    L 125 76
+    C 126 81 125 85 123 88
+    C 127 93 131 97 132 101
+    C 132 104 128 105 124 105
+    C 125 108 124 110 122 111
+    C 124 114 123 117 121 119
+    C 122 123 121 127 117 129
+    C 112 132 106 131 103 132
+    C 103 142 104 150 108 172
+    L 78 172
+    Z"/>
+  <!-- bubble pipe bowl -->
+  <path d="M 141 120 L 159 120 C 159 130 155 136 150 136 C 145 136 141 130 141 120 Z"/>
+</g>
+<path fill="none" stroke="#1B2440" stroke-width="4" stroke-linecap="round" d="M 121 113 C 131 116 139 121 145 126"/>
+<g fill="none" stroke="#1B2440" stroke-width="3">
+  <circle cx="157" cy="106" r="6"/>
+  <circle cx="168" cy="84" r="8"/>
+  <circle cx="158" cy="62" r="5.5"/>
+  <path stroke-linejoin="round" d="M 146 22 L 155 27 L 155 37 L 146 42 L 137 37 L 137 27 Z"/>
+</g>
+<g fill="none" stroke="#1B2440" stroke-width="2" stroke-linecap="round">
+  <path d="M 163.5 83 A 4.5 4.5 0 0 1 167 79.5"/>
+  <path d="M 154.5 105 A 2.5 2.5 0 0 1 156.5 103"/>
+</g>
+</svg>

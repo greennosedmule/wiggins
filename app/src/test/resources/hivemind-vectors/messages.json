@@ -1,0 +1,310 @@
+{
+  "_meta": {
+    "description": "Plaintext HiveMessage JSON exactly as the Python code serializes it (json.dumps, ensure_ascii=False, ', ' and ': ' separators). Key order/whitespace are NOT significant to the hub (json.loads); Kotlin tests should compare parsed JSON. HELLO/HANDSHAKE are sent unencrypted; everything else encrypted. server_* are produced by the real hivemind-core 3.4.0 handler code (session 'recommended').",
+    "generator": "tools/vectors/generate.py",
+    "hub_image": "docker.io/smartgic/hivemind-listener:stable-20260922",
+    "versions": {
+      "hivemind-core": "3.4.0",
+      "hivemind_bus_client": "0.4.4",
+      "hivemind-websocket-protocol": "0.0.3",
+      "poorman-handshake": "1.0.1",
+      "ovos_bus_client": "1.3.7",
+      "ovos-utils": "0.8.5",
+      "pycryptodomex": "3.23.0",
+      "z85base91": "0.0.5",
+      "pybase64": "1.5.0",
+      "tornado": "6.5.10"
+    }
+  },
+  "messages": {
+    "server_hello": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsT9yZ7Qj2McNJovXtuDC\\nGZsNlgkn/avw/91VSjwqfbznnyfnT6QVmuF5j6poDR0os1JvjgpQMRfbvzvRSyxw\\njAdXcNmCBAx88Lm8yf0E4nYFZN2BsUWIirDoam0OdbpGY5947zdtd+55KcI8yVq9\\n3ErxyyMKVhl8atdOPBpStU58vLDZ1S73CXANOw9fMwtz/74MQpQueFcEzXrhG22b\\nIlqANSVH2ZFi82BDjJLUyglby24T/BeMhFmOhhXogpFYl64OZt/dlu2amVucFZJ3\\nW0xrBMfGPYde/3hCqq0ij3OvUIrtMQJ1+gSlVJXT/X7NRkFbtgYFcOmibyuf1T9Q\\nuwIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"Wiggins::1::wiggins-pixel::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+    "server_handshake_request": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+    "client_handshake": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-B64\"], \"ciphers\": [\"CHACHA20-POLY1305\"], \"envelope\": \"0001020304050607619f12ff38280e41a8631f0a71429581\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+    "server_handshake_response": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"f0e1d2c3b4a59687fa02bfcbf24b32e3d4a15ea9a22684bc\", \"encoding\": \"JSON-B64\", \"cipher\": \"CHACHA20-POLY1305\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+    "client_hello": "{\"msg_type\": \"hello\", \"payload\": {\"session\": {\"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}, \"site_id\": \"phone\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+    "client_utterance": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"what time is it\"], \"lang\": \"en-US\"}, \"context\": {\"source\": \"Wiggins\", \"destination\": \"HiveMind\", \"platform\": \"Wiggins\", \"session\": {\"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+    "server_speak": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"speak\", \"data\": {\"utterance\": \"It's 3:14 PM.\", \"expect_response\": false, \"meta\": {\"skill\": \"fake-skill.wiggins\", \"dialog\": \"time.current\"}, \"lang\": \"en-US\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}",
+    "server_utterance_handled": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"ovos.utterance.handled\", \"data\": {\"name\": \"WhatTime\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}"
+  },
+  "parsed": {
+    "server_hello": {
+      "msg_type": "hello",
+      "payload": {
+        "pubkey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsT9yZ7Qj2McNJovXtuDC\nGZsNlgkn/avw/91VSjwqfbznnyfnT6QVmuF5j6poDR0os1JvjgpQMRfbvzvRSyxw\njAdXcNmCBAx88Lm8yf0E4nYFZN2BsUWIirDoam0OdbpGY5947zdtd+55KcI8yVq9\n3ErxyyMKVhl8atdOPBpStU58vLDZ1S73CXANOw9fMwtz/74MQpQueFcEzXrhG22b\nIlqANSVH2ZFi82BDjJLUyglby24T/BeMhFmOhhXogpFYl64OZt/dlu2amVucFZJ3\nW0xrBMfGPYde/3hCqq0ij3OvUIrtMQJ1+gSlVJXT/X7NRkFbtgYFcOmibyuf1T9Q\nuwIDAQAB\n-----END PUBLIC KEY-----",
+        "peer": "Wiggins::1::wiggins-pixel::default",
+        "node_id": "master:0.0.0.0"
+      },
+      "metadata": {},
+      "route": [],
+      "node": null,
+      "target_site_id": null,
+      "target_pubkey": null,
+      "source_peer": null
+    },
+    "server_handshake_request": {
+      "msg_type": "shake",
+      "payload": {
+        "handshake": false,
+        "min_protocol_version": 0,
+        "max_protocol_version": 1,
+        "binarize": false,
+        "preshared_key": true,
+        "password": true,
+        "crypto_required": true,
+        "encodings": [
+          "JSON-B64",
+          "JSON-URLSAFE-B64",
+          "JSON-B91",
+          "JSON-Z85B",
+          "JSON-Z85P",
+          "JSON-B32",
+          "JSON-HEX"
+        ],
+        "ciphers": [
+          "CHACHA20-POLY1305",
+          "AES-GCM"
+        ]
+      },
+      "metadata": {},
+      "route": [],
+      "node": null,
+      "target_site_id": null,
+      "target_pubkey": null,
+      "source_peer": null
+    },
+    "client_handshake": {
+      "msg_type": "shake",
+      "payload": {
+        "binarize": false,
+        "encodings": [
+          "JSON-B64"
+        ],
+        "ciphers": [
+          "CHACHA20-POLY1305"
+        ],
+        "envelope": "0001020304050607619f12ff38280e41a8631f0a71429581"
+      },
+      "metadata": {},
+      "route": [],
+      "node": null,
+      "target_site_id": null,
+      "target_pubkey": null,
+      "source_peer": null
+    },
+    "server_handshake_response": {
+      "msg_type": "shake",
+      "payload": {
+        "envelope": "f0e1d2c3b4a59687fa02bfcbf24b32e3d4a15ea9a22684bc",
+        "encoding": "JSON-B64",
+        "cipher": "CHACHA20-POLY1305"
+      },
+      "metadata": {},
+      "route": [],
+      "node": null,
+      "target_site_id": null,
+      "target_pubkey": null,
+      "source_peer": null
+    },
+    "client_hello": {
+      "msg_type": "hello",
+      "payload": {
+        "session": {
+          "session_id": "6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10",
+          "lang": "en-US",
+          "site_id": "phone",
+          "location": {
+            "timezone": {
+              "code": "America/New_York",
+              "name": "Eastern Standard Time",
+              "offset": -18000000,
+              "dstOffset": 3600000
+            }
+          },
+          "system_unit": "imperial",
+          "time_format": "half",
+          "date_format": "MDY"
+        },
+        "site_id": "phone"
+      },
+      "metadata": {},
+      "route": [],
+      "node": null,
+      "target_site_id": null,
+      "target_pubkey": null,
+      "source_peer": null
+    },
+    "client_utterance": {
+      "msg_type": "bus",
+      "payload": {
+        "type": "recognizer_loop:utterance",
+        "data": {
+          "utterances": [
+            "what time is it"
+          ],
+          "lang": "en-US"
+        },
+        "context": {
+          "source": "Wiggins",
+          "destination": "HiveMind",
+          "platform": "Wiggins",
+          "session": {
+            "session_id": "6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10",
+            "lang": "en-US",
+            "site_id": "phone",
+            "location": {
+              "timezone": {
+                "code": "America/New_York",
+                "name": "Eastern Standard Time",
+                "offset": -18000000,
+                "dstOffset": 3600000
+              }
+            },
+            "system_unit": "imperial",
+            "time_format": "half",
+            "date_format": "MDY"
+          }
+        }
+      },
+      "metadata": {},
+      "route": [],
+      "node": null,
+      "target_site_id": null,
+      "target_pubkey": null,
+      "source_peer": null
+    },
+    "server_speak": {
+      "msg_type": "bus",
+      "payload": {
+        "type": "speak",
+        "data": {
+          "utterance": "It's 3:14 PM.",
+          "expect_response": false,
+          "meta": {
+            "skill": "fake-skill.wiggins",
+            "dialog": "time.current"
+          },
+          "lang": "en-US"
+        },
+        "context": {
+          "source": "hive",
+          "destination": "Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10",
+          "platform": "Wiggins",
+          "session": {
+            "active_skills": [],
+            "utterance_states": {},
+            "session_id": "6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10",
+            "lang": "en-US",
+            "context": {
+              "timeout": 120,
+              "frame_stack": []
+            },
+            "site_id": "phone",
+            "pipeline": [
+              "stop_high",
+              "converse",
+              "ocp_high",
+              "padatious_high",
+              "adapt_high",
+              "ocp_medium",
+              "fallback_high",
+              "stop_medium",
+              "adapt_medium",
+              "adapt_low",
+              "common_qa",
+              "fallback_medium",
+              "fallback_low"
+            ],
+            "location": {
+              "timezone": {
+                "code": "America/New_York",
+                "name": "Eastern Standard Time",
+                "offset": -18000000,
+                "dstOffset": 3600000
+              }
+            },
+            "system_unit": "imperial",
+            "time_format": "half",
+            "date_format": "MDY",
+            "is_speaking": false,
+            "is_recording": false,
+            "blacklisted_skills": [
+              "skill-ovos-stop.openvoiceos"
+            ],
+            "blacklisted_intents": []
+          },
+          "peer": "Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10"
+        }
+      },
+      "metadata": {},
+      "route": [],
+      "node": null,
+      "target_site_id": null,
+      "target_pubkey": null,
+      "source_peer": "Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10"
+    },
+    "server_utterance_handled": {
+      "msg_type": "bus",
+      "payload": {
+        "type": "ovos.utterance.handled",
+        "data": {
+          "name": "WhatTime"
+        },
+        "context": {
+          "source": "hive",
+          "destination": "Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10",
+          "platform": "Wiggins",
+          "session": {
+            "active_skills": [],
+            "utterance_states": {},
+            "session_id": "6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10",
+            "lang": "en-US",
+            "context": {
+              "timeout": 120,
+              "frame_stack": []
+            },
+            "site_id": "phone",
+            "pipeline": [
+              "stop_high",
+              "converse",
+              "ocp_high",
+              "padatious_high",
+              "adapt_high",
+              "ocp_medium",
+              "fallback_high",
+              "stop_medium",
+              "adapt_medium",
+              "adapt_low",
+              "common_qa",
+              "fallback_medium",
+              "fallback_low"
+            ],
+            "location": {
+              "timezone": {
+                "code": "America/New_York",
+                "name": "Eastern Standard Time",
+                "offset": -18000000,
+                "dstOffset": 3600000
+              }
+            },
+            "system_unit": "imperial",
+            "time_format": "half",
+            "date_format": "MDY",
+            "is_speaking": false,
+            "is_recording": false,
+            "blacklisted_skills": [
+              "skill-ovos-stop.openvoiceos"
+            ],
+            "blacklisted_intents": []
+          },
+          "peer": "Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10"
+        }
+      },
+      "metadata": {},
+      "route": [],
+      "node": null,
+      "target_site_id": null,
+      "target_pubkey": null,
+      "source_peer": "Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10"
+    }
+  }
+}

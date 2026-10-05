@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wiggins: a honeycomb cell (the Waggle bees) holding a voice waveform.
+     Drawn inside the adaptive icon's 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#F9BC4D"
+        android:strokeColor="#F9BC4D"
+        android:strokeWidth="6"
+        android:strokeLineJoin="round"
+        android:pathData="M54,28.5 L76.1,41.25 L76.1,66.75 L54,79.5 L31.9,66.75 L31.9,41.25 Z" />
+    <path
+        android:strokeColor="#1B2440"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M42,51 L42,57 M48,46 L48,62 M54,41 L54,67 M60,46 L60,62 M66,51 L66,57" />
+</vector>

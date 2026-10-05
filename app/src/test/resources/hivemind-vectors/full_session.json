@@ -1,0 +1,350 @@
+{
+  "_meta": {
+    "description": "Complete deterministic connection (handshake + HELLO + one utterance + replies) between the real hub code (hivemind-websocket-protocol open/on_message -> hivemind-core 3.4.0 HiveMindListenerProtocol -> ovos_bus_client.hpm.OVOSProtocol on a FakeBus with a fake ovos-core/skill) and a reference client. Each frame: wire = exact websocket text frame; plaintext = decrypted HiveMessage JSON. A Kotlin test can replay the hub->client frames into the client and check that, given the same IV and nonces, the client produces byte-identical client->hub wire frames IF it serializes the plaintext identically; otherwise compare decrypt(wire) as parsed JSON.",
+    "generator": "tools/vectors/generate.py",
+    "hub_image": "docker.io/smartgic/hivemind-listener:stable-20260922",
+    "versions": {
+      "hivemind-core": "3.4.0",
+      "hivemind_bus_client": "0.4.4",
+      "hivemind-websocket-protocol": "0.0.3",
+      "poorman-handshake": "1.0.1",
+      "ovos_bus_client": "1.3.7",
+      "ovos-utils": "0.8.5",
+      "pycryptodomex": "3.23.0",
+      "z85base91": "0.0.5",
+      "pybase64": "1.5.0",
+      "tornado": "6.5.10"
+    }
+  },
+  "sessions": [
+    {
+      "name": "recommended: CHACHA20-POLY1305 + JSON-B64, binarize off",
+      "inputs": {
+        "useragent": "Wiggins",
+        "access_key": "4f0c1d2e3b4a59687766554433221100",
+        "password": "5d41402abc4b2a76b9719d911017c592",
+        "legacy_crypto_key_in_db": "a1b2c3d4e5f60718",
+        "client_db_name": "wiggins-pixel",
+        "client_iv_hex": "0001020304050607",
+        "server_iv_hex": "f0e1d2c3b4a59687",
+        "client_offers": {
+          "ciphers": [
+            "CHACHA20-POLY1305"
+          ],
+          "encodings": [
+            "JSON-B64"
+          ],
+          "binarize": false
+        }
+      },
+      "negotiated": {
+        "cipher": "CHACHA20-POLY1305",
+        "encoding": "JSON-B64",
+        "key_hex": "f5481d0d849c6ce8c84855f9452cef5bdccaeda6cdb677a8dc856ba117ff4b80"
+      },
+      "peer": "Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10",
+      "nonce_rule": "nonce_n = SHA256(b'wiggins-nonce' || uint32_be(n))[:size], n counts every encryption in this file in order (both directions share the counter)",
+      "frames": [
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsT9yZ7Qj2McNJovXtuDC\\nGZsNlgkn/avw/91VSjwqfbznnyfnT6QVmuF5j6poDR0os1JvjgpQMRfbvzvRSyxw\\njAdXcNmCBAx88Lm8yf0E4nYFZN2BsUWIirDoam0OdbpGY5947zdtd+55KcI8yVq9\\n3ErxyyMKVhl8atdOPBpStU58vLDZ1S73CXANOw9fMwtz/74MQpQueFcEzXrhG22b\\nIlqANSVH2ZFi82BDjJLUyglby24T/BeMhFmOhhXogpFYl64OZt/dlu2amVucFZJ3\\nW0xrBMfGPYde/3hCqq0ij3OvUIrtMQJ1+gSlVJXT/X7NRkFbtgYFcOmibyuf1T9Q\\nuwIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"Wiggins::1::wiggins-pixel::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsT9yZ7Qj2McNJovXtuDC\\nGZsNlgkn/avw/91VSjwqfbznnyfnT6QVmuF5j6poDR0os1JvjgpQMRfbvzvRSyxw\\njAdXcNmCBAx88Lm8yf0E4nYFZN2BsUWIirDoam0OdbpGY5947zdtd+55KcI8yVq9\\n3ErxyyMKVhl8atdOPBpStU58vLDZ1S73CXANOw9fMwtz/74MQpQueFcEzXrhG22b\\nIlqANSVH2ZFi82BDjJLUyglby24T/BeMhFmOhhXogpFYl64OZt/dlu2amVucFZJ3\\nW0xrBMfGPYde/3hCqq0ij3OvUIrtMQJ1+gSlVJXT/X7NRkFbtgYFcOmibyuf1T9Q\\nuwIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"Wiggins::1::wiggins-pixel::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "hello"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "shake"
+        },
+        {
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-B64\"], \"ciphers\": [\"CHACHA20-POLY1305\"], \"envelope\": \"0001020304050607619f12ff38280e41a8631f0a71429581\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-B64\"], \"ciphers\": [\"CHACHA20-POLY1305\"], \"envelope\": \"0001020304050607619f12ff38280e41a8631f0a71429581\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "shake"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"f0e1d2c3b4a59687fa02bfcbf24b32e3d4a15ea9a22684bc\", \"encoding\": \"JSON-B64\", \"cipher\": \"CHACHA20-POLY1305\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"f0e1d2c3b4a59687fa02bfcbf24b32e3d4a15ea9a22684bc\", \"encoding\": \"JSON-B64\", \"cipher\": \"CHACHA20-POLY1305\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "shake"
+        },
+        {
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"UJeQJkN5IMOVq/TEkOwkdVNH2ta/cw4tZO/aVFhtpZc6/mXUBaJxcxGFRuoV/pTYTKNXkCJ6LNoCdaOkpflKI8UqolkWGe8zv0edP63IVBxiNv/hSQoFdImIybPw62LHBbFm61aGsyPzxobwHHtsQvES6QmefrhTHuNszw5hESGoWtKIg7Sn6JK0yABegfBgAdnktoMGpxwVf9HI9YNvsQdoEtOdf2LOg2+LNvPQcCzcXmxh6ipbrehzfrhcK+FvRkDPwoNGT3iWcZ4MRobY2QC9DEGHnCicWrjUwhP2kwLzVj//ar/DIDgUfG5NIp6jbwNyPoO3Tg/37+SQOcUzrTsj1AtiUYvRb/jW9Z1hbdMA6rKMf3Nf0HyIoNqYJt/rrMIjSIFbZjQkeONPLtC3E76rPcNv2OKpj9COg4cV7dxZtLFNBKgEnhVGkb8ZLjHl5HYsZ4D5tUPdC0LyHQOER7MMzRjAIJB5vV9vLWFsqqFshUQgP7qyzxwaDqAkTWnRp+rb3qPW5/76U136DAexJB7vDCce2B80/7oGWjzJrodxHqUDssXLfSolbke0go5Z16/RxIbqG01yjJqP8tQYuyM3uLdJ4u1RY4kliengRHvlOXGbJvQJdxM=\", \"tag\": \"rT7yfd5ngXrVg2A0bi7jNQ==\", \"nonce\": \"G/h1sYEAe2ElpbOd\"}",
+          "plaintext": "{\"msg_type\": \"hello\", \"payload\": {\"session\": {\"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}, \"site_id\": \"phone\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": true,
+          "hive_msg_type": "hello"
+        },
+        {
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"zqeBxozLZlGBEFpO3CkcydQizZg4R7adcFZSTvnE9MMmcs2TAa9wDp5IDoF00Jmbo52S39ZpDMH60nIvOaA+B9G1Imv5MLsFR10hUQs1EdMoA3iDSahqyMytjpXL5F2prkUorOga2phFWVhXsZ4KaZJ0xrhOYoPChV/nJLTtg+0SHZ5qM5VBpdJ9f8fNPu25U7CJC8s/3XHChwbMrUqVDV3cMJZgo7Ig9mffBRiATMnyrDDsHDmM2n/Bevvw5gQXjOIgUefdCm1kuO+oGWFpMAQTdPuIq2gWAXkF0dgHc2JSOH0KiSuc6jxxx0D+ZsmuV/tUZWZqJ8a00m8Z0mM/+xkhuqnZ3Fk/WhyOc7gm5XGUI98tfJqvHNh7GZGF614+TIVqSm+rU7Wlu5rHVSkssiNQyXPBryRQ4zHS6aMiI3EvPtpccuyopbNbAv217MfT5HtlSuyw31ues0Es8AcBN0N6g315nKMaJDkW8huqA01hUrLQyLul2hqt6OFGoIN4DjdZYJyembuD87PYIYseYuL+iOS0++p4jih1wQ6evm07JdQIfRpaHDUtoYACcMQHgG5k1fFdv2OdGgk54po8IPjh5pc3WWDlGAa8SYCNOOokGwzf01Jv4gk44JQIZbqUwOoWRK2Tv0BGfJl12Z6uk1+hZMyJmFHMuTN+nnkwgQ9ohND/SS93xwuNNB8IsJnhXb/AYh3vPJYd3DIQDd8NvTA0YZe2IsudxVchuANmnTVm0CDN/9aapQQpEqK2JRqJ0H5XIWoKINLTG/nC0wWmzLGIU2i2cn7nf0OCPyDOpef5aW5f5aJyZvmQ5ILOKNnVFcyhTBN9GjByFA==\", \"tag\": \"9hy3HAEN07gB2l5QnSz95A==\", \"nonce\": \"OGFdIVa/iQgtqqb1\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"what time is it\"], \"lang\": \"en-US\"}, \"context\": {\"source\": \"Wiggins\", \"destination\": \"HiveMind\", \"platform\": \"Wiggins\", \"session\": {\"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "recognizer_loop:utterance"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"B4kpltrSG7ZtpUefgxMA6IykX69Vt3oJT1Y2hzPB9NdW5C6kyUo0yvRhhZ+qxg7Cd1zU85op2hZ3PRRke60K4lWwgzI8dnsfoa0hGpfCRWT5L/jZ9BC2p5DPJtwjVHVU+iyVh6NoFW8cevmlaNhivovh8BWOmMpzyKdu168t+xMHzIt7pVtZibs8CMDsArHV4RRyuwGDhI555PiHUS95801h+Cgr4qBYdSsQRHNW0PAa7s0VMrEjWPVXfYcOu+sSxhQnuB7TEIT+niLqiFCo6tAt7CA7sSWCRaJIAOG0J86poPoRn1DLlXHjXVe6Zt2uGdtH8K4jvDoT8EeOF6KfwjWOyXb0L2hX5bAAmnfVPvfCNjrg2IE0ZRsJ0SFBjAloxv3nxEj+YWJBnwjFf1D7SpH4iWPZkbrBPsVMeV4pTzH7qOh+yNlqVAPBjDmo8WZmpx/ynpCY62t/SVIqMjV4//zIyduzrIhIKAYecKfGG5sk4/wrH3eP3d0YzuL1DfEDead3ytl9PM2+ztoBgClnHbJRQx10mrRP3L5YTZJevnyn7Fo7nQjB/loMi1jjalwE/QXBglXyw9k0IXg8tBKoX4zT4SqSxG7dKujhB3av9NYij8xHNqKDDAyfgw7umycVSfebpucZgNMZ8gVR7zVs8+M37Iqb7/3p2g4X7lTPlYr0wmca4ohwhHzH+7vVlJeRWB/VFJht+hV4/3XBBAdkB20QgSTYySJFkYg4iWmaIYJ146EafaIfuBveoOOHbFPtpdphcjP9usClBgLofu5f9zJe/AX23zPLYwdXZaOodUrchvPLhsoCNfgWg0YI+rE/7lP4ha4TA5n8nvQs1oLEfU3jUdOsdVtku10iDct2ertMGKrDPpTUdQaLC9UkMhF8lP52R1BgulP8+f73RN/dSMI9MymxWQnrDMChixIY+gHxdIqFYktYyUaZOjuNrPSbi2pOeCKF3bTappMIidsNlc0FE3EgNdfcieMuVaAZ+X3a1jmXW71BTddepktgEiI7bmMNXcbz/FeZkNa1XzJcRB40Pm8boNxlRwjr3Uj1Tx22eAbLyLmfCEDvaQrueJf8WmyMyEe3FTDycCvVGmmBLEoozhrg6Q5I51HsSpC1hDRIhCqNNFA860zESrn/mi5Q4lzws0J+egrSo7SPQQAt4cgv80mWv3lX31ury+Fg5peEnXWYL2O9SUCLUAcc2z9OR0pJmsXSYpSB3OmE7CWXK0h8164MW5bb4mJGxv/5JeqANyTqT8W6z/2ILsEdTQErjiM0YXJ4rjumhL6TEHEbWcvhV0JizQMgaN/Mx/235IvDAr+UYzdF/s43fBqYbJTNqj1SNajSFOF2r4C/ddEUwVcBkMxmdXPnLsvEAoCK8reQ1Hq8TrTZJ0WykjjDPT6oDOi7yWlwRoy83BA7UmE1kJ0LH7sA6kG6+2DkDVVbrXbd3O6cmAI1K2uiXSHLgDlf2FAfXzKw4H7hv9QpdPErjQf/qBIL/lUAfKpVp1NoNv7Xp2QSs4Geq9E3n+293k1Lnhoo6ubDq+g27VMbhG0EnurKoqBkjQj5RQJHwKs4NNf0L+bjxDkB6DCpOr349juJxeh8CdVtpX7tnBT3nUJ3Wu2MnLj38PMVDs1jSqGWY0juVtiblQ==\", \"tag\": \"SH8Zjsy4Rn8XyX0WY36MTA==\", \"nonce\": \"inPmNop5/z3fZxvt\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"fake-skill.wiggins:WhatTime.intent\", \"data\": {\"utterance\": \"what time is it\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "fake-skill.wiggins:WhatTime.intent"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"mgCLyCnhOFja3CsnrOnmzu0bL3BOYi9catFALnwo4PHQrqqzEqBuGcirhPWz/ZPZaaTM3WtwxRHnEKJKJSokPK56Xm9QxHwZSt63U6vkqtyHS+Fc5CiKl2UCnvkGgw0Kkm3rDZHN1X+yP832qRbq81XtMiCp2V21IAcOIdpz27RiSEcI5F6FQwq6a4ODxFHF5v1QFdIHG1RI0exD8fqmx9BTmr/lgRqwS7ZT6I5GU/6JaJnbFh11IKZJ1r1mWpaXybbFC3n4W1c9+FR372hrBx49v5Two8hKmiyvBZ/NOwZJCqLYMbziynkFNXRHWwmWKhOBUMSMZJfQj+7+TzbQxxCydRkO8ys2GNv0Hbb9X4HH4zXMXpFTiAyRcsQ2sHmmSOgXPQVJq9Wxngjjn+X0nZkTGNO7T13Tlw89pFZYh9Oi8aCnVXrd/RoC++fxVN5RfQmuUzyzjjWGiqNjyVWQ6GE7+Py+A55HZ2r7fwLE2rEGSMDlEO2hAtjWWpFYf5h5xsmv4FRgHl8QpwCk3mcHUnVqoT+gLBCWgVy1wHB4aWr6sKE++8jIwHsUfDMzhnq7xhhb2jy1okUQi0isSNSaXCfApBb+crUkuOHdAVFTpZe8pu2FuP4WQVRvaflVJQu1DS5GAzAr80IH1Qo8cv/wF3r7ITCKRerhmLyopdJ6Vfzxcv7uRNAjOpK9AzNaSDAQnFV/aVDJBD0g6V10CUXYc39XC/uRt/+ZyNYQDaTFh0KtxuK7v8TTUA4KgqtfrwidFjC4QLkGXUMmU8Wa2U91/GJzCIhD9+6zC6nr1EqTT6vrNHg9jOx9Apgv4J6xOwyKLVPMd4BjWu94J4oCxazzb6ow1zv8mwhalOGSIefOAQvVPM3fyKOD3BoYQFtVP1Ukz0ZxnB5QXfs+STd7isLBMgG6PHRMg7vJbKtfRXUa990fLttM6tcOtL5uuwOL70dOz2WL/wP3PvMJai8iIFKjs1otP4I7+AdwMv4heOBDBiF8NJmksxyaBOzKK/uuxZ1kEGqnWZVKioWvmrc6L7i8ACGjva5muAnbSPZe2NBgOg1XOU7jj6+AQfU7xwzdPojPxpXo9DZiNU6nyim8Vf5R68g7x6/TqtmyMP8F2xu2nTdRnOiqklUdoyAgJTXZyksDcYKqqDdrJV3hSPhYaS5XYISpZv4Z7ZmMC9JVRG7/0niQ4A331UFHlMtQc43x5XY2/ui//GXTHc3BqfqGsnQi3rhGf/muUFVpXpdgRGHI0UUEWkbHAtkRV33W+Vbcbn30zmH3QhfxHl3wpowFVszs6+aI1bXKRQy/4tu3p5eh3gg0adf1Enha/QLr8mKNOUb54DOOoqPM5nzgv/HnBkHm0Q4nJ79wIyjajJTjyKobaFGFJHdTaU3Ql1h6jEmYCONN1fVtmsC710n62GC4dAqgIFTn4ISlFD9d5yo9XtpT7A0BuQ6RnmKI6cZWTnRCsF8z/Mngx64s0Id8j9OrOQ8V0CHeWz01eAYdw/wBEIdrzrMlPRjk48lgFEgjYdnOEhM2ao0J2V4jqM8Zb2784fGkkEPjdDznnzYi9sQTgEtU4oRPQPg6NAyzysD29iQuqjRzxWYWCLYcWf+FcvJuMCx0qPHa95VO2VpdFI4yMXIL1Tt92Fwv0snxpaOEZGxPxe59Py7tOxDG2a1GzYhmh/JZTq80J//8H/BPK9Q9SlTHTN5hGuV8v5VOkmM/Xly4DAnhd4iyDveb/chEU7O6jk696acrjeE=\", \"tag\": \"J+/RsujCIMU9fSZ24DBJaA==\", \"nonce\": \"fIi3lA9smlOUdR8X\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"speak\", \"data\": {\"utterance\": \"It's 3:14 PM.\", \"expect_response\": false, \"meta\": {\"skill\": \"fake-skill.wiggins\", \"dialog\": \"time.current\"}, \"lang\": \"en-US\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "speak"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"q5Ij4M/9aIrkAc0QcWEDDrUWPXYFzNwbEUBjfxlesMkkI2lkFm2ucyOdMmij1xcUxlanHkz+3t9Su1CO5brfrGXiVRU4o0jEwWaVVgTFqaL/SUyGkWQkpIxYNsJysz9kcDdNuEjaXA24dwks19YPM5QFY0TuIbp+Geb5nHtVta2EJ3KqOlyjVO88HVMESfPHl1oLpSIxxktgnh5goHURtgElWtY3HIR8EuWyUkB60aa8MLk7GKkpjwEzO1oX7LwkVi1otZLw+0Jodl0x7Uy7fRFoSP8TYcJ5V9heLe3fYbijK17+o2BMXznN6ilyPGyfFvEFX1cDO+h2P3pfbPgFGum08dxcQaCyYHGjYHHYLI6KFVkehmT/1Hkk6spOPy9zwxkPQtwAkx7b8yB04y+u7qE2BgIZcu8Jr8Djv516JVGHl4OkIxWTMGxuQCy1huD2m4nkXryEOUiobViCjQJ1rWdkXqWpbNiadhr2Jw3c10eUIOMAUHEcMQtIwFboi0DRaPQBgkrMybcldf+vccN+8YB9hvjaTE6Qe9uaD8MYuA/oajLh4InfDHSfGa1RnsFHjZoSMZ2bsj68ExB9RD+w5w0HuD/+5xQIf/j8Ynx7ScyC7tFoi4am5G//6q1WDITE9UBGt49MTGONitWtDHu7uILiMAjFuYG3Uvj67j5s5Su0mnMFSP20/LjaNQ8LDajwm2yqtSszSLdVbUtWQ7Qisf+G4EwL1/2gvw6d+Vgc/fp4xuY0oesNwy8F64/94pMuvSXHBlgNAS1DQE9yia+mv1mPrK37/M/d69dulLa7vIbBgvVEchPoG4IA2uw+d0Dlk4X8VanldBBwf41YugXhql3F/HlXF1RSWQth0itbH8/wKt+fzEhv87SaH5wUHeXHhIjr9Eg7q9lnPmt3zynHFOhFklkLXA6CwHyCLwu10YT47EneTuC4WwJbLXZtWkZx1pTrkjVzlfP9bclRiiD+9WXF5rmiw7G/1+FK5viRmHrj8oQUxCFvcRWYangfE3g4JK53rdA1SJfIz0dtVF3h95GWYu1niYevl6dqfnErjC+X2A9n+uK/6Zm5KINzHkw91YeN4/6b3zUFLjx1RiJijgZuGLp6156NKhIYorE+8eWo2HoTKGD4/sTj+3oWQcCO56wki2qUShxUpA5NTKxX08zX54VthFvQnQHRDtTThLxa87hht4bO7yVfvXRKSc4CU6Vqee43kXmr8d41V22/jR1QJ3IUsHg/l7sxYsgKPdA8+ifnS0aYmhU1/eXhg7iB8yA+O/HtQ08ORxSW/cVwkIZ9Mk+bkAQDMjXUh9uin5OXsdzAOotnJ28hVsdklkPEhvmRHY4yn/M4Fa0kFePIaXid4TqXSD4Bfub4C5TRyf5hej7Af02lER5YGmtje3hfk2M5HOckg8jXuzVwMMDLF5/f5qBEWqATsCX6JbWBTjDw1d5ii1SjVIEEPEpLjK8uVvo8nwHD7oMSemyfA7Y+e4L/Cs49/Yk/ohGC8XS7Nt1EKvGCIHkrZt1HQo869xQcyjt24038rwN0gp4gGj9Wk1oSPEH8x1SZbueq0xzW71Z8N4uQpQyU4ooVcBzJeB8ZWtpRTtG4g6ffgBkLtw==\", \"tag\": \"6I4PiuFBDU2puOYSEhmkaQ==\", \"nonce\": \"GQlS+VzRwyLDSStE\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"ovos.utterance.handled\", \"data\": {\"name\": \"WhatTime\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "ovos.utterance.handled"
+        }
+      ],
+      "messages_hub_injected_into_ovos_bus": [
+        "{\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"what time is it\"], \"lang\": \"en-US\"}, \"context\": {\"source\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"destination\": \"HiveMind\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}"
+      ]
+    },
+    {
+      "name": "alternative: AES-GCM (256-bit, 16-byte nonce) + JSON-HEX",
+      "inputs": {
+        "useragent": "Wiggins",
+        "access_key": "4f0c1d2e3b4a59687766554433221100",
+        "password": "5d41402abc4b2a76b9719d911017c592",
+        "legacy_crypto_key_in_db": "a1b2c3d4e5f60718",
+        "client_db_name": "wiggins-pixel",
+        "client_iv_hex": "1122334455667788",
+        "server_iv_hex": "8877665544332211",
+        "client_offers": {
+          "ciphers": [
+            "AES-GCM"
+          ],
+          "encodings": [
+            "JSON-HEX"
+          ],
+          "binarize": false
+        }
+      },
+      "negotiated": {
+        "cipher": "AES-GCM",
+        "encoding": "JSON-HEX",
+        "key_hex": "bad174ceae7e00f28c86d3d992c3dbcb69db5ea641405ad209231bd0b5b135ea"
+      },
+      "peer": "Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10",
+      "nonce_rule": "nonce_n = SHA256(b'wiggins-nonce' || uint32_be(n))[:size], n counts every encryption in this file in order (both directions share the counter)",
+      "frames": [
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsT9yZ7Qj2McNJovXtuDC\\nGZsNlgkn/avw/91VSjwqfbznnyfnT6QVmuF5j6poDR0os1JvjgpQMRfbvzvRSyxw\\njAdXcNmCBAx88Lm8yf0E4nYFZN2BsUWIirDoam0OdbpGY5947zdtd+55KcI8yVq9\\n3ErxyyMKVhl8atdOPBpStU58vLDZ1S73CXANOw9fMwtz/74MQpQueFcEzXrhG22b\\nIlqANSVH2ZFi82BDjJLUyglby24T/BeMhFmOhhXogpFYl64OZt/dlu2amVucFZJ3\\nW0xrBMfGPYde/3hCqq0ij3OvUIrtMQJ1+gSlVJXT/X7NRkFbtgYFcOmibyuf1T9Q\\nuwIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"Wiggins::1::wiggins-pixel::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsT9yZ7Qj2McNJovXtuDC\\nGZsNlgkn/avw/91VSjwqfbznnyfnT6QVmuF5j6poDR0os1JvjgpQMRfbvzvRSyxw\\njAdXcNmCBAx88Lm8yf0E4nYFZN2BsUWIirDoam0OdbpGY5947zdtd+55KcI8yVq9\\n3ErxyyMKVhl8atdOPBpStU58vLDZ1S73CXANOw9fMwtz/74MQpQueFcEzXrhG22b\\nIlqANSVH2ZFi82BDjJLUyglby24T/BeMhFmOhhXogpFYl64OZt/dlu2amVucFZJ3\\nW0xrBMfGPYde/3hCqq0ij3OvUIrtMQJ1+gSlVJXT/X7NRkFbtgYFcOmibyuf1T9Q\\nuwIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"Wiggins::1::wiggins-pixel::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "hello"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "shake"
+        },
+        {
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-HEX\"], \"ciphers\": [\"AES-GCM\"], \"envelope\": \"1122334455667788c4b61baa4d2d24af9a31e01d46b86b5c\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-HEX\"], \"ciphers\": [\"AES-GCM\"], \"envelope\": \"1122334455667788c4b61baa4d2d24af9a31e01d46b86b5c\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "shake"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"88776655443322115beadae738a0dd40dcef7c90d410f647\", \"encoding\": \"JSON-HEX\", \"cipher\": \"AES-GCM\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"88776655443322115beadae738a0dd40dcef7c90d410f647\", \"encoding\": \"JSON-HEX\", \"cipher\": \"AES-GCM\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "shake"
+        },
+        {
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"16a9ad4ffedf5466de572f1ada826be2ae152c76dd403ea166c17d077030a152005e5911cac273c57dc9defe95e353ecee491f9ff3e45f1c358772ab233caf063ee9133131661df207c540fe952990da6e28d26af222353733daa73106142f3d8c4aba607ca449601bfb199ab5f34bfcf089f8cb0ed667ac033fd09b5f429b9016c52cdb2ff8c4a1a23f425477d6fc2cf599c50487a790ee360e69e56baa5c8b6a63b936fbf553eed8959679bc6893665679f4f0debde0e70ec178d1c152eb89f4afd41799bca52af7d1f543ec3a1cbb26f4eeff859c93d3276172dcdd49fc48be8d9066433d9fbba22c1b1479693ae22a7ea7d742797198800b28f75a1ad0dbf8c49dd5d57f17db913e4ffd89361f11e14a56090d5a0e6505bb9fdfb9a858a05a8edc519bdccd29c5dcf8753991332b2121ff8ab71f3cbb041e5b0c2acb0dad349de2ca32a135593fc949cc82a94f0deae102c26fb780805a6e2b212ac9fd6afde9b962ec6e9ddc735cd6c484f677f008d57187e0fa28216a6b9b5cbac8eb089c0aa4a5d8f46ac9295fd635217d8f18ff7d0b81ae676f35c5013634a8fa095fe4605447ea8c1a9e99db8da91f99f88ac57d8f8cee33be5a720ceace7ded9daf2e021a0b7959ab4236358d805281201c21d116ce3916409afe\", \"tag\": \"de1c9d2e83187f4bbd1f168567c660b4\", \"nonce\": \"9468ccb97e686b447514ffcd78a0748d\"}",
+          "plaintext": "{\"msg_type\": \"hello\", \"payload\": {\"session\": {\"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}, \"site_id\": \"phone\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": true,
+          "hive_msg_type": "hello"
+        },
+        {
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"7032c2faf77f5e86dfbd1207c4e8984f3ef9897c15680892c2e674c04f9f978fbe52effdf6d796953bc1b8686ea21adad1ccf2e8d26e7447ea2879c20b8af43b48cb0ef96ff5223265af7362c38626482770f79b9fab8af7e68aeb6c360724f4b18828597b69de488a02918ecdfe46b32a0284123a25cd7170102d69de2571a24629dea675a6ff2ab6fe9f7aebb0e937745c399149a1e55e159dc5f45e881425c121899ed90d1ff320fbafe0ad6be2a8f306e5fe6e7a626b5bc539433821454f5bf607cddebfc977890bc85b5292f9f99843be614255acd4fd86a226e65024ba0aa37b962cd4b208ead9ad972b0d8a82c38875992fba054a7c0d47c1d5076cab6b05551972d8da2c28726d777e07c1c68890c5d0f0a99e8b3b03c9cbec12f6b1d514f30a14a94715d32d948a880ad111094992f5ee32a153baf3d91f363b6d831bfb15288ac86a7ec1b304231e72fabd2dc7df6e1092be5702f8dd35376de470e4495ba8e34994894783da6035e4da72e4dc925571cfb82728d0afaa23aa6b448d7fcbc500ab58835c69147fa8014ed0551d057b64fc256799a4d3db7a0d0113e58e9c022d3b5b8328959b187ed94a5bfed7a79dda8e14648868d5840515c096d54dede7121bcec2aa787e086951803ac5faccd8ffa3dc3f11f45c4de4f46706a68136c5f5150f08c3cf21fd75d15fd771d4b0ec136ffb28430c082da54b17eb762846fa7d0c985a99dd83dc64af25646d943e668a855e09930ac64fc588ef47a1987067d2563d80b7a32742027611244d3a2ecfcd85a9b639140039cc7667e5d17d0afe43dd92c0ea40c036bca04fceed6f86b3b02bbaf8a285ac78d1523980c9fa0229a550aeaadf67650c5e3a8f4e42490d543f587e74326f\", \"tag\": \"b4fd6c582468640c9110ba712b3820a4\", \"nonce\": \"f9ebed2a1cde367125cfbf4b19acea4d\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"what time is it\"], \"lang\": \"en-US\"}, \"context\": {\"source\": \"Wiggins\", \"destination\": \"HiveMind\", \"platform\": \"Wiggins\", \"session\": {\"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "recognizer_loop:utterance"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"df121dfc571dbcb33ec47d98b78f4a7f60b4a4ded658dfb8b2766c357eb9d7a9d6b010ef0f2a06eb0b6ba36d043b951b9b33664866d2c6b197d26f723da4007af9d8e15fd3a23fd16372f4033cc7f22c0c1c2c10d9790ba3078f6349a86c6884570ffc7acb363b9ad5ed038286ef61c6df59e19c2b53620b834c253a53c148e1c103abe2a02527d38ac05e9b024c4f5827ee471d30dab2b5a75fd0193b126f281873e4c2d7df8b14705ac32265373fec573efab396b24c4aadb7b2751e1823e6c27053d6ddda593460148a93cc0b74da4415b50dc6b54cdfecabbb361896a686f750e68b50f224ad2da380fb2660dab1593a3e955969a78c7d8e8c901def571bb9582f3e379127bba77bbeea9e669ea362866ab9ff92afbe9acd4ee68099f01bae104bf868a4bd44e37ea102b829fba1563948feccfef73bc4270be4fe9d8b845b06471362a251e9b5784b63f3064da9e2c224f7f83a9806c103a4ee648344808730102e2405c3aeaae789dd752f2af2b9cb0fad4d228d9d211ccb82a31c8fa01b457107f00b19a2e3f4d0489fd6b27c3011ffd79cfd2d4e0c3a99d26260c73fdff5ad3ea4497d9fa9b2f687950af2a23f99422f27074a2da8a6115a6c392ff7448201f9615c814323828343aca4b4b15ccfc963cbbb7c07045d9f8216da29a8bb71a3ca934dfdaaa7cb1e108af6804e3a612bcf3ac7873b36b0791403ca5290f37e9efe04a49d23c729ef76d80a96266211c305ede53270acb84c263998998e38dda3faa8ae1d9225de7a89663a91f3ded65ed28c16afa34dea913c7dc5edabe14308b93d378f31660b80ff96cdf7d3f550702e56130157df16dd1f20d340901f4f6415c6ab9a814af385da2104945453af2eceb50870998519394cc9ad965e38fab861c7eb6688e13892cdf537d8719822a8896b5f725d9d1a227f502d452cfbcb2dabce138f330c441c297594c7d71d294ab4f690de4f32aadbf7e0b7a216001e9ef760c780c798a5eefe880db09e284283d750faa1a0f02c672513a7a55b1767922554f91be576f70762eac5c914592f2a414a0e3d54fa41ce8ed3fc9349a934889217a22cca62918e11c7f82cf6a565757df6ed2914d24c99f3c96d11128b2edd7e615157669cf3e13bef94833bded437713a87508042d3cffc831090119f5c4a43c2c0aad3786328e95b882016635008c151a6ca11a3984a69a965b138735ff9d7197d35b6d09966dc550c31f7d8ae7cb1df3c347b112b46113a648ec38c1ed921f46248f1437c0bbf92a4bdd456e58961f7a473cecd98bb994cf599493f3e92bb6238b7e46d173677dbb415a27862ef68a1097a25c9caa69793841fdac14dae355beebfd3cb62fac14094c64763657ed1a1904fe8fc0142cb7ed1269823fb9eab4f0160f5c546449e5741a5156a1486c307eff36a515bcf2ee302786f27c661722656e776cc53a265439eb4c5555fbe3e4b8e4a3d3b97334e17c922612bba4d71b495eb6cb500eba8b71edb41d65b7d7b11a22a954c036b1f4f905cccd77ef6d45e4c397cee140d881614af7269aa2d3041f846020a743856353af0cfb8c118eb088d2a8260bae1eeb6ae1302475407a8dcaae10c372ffc10152f2a1db9cf92385f02be68453f9c113d398c473bd271319b9764910f226adaaf64bbe46453cc4cbbd6c1f34973efc72d0e6d0bd75701ca236add2acd0a9ee74bb9dfcb265fe49bc7da860d8d4e3198e45451d8eee3f807de\", \"tag\": \"9b92c95e26d1dad182d30a3adc369896\", \"nonce\": \"6fd858f677e522e0c2c5d3b4199fd012\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"fake-skill.wiggins:WhatTime.intent\", \"data\": {\"utterance\": \"what time is it\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "fake-skill.wiggins:WhatTime.intent"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"ce4f906e64c6f71000e40dee212bc4aca54c2388e78075f7180dc0d5cb1e5a8122963b8df123716d6fa67aba0bdab6498333a37fad5b600906428856fdb96e60a5dc6bc6000ba353167f1e089f15226a07c8099d9e9e2ee9f5144769c7fdaea9ca8fcbcd0e1018b68c58396067d4a22d162a030baa83cbc4e674e12696708251dc4194d6ceacaf85266575e3ef70ddb6337ac6c2f7c231586f2a118e529b1ad47e94279adbd6c941ac65dc04ba3cde4a01f0f2bb8ec1c178661554b9566b4a61fd0a270d185d38fe22ac46e6502ac18d48d7847ee32f9958a2c13c10cd12676556fa23931e671d7938a706ab777e2634809c2a9e49f9293a2bf7ebffe83151d9df6fc24f09a1fec0ceed5cf90cb5fab57982e9ef8fa1d15078911d0126e9c4d392dcd8875e2406a1d821e2f4a3f888532594bfc3f2377b1ba8f152edd43e41b3d284e64a67db5c0274d3f0bc8ea7acc751cdb860f6a146957ea2d02f63019530b7d174e52261924493d0bc36096da73dca665fedeae8ea3850e64856e1495dd2eab3f2e0add91e9ea58d72b141e9f326431075fe9048df0e0d9b38c7f5ecc1520163d33aac04dd063a8385dde22fee28b1828b4d0472186ec9395a04e3c25ac1ca629ae8ef50f8e81e2094c885593b6af61d13ba99ec7c5b180557f0a4e7e6fdb41a41ed00b875def1dccc5a134d9ba7e064a73b466a27a47838ca6375fcd14f5d4a377f680a41de3b808c7e7633d57106d191a38489a14060e464646a0fbb96f68007821e9f7b05acc2177423ba8ed89af4c9895a1f6b360c3d9bc95fab2a89ecfc8cbcbc2a858b9ba36205a217d44ee86214c28133bdcf02746cd2056500bd54c2698f7f79b2ddb8b55b1b229fbf312558e0caa4d0cf5dc7128d4058d9afe2fb02a42cde9ef14939286bf784804ed4a72d7b6fb83199f06ca11997ea2f5ecf4cebcfe70ed28702f94a00e461fa487c8b981df56ccb371e086d980934f3309289d0141e39a9801c6cb4968e63ab63b319ae8c959102fed27dbeec9a8537b041f89ed1b00fdaa297adf1afced72d9bf700dae88efc76f59ce9a137e303799221cff1b2420608644097137da6a47a743c27bd6b82172ad33b135bd7ca2eb328f8e19df92699143a362ffacb7f4585e23704a4ab9c75805123325017a49806d61e750916d9b9311f8a9bc717a3bd47664f90d5cb961668b22fba869557f8165d238e5d0776d6c089b19e263830b67d32d8cdb9a9115a6f180a47a5c3db7ec5eaaf914572dbd763f8dfe045303dc4cb7e1961300903991911b0c3ed1573994951480c566996126f8da3d0b3e92605ce0998f6adc96ac5cf016b34b4345f261338185beec543b6a7cad6e2717e9ec479f1f36fe7abf13e7b1f03ff87407f6bc3fc9fd788f9addea9a250df91cf0c2130fbd269d9d4f69230b7c26bf06ee37d894a20f57aade016f66d04c3a657b8c2f63a9f751a4ca5e6e86242db1ea5a8b7a886df158c5ba381ed5d3fb1e1a4159ad5ddcfcff4679d6b17b85da90a85a7168039bd532ffef4dde1a1157a349eac794eb4d6d365f774ee13186b6fab4caf0c779ef5631f97040fdd637f91f4d406bc73e1cf431d706ddb2e9345cab9f21fab7f4e9393b5ccda966df09bc1261ce2c23f1429f3eca3b0384e46b4253c94ef29c670e1d9b0b5decdb8854ffd1b5c2b094a39a2ce6299f24f9c7a0d53cee7af2dff142425289e2a028fca4791b7694f68126a83ff241c93fb9984d64cb40362df67c1b7e33985f8782bfa4553f38be31a2cca33a270d038400e018fe4140a448b3b58b4dfbebeecac93cddb596b3daaa89f3cdfabb3f2e348d9867654887cc614597dc66c7fbc3d\", \"tag\": \"193825df56ad27d7bb9840186affac89\", \"nonce\": \"5e2a7fc9738460a8d3e760d17b304f20\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"speak\", \"data\": {\"utterance\": \"It's 3:14 PM.\", \"expect_response\": false, \"meta\": {\"skill\": \"fake-skill.wiggins\", \"dialog\": \"time.current\"}, \"lang\": \"en-US\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "speak"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"e8775d71af5132828cf5cd1760185170f25da78bd56bd4b60301dc09de23d60fc812ada134e06c6d1d7505b113c5631a7333fb8b7a1e11892a18ff33cb50e8b14591f1c54143f6a2a3ca144119bdbd81fdef36e642a9ddd0a3d5ed1c047b2477e79fee6b3ee24cb48fa20923dc100ab7dd246a83177bbcecad9efaa2512a97ab1015ed221de83a183d8a59cf50b0ded474368a80ca85e189140f096bc3e362fb72932f79ea1f12bedeae524faa910d21c0fe6ceaa8bd1660b759ca2f4b1e0382e56b175771f56513a4298d9ee567191a72880f5feb3f6a2d41fe8d771777fd63585c20190be6c1cd70fd69d56974fc72add660c8d412b961897b8dd228dd6afd3ad6ab86bb50cbed86efd86a04dc3510a7ad16355a25cd3c3f7a81d5be6e1c2eaa56bd8095a3c838089ddeb79306a5aac28bc026098bf8ca478a6a4a5482564c94676e4f57426ee8d9d1559e8210ef52738c9d394a2502127aa794bfc838fefc0abd352444153809e1fd7f11c3d094f3f249fe815701929b3722de0590e58f03d26fdc74900cef14bd3982fe29c0abc641bcd574ef310cc52224730fcdb0a5102f1a28b1ac29a78f58bd5242ac8b6635e44884be0e781fa51bdaa9330d172ca40de4b5719eed36647370ad6da1a3a1a23849f3d0001ff8d859bf5b52bc20ae0cfaeacf05ffd9a0dbb00f01199b362f4c69e8e2f78bed48e21b49b912c6d7516484c3ca57ca11b2b6c19355b8488b7e915c2c5bf2599d282fee54fb8ba6cbdd8c24dc249e5c063421897d9cd6bf5b792a403cc9cb2664cce698624f51f140c47b8fd72123bf319b630ddf84af49907bef994f87585531fc57fc4217fc7505857112cd4266b9623881e209bc281c2a6a1179d23a1de470e017bdae5c4527492ee9b9f79cfba0be7f3dd252591c671169a392c245388b67ff9ca1843f6cb59514197049f63f8e686730fd80d75fbbe18a1201f90f6f85bd0486108040b59196559dd89393a673745e2b9bae68b1b62a953aea93040346b12afab168ddaa3b81225b5323eec3710e0fd48fc43013ab66499810e48ba06857e63fd6198631a5dd851f6f8f2507ae32c9b7959068bb62aae8982e8781014775e9c8013c2471039ea5500723c1f75bd321a8736a121d7d97be3ca0ef08fd3b1a34428dcf1004fa502713229a2428d0b67a8fedc0762beb5026faf43ae46770a990b7a756f17af42250ffd2cf4812f6cd78c811bd983446e783fa5803018a95a67120ab6230ed5037205cf3da630bd98ece6f8c12efca478a8a0d8ca330ad00646a5d6d0cf09638b62618a954a1e8647a1ac6b64ea639d92862684c09078cb94250828a56b3b92f993617a48bf5187fe5248234517683c18b9fcc6baa01486ad195126d8f16c1d3ffb85dbfa78d66b9e54427565d182e0de2655918ec8f9d0a8f13115d1dc52d009526a3f56458eed8022f7ca619eab3ca80a1051f270517151c1ce83dc40ac85e4ca418a8a7f0bae012a2a3ede29c9b8cd636497f89f75cc75a5de9b760278f44ecd758f36be187284a5568891a5478f3fddefab2af019edd2c925bda142dc41749df213b996873d12e62bdd0d965674e5440c2fe49d747075f3820d2b192c2cadce29bede45df69816e34b9a5b32498985461f0537bf3cc89971bee6125ebf21cc178bd288be196b55f4da5f3936103fc817aac72b21a443bf8d92334bee1bbf\", \"tag\": \"cdcf54f80be24673aefc9e909a28ef3b\", \"nonce\": \"337c87fe8ee6946a91f5164cd280d811\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"ovos.utterance.handled\", \"data\": {\"name\": \"WhatTime\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "ovos.utterance.handled"
+        }
+      ],
+      "messages_hub_injected_into_ovos_bus": [
+        "{\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"what time is it\"], \"lang\": \"en-US\"}, \"context\": {\"source\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"destination\": \"HiveMind\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}"
+      ]
+    },
+    {
+      "name": "preference order: client offers [AES-GCM, CHACHA20-POLY1305] x [JSON-HEX, JSON-B64] -> hub picks the client's first allowed of each",
+      "inputs": {
+        "useragent": "Wiggins",
+        "access_key": "4f0c1d2e3b4a59687766554433221100",
+        "password": "5d41402abc4b2a76b9719d911017c592",
+        "legacy_crypto_key_in_db": "a1b2c3d4e5f60718",
+        "client_db_name": "wiggins-pixel",
+        "client_iv_hex": "0001020304050607",
+        "server_iv_hex": "f0e1d2c3b4a59687",
+        "client_offers": {
+          "ciphers": [
+            "AES-GCM",
+            "CHACHA20-POLY1305"
+          ],
+          "encodings": [
+            "JSON-HEX",
+            "JSON-B64"
+          ],
+          "binarize": false
+        }
+      },
+      "negotiated": {
+        "cipher": "AES-GCM",
+        "encoding": "JSON-HEX",
+        "key_hex": "f5481d0d849c6ce8c84855f9452cef5bdccaeda6cdb677a8dc856ba117ff4b80"
+      },
+      "peer": "Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10",
+      "nonce_rule": "nonce_n = SHA256(b'wiggins-nonce' || uint32_be(n))[:size], n counts every encryption in this file in order (both directions share the counter)",
+      "frames": [
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsT9yZ7Qj2McNJovXtuDC\\nGZsNlgkn/avw/91VSjwqfbznnyfnT6QVmuF5j6poDR0os1JvjgpQMRfbvzvRSyxw\\njAdXcNmCBAx88Lm8yf0E4nYFZN2BsUWIirDoam0OdbpGY5947zdtd+55KcI8yVq9\\n3ErxyyMKVhl8atdOPBpStU58vLDZ1S73CXANOw9fMwtz/74MQpQueFcEzXrhG22b\\nIlqANSVH2ZFi82BDjJLUyglby24T/BeMhFmOhhXogpFYl64OZt/dlu2amVucFZJ3\\nW0xrBMfGPYde/3hCqq0ij3OvUIrtMQJ1+gSlVJXT/X7NRkFbtgYFcOmibyuf1T9Q\\nuwIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"Wiggins::1::wiggins-pixel::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsT9yZ7Qj2McNJovXtuDC\\nGZsNlgkn/avw/91VSjwqfbznnyfnT6QVmuF5j6poDR0os1JvjgpQMRfbvzvRSyxw\\njAdXcNmCBAx88Lm8yf0E4nYFZN2BsUWIirDoam0OdbpGY5947zdtd+55KcI8yVq9\\n3ErxyyMKVhl8atdOPBpStU58vLDZ1S73CXANOw9fMwtz/74MQpQueFcEzXrhG22b\\nIlqANSVH2ZFi82BDjJLUyglby24T/BeMhFmOhhXogpFYl64OZt/dlu2amVucFZJ3\\nW0xrBMfGPYde/3hCqq0ij3OvUIrtMQJ1+gSlVJXT/X7NRkFbtgYFcOmibyuf1T9Q\\nuwIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"Wiggins::1::wiggins-pixel::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "hello"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "shake"
+        },
+        {
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-HEX\", \"JSON-B64\"], \"ciphers\": [\"AES-GCM\", \"CHACHA20-POLY1305\"], \"envelope\": \"0001020304050607619f12ff38280e41a8631f0a71429581\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-HEX\", \"JSON-B64\"], \"ciphers\": [\"AES-GCM\", \"CHACHA20-POLY1305\"], \"envelope\": \"0001020304050607619f12ff38280e41a8631f0a71429581\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "shake"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"f0e1d2c3b4a59687fa02bfcbf24b32e3d4a15ea9a22684bc\", \"encoding\": \"JSON-HEX\", \"cipher\": \"AES-GCM\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"f0e1d2c3b4a59687fa02bfcbf24b32e3d4a15ea9a22684bc\", \"encoding\": \"JSON-HEX\", \"cipher\": \"AES-GCM\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": false,
+          "hive_msg_type": "shake"
+        },
+        {
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"db321e6f121169cfaf56d9ebaca996ee39d0c1e89345e427120648d7b3e176f7744289bff400c219e80c15f9483b0f433d144c687d324d66bba43054636c3efd4d78f5698a5fc1623d95ae2cc004751102c075fe924b4801760e715678054d434846637d1b0d69a2531afe41c3b5a2fec2757c813ee0509f5ccfca3aebe1bcfaa1d53f56265f34ecd1d5b64d8bd2d3da661cfffb65d828b211c2cad88f47a6d400a951b190d0b86dd74955d01132ef2298e156475b5d6ffaf44339fd4ccc43eac3f4769136be95653a24ae5efa7775f1042266150e20d37bed2b17dcf9815b9fb32974d30dc14a8444a513cfc984d52a601797270f384e84443ce3a29282bea634392cff38042ab2afe254f484582798c513b5a1f7928b64381fb00cc8d39dbde6b61d4d63b76c9549dc86fbc75723fef6d86e0d8e0db7164a3d34fbc835cc53545d4a9a4e01b1db8b92e24c589e28e4fa34e44d069218189c9c0d598c63efd28bf9399b693dfe9e0430689b869eea412f042cff4cd6172176f92fc34db9f2181a39bedd0845e04fc0e1870a2ad44ed17882ac468ef0d52a425fd06969e4932d62838c0395306914d80e4587f1ee4684ccc2eeba008a38bbd862e0cf6a9a823021ac68fa0138cf9718264283c1768acedda99578c11af231f4\", \"tag\": \"fb0327f0ea0e160044291ae94daf494a\", \"nonce\": \"5c2e9d25e5ca27450781ba0848ab3c06\"}",
+          "plaintext": "{\"msg_type\": \"hello\", \"payload\": {\"session\": {\"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}, \"site_id\": \"phone\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": true,
+          "hive_msg_type": "hello"
+        },
+        {
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"973ea34213ec707dca831780d4a24a72844343a4ed7b4bff85a091c6d0ca5b2a65278f4042f6c4675044a9bf43cbf09dfb46d7fe9c4927ded787f4451a999a58eaf39daaf2ab07ef135ab0b216c50c64869ed23b7bc74a2e69010bd611ff3611feb513642f518d0c24a167c692ed97b5135f8451835d002b30f2f81b41c8169b8c8dc01eeebea89288adbe993dfa85d44cd560521be51e1c859d11ede9966d412b0812c6533ae2884fac76a23b03124365e6c5e5ca70deee1ce64616d8e038b05aa1a9d6797decf51c4b8d99be936f6244201f6aaf6916313cddbcc4fa20f2e706a3e9ade753ce9eded5c8f235916e786c0c270a2c33104c0497dc9edf1e45dcda83c78350c0caaa68fff37cf4151075e902fe97336d249e6c085f6a3254d225b033a3c0534888445e603e1c036169ddb08809dcf2a48113f0b46ae68638fdb738834edbb35250b83793d58df95d4c0f99d35d045462e53f98d463738c293cb0c8745d3d56f01fc943dd4e17fb23ceeecaa631a417ddcb859378fc5c9337ffd23575c374d0f30ebb27a7bc6d55a85c4178efc98359aac30d21a4357af32fd630b4f65b675504cd85451ff62d1024bb90fcd9baaeb5e67263e6dddf950c84c5c6276920d6bfaf2e237da8dfb853f89ae5cbab498c54931e22df679354a925011475540e9a122be2ea631a686be35b87c0d412f358c9d001816c557a67b29d580c26af10f9525c5909573bd6f2e3faf378c3e9661af10085568965500609fc9a2276e1cca4f2a3ac4a030e2baa02c0248c352c6af5b44859a8e024ed6e6c0c5827905c5b4027a5e1589ae8a71fe19ed4e794da6e47fe480a728df5c257943b591185706474cffd96b7aa9c141f44988755ad914a9b8b0cdd7a0715\", \"tag\": \"a00cb0b958dd012e79654861dfe2f58f\", \"nonce\": \"dbd46ebf67b216d2344f3b78a6d05e99\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"what time is it\"], \"lang\": \"en-US\"}, \"context\": {\"source\": \"Wiggins\", \"destination\": \"HiveMind\", \"platform\": \"Wiggins\", \"session\": {\"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "recognizer_loop:utterance"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"0fa356e689cd654f595f39c2f184253f85d382c9045d4167761ec1148eee124be32bfbd09445bba605a928183c28684ae0470c5590b3f92d19b69b8523f1f6575840e32c9af27fc14f8a9204f31f005e49e01d2b66109c60c47cd8b2e6d9c1ea5584cad69d64268423c45a2612ae3dac5924bb59ed66bf8331ee40d40a3528b0c4ca40046b420c0e87a0cb22e2822990be76336188bcb59ab003e79c4685c75e7663dd6de21b7515e7e664c6d5b20f3cf3c73d230e3d2cfdcfe4d4310f4831a9d4c648a4aedd385f8404e07697259276efef770ec4ebf24f45f055c21641c92537ce88bc09f4cec68f79d69bfdc4f1f124e26996c292a8ec776e411c9ca772c8252d92746bac84669ffa220cf73cfea9f9e56b996beb59531f5fdca2866f9fa653f3d309d8e7778be3a910af147dc5f616e87f2b5c61b9178648063ad5630975a6fb0f41af320fd5ccbb99a83b000e86305111a5200349c9cccf1135cff4ccd4b56554f150693b71c77bbe16bc6fb2b5f0477d49c74c8489fffda26fc267fa0ece0aa4a0f730b230986ee8608a8286d7ab33284c6d2315f3abfc6a1a5d9dfabf282a2a50af49fb72c50f58fb1b30ba7d4de335cb61bb39f19fe1164944fec69e0b68ce831587cc56d598c4dd035a1a18fd9ff01a69a039f0f2c54bf97101d62f744d0a9b036a23af26565d84a36fb554faaf3e83991c2083c92633fcce63ec2ecae6df93da3ec934e23973accfe1a2a452c1cd3635bd5c612bb12c6853bda0072e686129d3083bc6d00c80d528dfaba54334abc6bc4aab7cac7756374dad498752997ba25504ec3f1704cfd1d2e15746ef03dfa646830c35e060293533a2ad228b70b66d8c3bc696206293f87ea0d093ca4401a5de00e6b8b6dd839bd7ca37ad361de013031f58a4e08dbaae9401f8761362d504689686f5a6159fc4bcee8fbb22264e06ea2da4051a8c9d50ce9b1c036005956a917266f725e97d10c1ab1917f8fd8bd5b0dea1fc3e2182355b978365a1debabcd9203aeb4e23cc775c5fbc553a27e3008d18a3f20b7654e3574b162f64adffb63f1b2ae61e383fcd6b4074c3d3bc64a1bbdcc82f8b8e7effb193034d6b2d99106394e05d995be525024a948ac679888143c00c17a2ba420a7983d8b4e3db7219de34fa3acb1a801d4a8aaeff1ccf6dacd9ad26bf4f53968382560190b18febabb029e19c7230679dbb3e145022d68b6bb5eda2d26db0a581ef1a5a6be3e1a7a57a8639e360902ce252f394c2241d1e313d83a0bd3c6e79c37eac1bc6c8b702518f7b0691f36e358303d68a3cd926f838a5049a09c24c6e8896cfcce06d9a67eb820f3be44d7eaefc61ae53da240cabf040ba564f47493bd96d996159b4a17d09adb4fb28930578e470c8e22eaba6f6d92884f3f5b065c2b42d70326ecb7e0e52ab186936863aed9c7c9cb84381e4314bb7149c2ac4429182ec7a5283fbed3c22042fddb357ce2bbb80073db30b4df6c773904876a42fc0183b177b17776b609b748323e65f5c63306403f3ae6914673134b391fd7d57dd6682fffed392355ec3699f665e1786c2eca577cf71b23053c11d42e19489bac76557a428e5dd191b977abea5a4a0819ed532754e044aae3eccc6a7e9aa1fb4da91dda4417042476735c3365b9dd7d1f0443c8ea435d2582b54e68517988b661f831b5325fd1d307699a8f8b374685899abb6a1a6e921b5bc0c0d8ffa05ea7db3da11669f1323bf96ec1c\", \"tag\": \"a74923b172e3502391af4e0ff7894c24\", \"nonce\": \"919b76e8ea587e31444e261858d523f0\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"fake-skill.wiggins:WhatTime.intent\", \"data\": {\"utterance\": \"what time is it\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "fake-skill.wiggins:WhatTime.intent"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"3d52ac71a3221a8cca69a1b62c69ff7f1a5bba624167c0c8587677891c66584f6bb8495e447307062e49c9689c3493751afc86d33e66f1813a90209368203f784138fe30e403477fdddbe5c3a341bf2ae7ad5eb92c7db823cc3755b6102ce248c1d86905ef269250d071a462807d6b46f17f3fc646afd38e45ddd679f7532749231e20c13306275b43a8556aa179d7883b6e717702d9f33dfa102ea73f8fec74b55b4fff7d3a221d29541b1da7b2c812885d2c925375be0f2e9c86258e97ad63c32a8df4b73117c33f408f022fd362b9f47e1daebec6021f67a20132f556e53e936b2e71d097fd6d961585e39a8cf71583092c7c297830e26dcb354bb815ea1bfe2a10f04cdd700f3bc8907742dc144d781407da005e10a3c505be49fcbf140da9da195803bc365fb3c8b0460f18faf12b68279f61c09001795ea9752a4e753d5a4021b2422a823e86cb1da5bf0193a36ab81c0f81d62d3aa3d44c16bbc50db9cf2098446bc54b31e6c43b94b3b0d7a2ee3eb5c8b730866519e5c8d121e7490802a2ca46496354bdcfbd6ef45b6a436b9563c63dcc7588cff82e5c122fca1bf4b55c1f01c3561988a6a8b5c2823daaff13dd7ca512873b7788a28b888d2d3ace7bc3ca0b1cb9928a943074407cbe859da3eb71d491b0f5a2cbf24201c5c6144b4587c74f6a0e2e25ac86d5176d09865fc4c250bd36f5061d957fab9fe2799ff3259cbfbd3b3dc86ec67c00a2da1e8bb0f0aba8e8c94bc7ce75eede1498960a76b06402107fa81e0c58011af055827c9292ea4b0e21bc39cc0f35cdf22e8b5565e72f779711c738898c06c13b6365e0a2d0dd217f6a84f259d8df54ee85743ed8c2fa73e715295ac26fe1ff3d8ca39463a04fff26cf22f38199e980c8b765ef55cf8111889b66066f1a3e5cb3325a00dc37d3507198b807207c8f3ac8c0d5e43683dd2b31ddeef2671dda6a0d48ee85080434a6b776ecae3f05c1bcfa5b4386a414122d427e33e3dab58e6e58cc27131e7ea6d4c9f66e106f86f220a2a51792b8ded96a203ca4a2a7acf2ca09fc404733e499974758d5a053221ee478cfc9f5fa2703864ec38b94c62c3127657a64d1e5740b5ca34a619758181b2b75248e851e888f83b6eadc513e9015a9d9f99e867566636aebf36a7686dc744131322fe7095f951140e35c40c65e2f0aa2ac9713f3236c78cf6593e1b74f5f3c689bbd2a984b6d5c60b80d7d8c85eddee548e6db4cf1d2915b4018f832aea2857a795c20f995aa4dd261aead151684a10f4d64bc0755e2ee6e4392590b6572304b7d7d5baa2111f784803ec93d34bfd6ad7835138f1fe695447f8d62067dd59a3ff7f304627599d67b7af7a69b82114c151e5cfacab7cdb26fb66133b05edf211466c57ecbb249e051c5f24e245c62f0b3bd15d17b552f3d94f11003dd7e5466eac587feb20d1cdfecc373ffff07c4ff3b7d2872d54d973f95b8b10b2ebaa62c5e46e4c04fe90140709fa95e932fa0debc3381e211f81dd9456626eb34dcc37cb60641734c65d911fbb2a54b44d1d1397611474f2f7a496be50d60da4ec66f585007d7351cb5fc7b29eb9ce60a9509f228bad4f2e524f7693754e6b117387f58503e577e6df372ccc6f28f930b4f280081994592e8962c765fe8def76248eca8c8b1748de2a317b88ae5e8c6e8c6da2c5e0912a3b4d09626e44342a33a75be65b083e22da492806a10a95920bfd5a27852a0a1c5de2cf0312d49c4e3b2494806f8fb3ac9a44fb310f8abea8d39c6dc44aec54525e83fa708c40c927bc2e60518614e5edfb1fb56f8925b269cd06fa0b0a035f3f0b95a0a811d8eb9e865317dae55ca1517f1c3f3eca8\", \"tag\": \"b209294e6c25fa1537365058d9f395c2\", \"nonce\": \"4a6a0e7065d7084e802ac573d423b115\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"speak\", \"data\": {\"utterance\": \"It's 3:14 PM.\", \"expect_response\": false, \"meta\": {\"skill\": \"fake-skill.wiggins\", \"dialog\": \"time.current\"}, \"lang\": \"en-US\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "speak"
+        },
+        {
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"d0531a213f78f181c08e639fd7f2728d514f2d1ee41c789ac01e0ebff3fbcd24d4b6962fac433992bf29cbd8a29fd373723fa058fd25d33131ed034a746fb7f7e3b728b510b4b2322b001aa0a4d0e2fab6ef1dd8d96f9930905683c1c9d2d2db0a416aa4bf50aba712eb66dc07557e96e2e9d6ad7e54e9f6f0bb30a5634f0bef5c5d09c40d76b075efa0c60649e3d85ece03c16958790067ce6e9a3144bca84a62bab6f2b693394e1de809c2c3a8b43ed8a578f6b239172370e4193cf8c3e419da803c65b807a241a291346aef278dce54fcd6a9ee1456b0e9749729eac77641aa9b96824ae2aa37e6e1588ed6bb5b52010bc496377e10ac37378687cbca4237f223c4cbcb7136b0039881f902e5bdeaa38f6b49277704f8beaced23500ed3f31b00b035e271c5dca38e684b61701951a4ea0dd90e5f07edab8ea17aecc33ddc205bcc9f8328442609b992f7b1eaad1189c33cf6dcf23e9c0e30986b202cc4fda7b1330fb8eba47c1ebd05fa177de200e38beca65ae5b1d2be7132c5e2d35542382ef9f13c9f5c65639954903d128549a836b229b754962e9af97bec269518dfea2807c07bb78ac3b33becc33dc87dc2edc2893541ce1bea6cacbdd279ec9a55edeb8e061c1e244850bab3c38ef4493f9e2b8d80cea98f28254f2e69bf97cf523938345d1cf27ed847646219a968216b12f08d9ba61ef352bfcf7bda1e06fb8d7519c1ceb1b46963845f4fdebe874a306347c2f42f39b59979bc6dfaef7a747f204e4303875d19b74d3d3c5a8bc0b15ae208fff737beb8b5d7e46a749c25690620be82d92b6ab3246a6c82c4d0e6874033eb9e302ae533b96f4cf3361de3b82e3d2e58c24f4bc3ce6965fcc579335b116ced7236871903d205781021268ba2c9df8330fdc1d9d3e6e33b71050bbd308b536983f72fb578a5e3e6206cbca7d9f00146123b3db13dc98bf013455629b475c551fb824b0a9caff367fe57dfd9525cb3eaf05165a0a336ba3b1d9170366d9df4f78855c53ca4163e8db209c5db23f692c1779c8826c6df511bf708209d5ce86afd2d4beb414463dd97f695da1f404fc0190061b329b1f72b94b3cf3e4c0a2374971358c44c6de7f4ccfeda7449fe41a8e1e2e4b4525c441f439ed65cb9a51dd7cdd123b1ae9f19f93353e8bfde0cdf7a044e1860883ce929413bd1b2907ce923c2c26760879c6477468cd9d66375957d6978f06b3a554f01cc49604276a78e7b80038941e6845fdf14fd623dce63e6313b9059b51a5f7ebdf9b542d506895ebd2d8e3d80a4a9305624e02fdac4ab3c82bf91c4842702fb469c117338dbabcf8464b5d44f551df70bf0725693c0c62b89c3e94f3670e336a41f1adac571bcdd3c2db9c76bfd1c76405c6d5df6ec12678a06097fb12b50beb2786e13f1646798776c16dc9a43f547118645472b8358934d7ab4d47d6e8a90186a392c415a1fc631556743be6c0b7a565526bf010d2691f5d057120f508887c92381055a79f2fdcde1ac09a22f62888dd7d642e7812bf83494624fae573c636fb45129da49a516f56a8b06adaf34b3fa15b5b51ed8e305ea206de5a61351c997e74a749cd35e572c9e8e6d2bf5778fdfa0f322e5b86b7650773b2b90c70d99ed0de5e4b40ce498f1fbe0e93ce5cbc23411f8645d37ac06f8989fba724544f901cd9f25d85103550329c8e5ca8c8bb47c2436fa71\", \"tag\": \"a06dc52a2bff91c2c9fba3c97bbe1b91\", \"nonce\": \"86521649c7dd97a308f2a9eb305114ac\"}",
+          "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"ovos.utterance.handled\", \"data\": {\"name\": \"WhatTime\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}",
+          "encrypted": true,
+          "hive_msg_type": "bus",
+          "bus_type": "ovos.utterance.handled"
+        }
+      ],
+      "messages_hub_injected_into_ovos_bus": [
+        "{\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"what time is it\"], \"lang\": \"en-US\"}, \"context\": {\"source\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"destination\": \"HiveMind\", \"platform\": \"Wiggins\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-pixel::6b1e3c1f-6a8f-4d7e-9a43-0c2c5b1e7f10\"}}"
+      ]
+    }
+  ]
+}

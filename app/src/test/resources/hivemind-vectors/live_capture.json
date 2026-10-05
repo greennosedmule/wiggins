@@ -1,0 +1,387 @@
+{
+  "_meta": {
+    "description": "Real frames captured against a throwaway hivemind-core started from the hub image (websocket plugin on 127.0.0.1:5678, JSON client DB, fake OVOS bus + fake ovos-core). Randomness is real; negotiated.key_hex decrypts the frames. 't' is seconds since the connection was opened.",
+    "generator": "tools/vectors/live_capture.py",
+    "hub_image": "docker.io/smartgic/hivemind-listener:stable-20260922",
+    "add_client_output": "2026-10-04 05:18:44.000 - HiveMind - hivemind_core.database:__init__:19 - INFO - Database: JsonDB\nDatabase backend: JsonDB\nCredentials added to database!\n\nNode ID: 1\nFriendly Name: wiggins-live\nAccess Key: live0123456789abcdef0123456789ab\nPassword: livepassword0123456789abcdef0123\nEncryption Key: 2d6c53135ed7589b\nWARNING: Encryption Key is deprecated, only use if your client does not support password\n"
+  },
+  "reference_client": {
+    "name": "reference client (recommended config: CHACHA20-POLY1305, JSON-B64, binarize off, minimal envelopes with only msg_type+payload)",
+    "url": "ws://127.0.0.1:5678/?authorization=V2lnZ2luczpsaXZlMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYg==",
+    "client_iv_hex": "07114f46ec75f37a",
+    "server_envelope_verified": true,
+    "negotiated": {
+      "cipher": "CHACHA20-POLY1305",
+      "encoding": "JSON-B64",
+      "key_hex": "32fc42cceee54c65c015fb9816446d7a37f2bd9dd9bbfae7bcfb9944be931798"
+    },
+    "unauthorized_speak_dropped_silently": true,
+    "unencrypted_bus_after_handshake_replies": 3,
+    "frames": [
+      {
+        "t": 0.271,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5+KCQ18CNI4NsihhXdqZ\\nqNtmm4P8knVZewnGxiH9nzprJA6CI3mDCTKbcsuXF2ueAE3mUuPYtcNb4spINTZf\\nsiVGFFy2AxWuteNludi3jVe0+fgOkeORt/qv2cf6faX/kDFH4/8aKAzYiP3U9gmt\\n7I+FiSPJaXKytXqySR5z9wZv+icrVO7AaFAfQi3gmKGou+XtHWEoqq7qrVXEyGP3\\nAUSEaHyOMf4BFZmBSaraM+yK/xEUTaPF06wEyW6zfd7ZDTMf+PH1c7it5ghYd1Ym\\nWVvDVjKJmPDaknhraFhUJxUx7qzXAoJs9fwzWDRxWutyitxqqiFsVJy9VfIxF2nI\\npQIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"Wiggins::1::wiggins-live::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "plaintext": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5+KCQ18CNI4NsihhXdqZ\\nqNtmm4P8knVZewnGxiH9nzprJA6CI3mDCTKbcsuXF2ueAE3mUuPYtcNb4spINTZf\\nsiVGFFy2AxWuteNludi3jVe0+fgOkeORt/qv2cf6faX/kDFH4/8aKAzYiP3U9gmt\\n7I+FiSPJaXKytXqySR5z9wZv+icrVO7AaFAfQi3gmKGou+XtHWEoqq7qrVXEyGP3\\nAUSEaHyOMf4BFZmBSaraM+yK/xEUTaPF06wEyW6zfd7ZDTMf+PH1c7it5ghYd1Ym\\nWVvDVjKJmPDaknhraFhUJxUx7qzXAoJs9fwzWDRxWutyitxqqiFsVJy9VfIxF2nI\\npQIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"Wiggins::1::wiggins-live::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "encrypted": false,
+        "hive_msg_type": "hello"
+      },
+      {
+        "t": 0.273,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "encrypted": false,
+        "hive_msg_type": "shake"
+      },
+      {
+        "t": 0.273,
+        "dir": "client->hub",
+        "opcode": "text",
+        "wire": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-B64\"], \"ciphers\": [\"CHACHA20-POLY1305\"], \"envelope\": \"07114f46ec75f37aea352385c22da5dc954b389da405f300\"}}",
+        "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-B64\"], \"ciphers\": [\"CHACHA20-POLY1305\"], \"envelope\": \"07114f46ec75f37aea352385c22da5dc954b389da405f300\"}}",
+        "encrypted": false,
+        "hive_msg_type": "shake"
+      },
+      {
+        "t": 0.298,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"aae3575d45367d37abb0d26e24b7b539003f55767b747a27\", \"encoding\": \"JSON-B64\", \"cipher\": \"CHACHA20-POLY1305\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"aae3575d45367d37abb0d26e24b7b539003f55767b747a27\", \"encoding\": \"JSON-B64\", \"cipher\": \"CHACHA20-POLY1305\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "encrypted": false,
+        "hive_msg_type": "shake"
+      },
+      {
+        "t": 0.319,
+        "dir": "client->hub",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"0tIujeXv/IqaMEtmCKaeF4ldJR45BY1eLJ+KBj7AaUVVEx/I2CDqFPjzmnhYx3Bva/3Y6uOt9mEQSmy6PvJL9IwHk5mtndsn/Du2eX4OvFv9JErfrC+TLBugAS0Xhb1uQ8hhq2TPaEyamAv/T42k0OXU03UjwzUwDhQSaPJcTs0TOJIesctBMiV06p1CXARo+b8WRPoPegbZOnwL4t5jQ/2Fn0KbDv4wp16I83A1MjINLfBf+1r2YIl+rSOBtPlfy5dAKcYGy8y4BnNCgde57kBKREYNQ0MjIabN0H4KkDdK0bIY98Kpb52NZQeYkEISxulYyboDKvCPwmZevwGpfX/hCT5v6TnoEU4/Wz0IGu2wkIg9RJlO3h0asfuC5tglsuHYX+POngsHE3Oob/1qaVaf8bbH32MpqpQ7gU+RqDI206fByoVgfu4iPZ6G2vtZxKm9ykmw/PuoT/j8VNyV5hFuM14MEcx7jUg=\", \"tag\": \"QfaqBLfhGAJ92yEixGt+3g==\", \"nonce\": \"jGQLTwPvkhT8mXVP\"}",
+        "plaintext": "{\"msg_type\": \"hello\", \"payload\": {\"session\": {\"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}, \"site_id\": \"phone\"}}",
+        "encrypted": true,
+        "hive_msg_type": "hello"
+      },
+      {
+        "t": 0.326,
+        "dir": "hub->client",
+        "opcode": "pong",
+        "data_hex": "77696767696e73"
+      },
+      {
+        "t": 0.326,
+        "dir": "client->hub",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"Y442lSfpjkhg6vgoDRd0poEqm3cPCkKKi91sn3ygfclbJSK9RpC1OiK3tG5+LyQUZj3vd7Le4rGo0U/pk0WgCubhEKi3D5ammnkZ3npoAGMEiuZUFamPYzcaf63mrLpSspS1pJEbsA1kxDvx+uwGK0FZqfQN1sjRQ6k9iH6FgxgyxFTDrZIjGFSLsDUrLXA1CLJnrrHE0eqrBHxaIMr75rfZuIAp2U7BePVJPbnAKpSynQBc/H0MU0nP4AoaaCDWiwt2TM83Mgb0KY8ltuDez+BIgdVwdKNOnooAnfIyCAOOoNXot6uhuZwO0yVeTzIU3LvD1BZFIPCoHAHKBkuxzdCVGQe2Pr5fLT4zvk/HNq7zJy93rtswBl42VdKJaKGq6d5i2xz50YEllaIhSIvoyHYlntWpLZFZhE2tDQM7gk1cw6kNE63nfozthURohUq/Mh4NDQFXqrtb5hz0YzzT69lnYM0ZvEUOIKUJ2e7kE8FPPPsJWPFou4UP6SsFWiv/DN8TdqZQ6ZBOrXLyGIqY7QQ24I2VyqbfiuMpCkr1EBEa22UvxhNKbVOTK6j4osMByar7sRmU3MVmlKdGJP0R2Ki7ljcmGhX5Ktr3av3a4KbVNhPmrvq/wFJBmMgGRUND/msqcBP5O+s0O8i4XYWg37UPqEM=\", \"tag\": \"RKF3OWPTIiYCthgDFAMOfQ==\", \"nonce\": \"Fs1GLa1Z5GP2q+9f\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"what time is it\"], \"lang\": \"en-US\"}, \"context\": {\"source\": \"Wiggins\", \"destination\": \"HiveMind\", \"session\": {\"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}}}}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "recognizer_loop:utterance"
+      },
+      {
+        "t": 0.337,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"eKJjpzavcopP0Tb6ZFoFgCiAssjhZ2rMkMZYgF8Iw5yt0bIEcZbpy0CKr0XaHngIjiN2MYllRLDVrHRBRUAjfalrO2+k7ydv7iTnQdHcQjgraK4HuDOPi3NvuTR/c2HQg5VKGOR9wmSoZqEW9yarvbemo9/6Jq1otq+0MqFJ1HC3FUsh9SAmNeVHoUAinDBhiT75RVjC40Zg5Kc6wWAB4rEgkZgWJkiZfD9bIawHyLHUWb6FcFw95FFpCGOt60jrkoYwQFuvtmLBXgKcS/L41qhTk0rtkvUVlg+Yhx/YCsUKcDalbh5dARYR2nl0DzmkIYhIsHwJ26yTUNBU+DWW4ebO1O0mu4XEchtD7Tbj263O1bj0zdPA8ZOL5/mt+f4HDGrvviYk3AdV+NTWx083Uay26NJ1suvsUxVK9+ElckxZt5u3BKfI+3yZQOpPVBSKqONpI3K7ljqofAr/9ak069R+ZaD2UDJzymMymdSPp6xulO/zY0PYK4WxHmF3hvYsdhFpUwAPcKe7kk15AJqT0mOpT4eNCHqJPAyfH1EOGOvEytwF9vmN36h6pjgq47vF4f2nzwduylhhUUwvHW2J1HKM5LwRPQxJPZmGtfEXdbYPgp8pPW6vVlkub9mi+jeYogUtnyan+OI1a26HEyTglW42lAQQLEraJEH3kRP8JqSLIsDsEeAUZO2bkUqW89N0uBZBPRH6nQnSbIZBf68SiI6TLeL3ZfI4cdfu3J3lg1c/CNncfxbtYtJ7D8BBW8yQO9LkGDnVN5r0PDn0b05OvC18PR5PbTArOhpaHkTpe8DlnMam28v1uREop5/JuFjqG6LeojQZ3TwcpZsbEV45bB2ga/GCY9EQb3y6nEfkUZj2KD4DLnah24HTt1t/Fygq+1D8N3685f7KXnxHsGihaEsXWI2pUI26+K+0AEQbO7oXWE6mjAqkshseJmsDBXJLUD0w7/BOn3/RjoUlpHzJQDeAINrr4l7qFRxhbBGlbb9utnW2OXw6/+178GXbyRSvSh0lg2FwGzglIvyHmJzFav4wzf1JU1UVtFJfQ5QCySPpr3yZobRicIf2SKxWEAPr8fAQOe226ZguA8RW3tFtVSxGM2cM9tABgR2PWhpA5d9uOU7XgfnuQ1qMkH+BJjoUhhxzTSUl1KoVIRETVk4VsKTKSL+If8LN8nRYN227G1Fabb7T/bin4sLVX3BXaluNJ4OFSXhL5t4BWfXyqQxKxFAwKwBTW7FNyp8nlLR0hdUWc7rxgl19ieKQyudo/GrbZTTmztzflzLijTDi7Z1X5/gcdD99auBV55ykWM0kZh38fXZdKYMPR0T5eiHQbi18oPumz7+V2jk/QRkKG/zK47m+Fe67vSjhHoo1mQrWx2B7HDt6Xpj433hIsZ+lmun9TdvMYqF8xyprB6VwYYkVRzcFk3tilRGKwht6u2ip9/992ca3dQ1JNK8asLEs4ckeiA4ZQSEoC4pNDkmgx92BOlbqEuao2KHeCExCxQWwwNjGPaBAqHWcBQ4jRZUhvcEojGxdixTMNlG435u3BhfdAx5Gg9HysDceGOOD1jFl5HxUHhoVTE1KU7z1mnqDG3y2/QIVnwl1H+IEW00=\", \"tag\": \"Qo9YjlS1GDIuwXTyLk2cFw==\", \"nonce\": \"LtfJ0Q69cTPWWmK8\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"fake-skill.wiggins:WhatTime.intent\", \"data\": {\"utterance\": \"what time is it\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\"}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "fake-skill.wiggins:WhatTime.intent"
+      },
+      {
+        "t": 0.378,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"hqm3FmJvSqNVarvOP3LUibB4ukqWCCS+SzEdXzxu/0QowYTZjgXRaoANyIrNUy6HB2YPzsnxvtyclicBCbpW6aRcCtYNp0YCdytbiNZn6AP37YjIuUfPNW4q67lXng3RmEmY4EmROE0X1m8setSIQKtdZJF35dMkWJkgU5+x12HXH7uUot76tcju6bcC9x7BFJojlUTy8B+Mu7l4ReXOZU+Uhkmr6mNbuT8nswteCFYsrUlrzP2xbVeMAw6y7Bwv9Hhui5eorf8jeQPDn3EGtbye0n+trGQrdoDmQdBRxCaQRVHtthAk/aDlrpp7pujrnDmqj5ThdNbiyBi8bOOBKY5t+RFQyHQXbx94YDIk/WLJulJ9tp4bR1baa7uTJRrEjU3VG53J8MfKsQuzaA444YZbrK/3aXl7U5SWWvGuhLYMpoW7oWIjNTwvW6jGTVhIGp51Ju3N84B2Nb/KJr/kAWtJ0RBvI2iL+CsEFzSfpLu0/jF3HnfvXTtJAWnRqVJK4rsRFIZ7bZ5cayoVJKmO08sVRk03Zjheh7b+LmCjgE0Tz8Wxz8D1uNeaAxvnme8/VfSKVMSs80ieF/y4uBnub/elpmxAcD+ChILtolT8g+fkQbz8x5GYGm+NH8QlOEd73YExP6OXS9Sn10PAHefmPLGnVm/pvsHgYpg9kikTKqYLAMXqxLqKZfxBnb9iBN3AIBW4ln2eroryA1hYD/UBUau5zp2oVo1ztRO6CYxuYkaXo3vFtcQHm7NMLVXQeOE81dWLTMFp55apV1qCyYG/QH67NviB7jPpaN09bBYHlhc8H3oHDx0sY6Fw+sRm/CIcX+pR0tu9XAYHCAPrJTBJI33daQjLgvSN/dV+P/md4Av7DSjvU3pV20lydUPT5ehOlQ7eDTeFRD+PRI+VC5UTWTz8S5StgIYdm3qz4+Y8FkeaKtY82JeJ+ZCWr4lQ4K2imfz1iW4PM8oPaliDq2TmUszLTAbTi4I3tOU13COAq1gKoXtYDzgWuDxexD1HyIdY1DXD8Ea+xZH83rD40d7877xvzRq35AcPfUn+v+sYHoIHqyiWpxKvTnse5TIhY2HH+eCXtSrckL+tF4X4CUW207h269cxrsmBS/bl6qF8Zut/5Jxo79yvNOKSKmy2wc8BKPAjKDu/I2Le1mayEj0TPD5AYBVLMpYpjjmN5Zk6FspgTYMijv6C/wYXB2USz6Mjca+kBvVkLimF+RbpfUA2Tg+V29jwO0cK++dOwYiicq+Qb+00Ohgov4gPDdz2rMxa3J86PNRPDhqpXx+6fxZfECLOmAaQzFmJXmkiBk4RbsXr28veKhn0ZWtt0EF1CFypQeR7OIb+K0BYKUsAIzf/03fL+PwA+XaCKfSP2vLkCLaFWCbHEwYlp2z1Kzcr4DyPNbE1mradFU0Z0dxrr2qhxptmTEUQu3xdM0kAoSMM+U2OzF7rzbmtQQPwXw8mW0aWYn0pnl7/LyaJ8/lyQPkItW6ntJpI+lBFwYmYLk6yT8pV1LYh1aHe2syi6IUK9UMkFy7+7GTuzgUtPnp9+Kw7rEyC0/GuqXyeAdSgx51c+Q0+Bh0KnAtypp8kTPEBqgDFrgjB3qkq0uVCrOtejA2YTL3Gu9qHqUkCdzv/41iAzC5nDZZGun6SdrUaU7QYeDe985aDiekHpA7lK53ZOlySPe9oS5yt25tuwk5lE2URAibpijRwC5CZEWKX\", \"tag\": \"0+oNuLqA/2dQ3tfQw/LF8g==\", \"nonce\": \"iwl2PECrzq9Rglq6\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"speak\", \"data\": {\"utterance\": \"It's 3:14 PM.\", \"expect_response\": false, \"meta\": {\"skill\": \"fake-skill.wiggins\", \"dialog\": \"time.current\"}, \"lang\": \"en-US\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\"}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "speak"
+      },
+      {
+        "t": 0.379,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"KT1z1StFfrGqgFZoj5pSgcC7dTG76dJoxM2+c0p2SRHMXbzDms44ifkVyhv59omksqYt93jChKshTryJrHgNDe2LbfzI4cYlnr3qiOi8HuV0TqBSevz2l6ZSPhPSjPwYNtKh397rmm2mf8YDiruQdz6diqSQfQEGCys6L/j6J0IWfwW2yRNMYTlrrIfl+y8LxF3H1Nt79TBWKsLf0m/DInel+0oBg/LgwhWcrFLFMIn0IsJV3DF2cVKT2yY1Iu6bZTz/kBtXUs9W28Jv30HNAXXsVJYDsFugdztsfU2IQ/ct1blZ8mnu6DkNJRONLh5o11wzABhKAzt4JDFGN10lLc8A0niNgBREmXPuw+uz7mTxOB7r6XQBgjRSz/fIlNZQS4A1cBjvIG5EFM1nI4yWkcCYV7Du4K5xFNvVmz0/lQ91xamumcOKnoHEemIAi5xlQDIt995qZxAVPY+3R07/tHO6wNJi5NOu3mxKIo42+b6EAX6XRu7dnxKhZjk6wCTEpWZIJFZNvBFIEnJLLXixBV8BzRzo2Kw73WG4jYx3nvsmH3JWUbXZEH9gEO32Quf3/E+jRwf2VHwPeKOFtf3tBk8YW6uHpvWcL0OkiIk6tFoHcqpRrS/TkfxNYtB5aJZngWhaO87z3hjhj+Z52fvfn1/emdxeBepluihsCulHMCsTp/K43nTI6+qpPsLsXCTjx9O77JukEeSghMGmNHRg6ciFGJoi80n5DZfGvnKr0COH0e0fwhEYIz5+9mEEgdS+RVI8xdmU5Ik4K1MWXtWB3A37TXDVs3QW9kjfeGkVLcZgWH28TqUe36x1ychaJJfJIXOEUI9BGtmOZgQwNJiVls6SpFBtNVr2ZADq6V+/oYapN6ir2OpOG/I5Xk1a6gGwypre/RAwppAl6o345Fcqjim4c5NZ6gStbiyF/ST7cIF71XfjAJj2WnKcPspqMf5CHMw6W34qkluJqOutEokQpg2+4ER1EzDoQ0YSygF+JbpWjySvH198rqauUV5bSL/Nhvm1TKIfFtTc29HAm+cNey3IMEBhDtc6jetC5RCdHPjzsjuPnwXjKbpAzMLLhiG3PrejIMluS8Ev/cTcUSwenzuHrQuf4/0zwnS6xxW6Q0eQa5HHdPrTfqpDUsC9Y29Y0bkeo1/389oIhI7UHnsSX3hajzQpB9HgNS5MrGQHcA6URWGIlTgl5zdFw5Jn+XKyNkiftMUnMaVMhnuwEEvl6pUV+5QrUiJAwIx/T7q97I2dnZ7ZeUSCdnpneh1F6Mc2fL/MIx2HOgMR+HRZBcuv+ll5Wk5A7dWBVi4XIyjrNLTUTDuPKelVqahARN2h7QWlB7iITlD35LZuUfu6XkjHFI+lcCuqx15fJRm56i2jdaBLuD94ky/YEhOi49FtFKtBfCMm/Zfe5WYrdzfCkNi3an5bYbc++ay+yV2+2/+GZEASrwUG6qbcqsZNB5zXfZpiNg+ibXUWD6w+5sOpQunZPKp9Ivti/2JMY2/apKfK3rVet1Ux/5upcB96+fdtgA4xo9eLUuFYI7rjCKdV+XNpro4oXAAt3xoWSsvspICqqNopzbg=\", \"tag\": \"KPSMgisWiZgY9dZA2pQh/w==\", \"nonce\": \"B6Zty1pDx0oCF+W8\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"ovos.utterance.handled\", \"data\": {\"name\": \"WhatTime\"}, \"context\": {\"source\": \"hive\", \"destination\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\"}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "ovos.utterance.handled"
+      },
+      {
+        "t": 3.382,
+        "dir": "client->hub",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"JibzfEP0GOyrVnhZ4rQd3YURD6ehHihwsJSC7bAv+2u5zv3mzKmvNSEgIFfK+uNPY7Zyq7q0zJ+qeiYDQEDBMy6itn8ngEOyi6yA+iYdjiOaBacDlDz1mSwd5aBOoCnpXAz6WWOo+hMEN5JNsvz6SJCxnqgBsuNR9GWTPJoPkQjbC5ImiLypmw0CE8TT+vK7e4ZOu8JM7ew/MLouUTrqdv7FqDyhvTUlkbEVxID4QMdbxWvUPi9J9Ur9BshLsSxjzA8HyGTktPuEKPKLInRdzU1/fZJ/PDs4c9GY08Y9v0YVXSYtZr8+iCLNKOVr8q+FRugIzAQHAGv48IZwQWrSHl4J4983y5M5bwY/mr41f/KqAbQJaX87FgBo/2J++zYFcfn/Etg5uonsYXqh+RHI05UQh6NGKPtXes8R9pMDi+IlhjF3hnBU2Uh6NQNMuZjVgUvB8kL8xjYN3QkIoiFrYiffYNwT+c50V9LsnVy8XVEkeKD1cAZCpBSBXzU33SFw8WXox8TIXuPu6tuRuL2mIik=\", \"tag\": \"09L7vkDSQRTR9zxpayHVEw==\", \"nonce\": \"PM9suSIOncH2+/UH\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"speak\", \"data\": {\"utterance\": \"nope\"}, \"context\": {\"session\": {\"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}}}}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "speak"
+      },
+      {
+        "t": 5.384,
+        "dir": "client->hub",
+        "opcode": "text",
+        "wire": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"plaintext test\"], \"lang\": \"en-US\"}, \"context\": {\"session\": {\"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}}}}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"plaintext test\"], \"lang\": \"en-US\"}, \"context\": {\"session\": {\"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"site_id\": \"phone\", \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\"}}}}",
+        "encrypted": false,
+        "hive_msg_type": "bus",
+        "bus_type": "recognizer_loop:utterance"
+      },
+      {
+        "t": 5.409,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"H3wAlnHA5t1TLgs5j5xsUJ3/ypuRfpcGK1Lhp52nUSJfKYje/IsiQRWpBHjvM2puE/XkKfZEzbkTCalUEjR2SWRIvGNkFe1E4ao3UXhns3bh2d8c27Bv8hfMsO5QAQmYsY3687avoN17ska1QrZfTlfkovaF1zgjVzb5POMUK0hgwGcHagzYK8jAy22NHffdZbfMUVg3JcNGN5MKdUKwrKxPuAfSpsQwXQCyoY7rTn9YwGWt8c02Ld7ik89EvSwVTAM7dEnQjW6/LoYowUp9EUJgjR91gKikAukOPuGSJDGrd3DHqbvBbQzT4B60EoGUG+hiTuaQ0w/KD1+HGK9mnzxfCN4+okCkJPXbjjeerWPMCcrfGzv3NcB9imSHAm2w1CcpTf7ygqvR+U8cGzcVVWLoFIsW+ejnMP2KEEFc6sU4hQGRkLqeEAHa9fI3/GQSMGCY/wRlHlw5ub8uNAKdwwJGbwk5gFspVYkfvikpVlhfnQh9cqVAoFhi+NhAWVOmjAq93wxDbnaEjHP1w0sW+x+3UiMJDEWQtMq6Powq7F8S+vws9mxObYO4146qABtoiNgJWleJ/WopEGy12Kjt/SusNk++rwGYW0jc4NP1OVhzcGS42rgHhqR5TWpQgi+dq/yhMlIvZsq8ZlPiwG71NV7Rm2dEDavyhbH3/Ij/kkzxSc9hdBoxIwK0amn/O99inuNa4B3mrSrbFNhVTBrwWKk3HF0X4xfh/fEQUp0cf/wzHlpmgWQtMeYCq0wZ+XNSKcx0kE3/NS1TKsRTPJxXsmAKpmW3gPTmSBag/1TWik02LOSnV6VyPW4denezApAYWM8RF8QvpS38zIcCa99mOghPkDUwZzS8XjCVeMLPbpI9q/E/At8UK05ki1SoV+Vy6RYcyfLCPWovkajyCLFz5p+bLU3hg/0VHZf0i4j8r54Jz2SALAvbf9gOWVgCG/MQkWpCH8U4jK8mEiO2eiLj52KfLSzMZNhjsBF+C02ZrsuwN7Ab4wS61YZWmMBAGuSqQTzOlPjiL6bd2S38sAL83EBTgvTvOz7TdAAeO6RoJCSXJBCVnsDPXB5IBtKAM/Bz6ifAWYs6x/t2tvd9TIur/iL7JDkHvsF6OD6FsJcGIPJ562hm85N+N5BDlFJO3+Wf5uDusBNQgY0kgts7aA9Cgs3lmTcqboqgIqFPcC99Goba3m5NKSLRYoSJ1E4UudUnOJtiYHS2YEXmcJeINBsZtgKUQeEctktTc3kywyQwyRhP8FiK6Cvj0aLZDObOSz4YUDGxgDtCHpbsW4GstaNB8LY7pZx9aTCPlAYBwiLpKZcHIyOUTi/cLxj0tf2UAq92p2XpPcom8xcS8R8NNgVun0SPtTxUrqqHz/wExIxWro7gVXGFvUekZXcMCbjM1wXSplFve3GkAA9NNTbkV60uCY3m5/sza3+jFHHxr1yQFSonFJZeow4+rQW0XlVfleozfbOonyWC4hG3YJDeQu2pQHeZCuS0dX07tPEO3MrU14QZOUri1zDHBIynxT6xIEQ14K7RsEeYzi/JQp/9VCldf/j//fDS+BYPX6b13Ifc7paXNrwMZrEsn/WTV1WJP1BjL/6gvCmFo3KjGQ==\", \"tag\": \"ppAAJwhwrjpocFHnNvPlZQ==\", \"nonce\": \"KQQLghA2jNa66rt2\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"fake-skill.wiggins:WhatTime.intent\", \"data\": {\"utterance\": \"plaintext test\"}, \"context\": {\"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"destination\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"source\": \"hive\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\"}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "fake-skill.wiggins:WhatTime.intent"
+      },
+      {
+        "t": 5.415,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"osX+iM70D0FsXhDpazwflps1Erojh/1HTX6MwcDNa/5dheOwFEoWnxRA0dads3xyWHZg+g+jwpRg6/gwKZq+lmuzkXfo0d4Qd6Vp/X2oXGJBn/x/8H7Courceeudf79SWYntLnXZpoPPgKQ5cfNJXKoaGWm8cqm2eB9p2ThhbYO2y1ZyQ8YbHq8r0IwvVbuCX9FNBkBJwjLFV4nF1Q8Mj1JPfbZ9UnOSlKejtn0/q5KgRYDfP8QqpoqvK2UPlbupWENBuCkVyHYcsWwfqsoV1wvcF6os9XDK3E5O34R+347sDq/egiVX766arbM+cPrG+JNi29KMWw/pk6YO2PQGz2B/ukQiz0H3PSg+h8K7I3KC3++zrNkpne3hfl/7c2irGqYioL0ngQKZhd2P7e/gXC+MUEU2O6HAW1hegnbBgkA46reW9IlIGCOYcUuvO7Tt0ww3PHKcaBMHAmyhXS0tJyLer3YciexC1uVsEB8cnMfdjwmlwDsqzvqFfAUja6ICzYLzuliW1wyboWyxyL1ffqASoNvBklABDiIrQXBmTBaC/GksQCDX7NOpZFvh2R3PQdY948uAsYZdHfqIfQfMCylCd05WvL5TVcSpche5myaM9znQny3lITI60R1H6jVWD/WZNGsUhflAwa6xVetGhTCuKh0NKvbfcs7G2PEPJ2m1ST1D7YhqQ5SAxj/ptJ5h/1tf7cgpgRKuq9T5xefFFw7j790cFa/WYdGm3P8UxmwEbnkLM8KeUomwSrQXKJiasf8Q4DzlydW8mHox5bYQ/okASeWZFb8mDt0i+7u3IjpsvS2zcEADAka9jZAdDSRrHtswaVJxF9r3uds7Z9v8mUci/XBLtLT+4LU0YmxN1deC7itUtnj6620Fk337xybLUrCA6lMlUjZwdSoyhMCEbLyKI8G3DI6X5ll4ZRUYpq6sEzRFNjff3iVVfed+SIZsSX9cuSzGtOJnlVsO2feMlcQ7ktlc7lCRLIJQXMOnscKwuLAXpwvYpj5S5VNbykqqUq86+hO8a6ghKr66Z5wYMVmxJo36v3RtjM7DLHbKG8UDtBVLybLyEdo+84E4WEiJtcUGByueyLbE6kFXvG1xqaqnbdyKI65t/BzJXHGNn8ezHRsCgG3ujEPMrJffKLa7l7L1so3T9N9k61k0+45D76U90Jk0cA7LTNVYvHZfqXTYBZqXQRGpW3vDA8sRAB+kA30XKnKkbaiB0uUSxDnLqJGreOGor2C9/D/5/9+qT3VU9kCWR/7cOD4UtUULYzf/hEFgR31FA7GTUrEfW/NKwd5GojdjAdnCRGkaWtJ9y/b+FsQmYF/hArf4A/x6gkktemgB1xvcYqDT5g/EST/ApNFsvzthHKVagIcO4KgR14d83ZFOslyxUqBMHh/bkem8+jF1Te9AlTWa0qRC+LGjre/ngK46TYD+MnR+uxwNbHi51FrNfOeOYKOR/elukC9WtO6mAeEDIKmI6o73eV24yj3K12NwA5TSsMwZ9fU8v8Xhr+qW2G6EQKsg/x5tJ0mWeKXDnjuVt1JcGZ/YHJa8is/ZAUGsbzyVtZtxvXHGEiRLKbGF/KMSg5e5CoourS88CFfMve8wVlnFFlNiQlWtYT05po2I9JBZXyi9OoyoNCWE/9qAmjeuAwrJ45RQ8q9hSWrYH7vF4ZA0QneYCmLMiNCPfMf0zl/t8h1vP7pjoHPHUEjHfEL/FeO+\", \"tag\": \"ycqjeGLk+xCWke0lbLCWRw==\", \"nonce\": \"MV5V179EOJKALa/e\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"speak\", \"data\": {\"utterance\": \"It's 3:14 PM.\", \"expect_response\": false, \"meta\": {\"skill\": \"fake-skill.wiggins\", \"dialog\": \"time.current\"}, \"lang\": \"en-US\"}, \"context\": {\"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"destination\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"source\": \"hive\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\"}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "speak"
+      },
+      {
+        "t": 5.422,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"b1yUXXQwAqgMBbhoy052h/ubFM0DjN3MDFSDCDAY25Vp+BdTAFRVCqRlni16SyldWTzTxogpyagmSPGGEWClZJIo030A8DjnHup+zweJKNVo6BPJ3wMtGxYCz11EJQb3/ZpGoo1RzMSmaR4X6edZ9uIbuWlUFQDRzSUFXDK5DZAzfjOx6SoFXlk+AmgbTSTbxBQyX6SPIe60LMxCtWlmNYgsVv6KN3+uOv9U1BNd3SZHFtukxtp0BNuxMtXpd0OArW7JmZbgPMsfrIyoChyzi6C8rAAya5WEtzTcPXlDJ74Tv7EmAy1w1NGUUsoivKNrhmvFprfns7CPHNZxM4fqrTS/b4iasqo6aq8UWCEUH8Sf1sskmZy9upK06LNsmhB5NS2BYgLVmfP3wDAPuKG0va3eA6BPrfIAkOaYIS2NaAvxsLDgDT/I6ZQlk55bBzSuBQ6DUt09DTRl7DC4AWVlHM6oHQXet8vugwUP7LytcuFUbWlTw0shxEtuSh3R6qiKAxyLyBSpVy3qY33G2uxoZQk5GpBtW8LVVgM5Opfb83LUTggT7gz5zEpCgPLT1DEMGHgwr++YUDe2RCyXJN9/kFFuBs8wuJcjt9gRzTNw4/68aFC9zI5UcMBbM8zSKU6CJb/Czm0o0DjP4Xoi8S0IJjrwyLEsiIt12IrziUtvRgID3yTbpnliHvEd9tKilokA4OwPScJKYUjkQO6M0LnIUki2GEmW4JBTzrIFF7qDK8tT8g6USkBPldJqEifSaj04Zh6eBpe08Nmw4KqfUxha/LJDWF+oVvHypXJVC2wwpWkpdD3wzVpkMIHepDuWrrqK+v1GN4zegJXkvMs+Ki4xaVACszESb+SSc/F9XGq3OABJ7Nvy92hPvWAUD2eEo5BhGMawPriQKjEMzqSaBjDf9uY6nu4B2onJCjrrdz3Bdr6sB3vjb96RFrhphIb7fja03BuiVyi61mLj25/oUclLB5znmK6MaDO3nSZH4Krv0qThEQ56NFTpAp0xNi6bUcKZFjddoajMdk5KK9R1UxF5DVKIHzYVuylRooNaAKX74CEXEnx2tWlUkJIxOztqOf+taDHu7ggI8lWiwIV9PzhEe0fPpXq6uIn6+06hIP3mARNnd8xZFwuga8oEp2QpzXGwGNVUt2ZkNikmr+JF/8yHK5biswS6TdI7cb6roQC/PUe2mpvQTr/itlti07NgIpGiEBWvBnoiQOezaEiKhbfbeaZzc5r+8aNlg8oR9SdS2WCiIORrHOItOTQcpCid6DABEwm+MY+TpeYqndog9OPKtdAWFzupEGsvSV2gLcBj+kZ8X6QfPCivOvKLyNz6V/Z7XagqQD/DQTC0WvcwCbUlerAxU5wXmn7Stawu2+ohMEeY7W7H6LtIFvhMi/nBuRcqw/dEseobIiiENqlW0BtyxHwLldTNQYH3BBobL8uqXSEJ+pGzyvkXN5ZZF2iNZpxi6IAx5c80HDaAmYBeT/HgomFNW8GLzsIM6ALaU0SxaZDjnl8r+GQaIw169wbe3hkIlABbm9fcgxIVgpj386NjVm+6F6JpTyeVaTccI8Gd+7yNjRI=\", \"tag\": \"OTVlySV40Jj0x/SRT0RKag==\", \"nonce\": \"qHyL6rPuuo0NvrAZ\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"ovos.utterance.handled\", \"data\": {\"name\": \"WhatTime\"}, \"context\": {\"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"timezone\": {\"code\": \"America/New_York\", \"name\": \"Eastern Standard Time\", \"offset\": -18000000, \"dstOffset\": 3600000}}, \"system_unit\": \"imperial\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"destination\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\", \"source\": \"hive\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d\"}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "ovos.utterance.handled"
+      }
+    ],
+    "hub_log": [
+      "2026-10-04 05:18:46.754 - HiveMind - hivemind_core.protocol:decode:158 - WARNING - Message was unencrypted",
+      "2026-10-04 05:18:46.803 - HiveMind - hivemind_core.protocol:handle_hello_message:541 - WARNING - client did NOT send public key",
+      "2026-10-04 05:18:46.811 - HiveMind - hivemind_core.protocol:handle_inject_agent_msg:817 - INFO - Forwarding message 'recognizer_loop:utterance' to agent bus from client: Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d",
+      "2026-10-04 05:18:49.867 - HiveMind - hivemind_core.protocol:handle_inject_agent_msg:806 - WARNING - Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d sent an unauthorized bus message",
+      "2026-10-04 05:18:51.867 - HiveMind - hivemind_core.protocol:decode:158 - WARNING - Message was unencrypted",
+      "2026-10-04 05:18:51.881 - HiveMind - hivemind_core.protocol:handle_inject_agent_msg:817 - INFO - Forwarding message 'recognizer_loop:utterance' to agent bus from client: Wiggins::1::wiggins-live::0d3c7a8e-2a4b-4f59-9d0e-5b8c1f2a3e4d"
+    ]
+  },
+  "stock_python_client": {
+    "name": "stock hivemind_bus_client 0.4.4 HiveMessageBusClient (binarize default True, offers all encodings/ciphers)",
+    "negotiated": {
+      "cipher": "AES-GCM",
+      "encoding": "JSON-B91",
+      "key_hex": "c16b8ef321f8ad9e7194c62465f4f30efd4b0fada6ddddc1121df23fa5e42afd"
+    },
+    "got_speak": true,
+    "frames": [
+      {
+        "t": 0.057,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5+KCQ18CNI4NsihhXdqZ\\nqNtmm4P8knVZewnGxiH9nzprJA6CI3mDCTKbcsuXF2ueAE3mUuPYtcNb4spINTZf\\nsiVGFFy2AxWuteNludi3jVe0+fgOkeORt/qv2cf6faX/kDFH4/8aKAzYiP3U9gmt\\n7I+FiSPJaXKytXqySR5z9wZv+icrVO7AaFAfQi3gmKGou+XtHWEoqq7qrVXEyGP3\\nAUSEaHyOMf4BFZmBSaraM+yK/xEUTaPF06wEyW6zfd7ZDTMf+PH1c7it5ghYd1Ym\\nWVvDVjKJmPDaknhraFhUJxUx7qzXAoJs9fwzWDRxWutyitxqqiFsVJy9VfIxF2nI\\npQIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"PyStockClient::1::wiggins-live::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "plaintext": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5+KCQ18CNI4NsihhXdqZ\\nqNtmm4P8knVZewnGxiH9nzprJA6CI3mDCTKbcsuXF2ueAE3mUuPYtcNb4spINTZf\\nsiVGFFy2AxWuteNludi3jVe0+fgOkeORt/qv2cf6faX/kDFH4/8aKAzYiP3U9gmt\\n7I+FiSPJaXKytXqySR5z9wZv+icrVO7AaFAfQi3gmKGou+XtHWEoqq7qrVXEyGP3\\nAUSEaHyOMf4BFZmBSaraM+yK/xEUTaPF06wEyW6zfd7ZDTMf+PH1c7it5ghYd1Ym\\nWVvDVjKJmPDaknhraFhUJxUx7qzXAoJs9fwzWDRxWutyitxqqiFsVJy9VfIxF2nI\\npQIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"PyStockClient::1::wiggins-live::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "encrypted": false,
+        "hive_msg_type": "hello"
+      },
+      {
+        "t": 0.059,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "encrypted": false,
+        "hive_msg_type": "shake"
+      },
+      {
+        "t": 6.769,
+        "dir": "client->hub",
+        "opcode": "text",
+        "wire": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"AES-GCM\", \"CHACHA20-POLY1305\"], \"envelope\": \"301ee3d371e624efbe3df23d46aa7305d293be4538493714\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"AES-GCM\", \"CHACHA20-POLY1305\"], \"envelope\": \"301ee3d371e624efbe3df23d46aa7305d293be4538493714\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "encrypted": false,
+        "hive_msg_type": "shake"
+      },
+      {
+        "t": 6.793,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"c81c417fa61a4dd862cb8e32f67d5e5cf801efb4710a867f\", \"encoding\": \"JSON-B91\", \"cipher\": \"AES-GCM\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "plaintext": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"c81c417fa61a4dd862cb8e32f67d5e5cf801efb4710a867f\", \"encoding\": \"JSON-B91\", \"cipher\": \"AES-GCM\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "encrypted": false,
+        "hive_msg_type": "shake"
+      },
+      {
+        "t": 6.822,
+        "dir": "client->hub",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"a|6q77IOM;NL%Yn9:>BGHlI151o/cqcO!ubR5}M!qd&Xxu1ao+]=Cev!*/IAuGj=RkrKP:GUp}/35rXgHg\\\"Eeq!;sIkznUR#RSYsj*O0+^y0O!^aur}fppd+3MAq/`};wllKEyrpN,`I(uVQktg,pVQll\\\"}Bx+abmwNV/oM>QczJ9Sr_}?B7wfT:1oL3i>3oDZe1RmMvN2N|Gn`.Si78W>HLApusr;M>qgKra%`}Fg{w>re!%U*#*4|iGWW)BQJuDF%:5>j9AjFo`;ZEghOdNRlgvH[!aza^RT,O#TQZR^/|s=}RKR*XSTm\\\"2WyM<:RyG[<BL8ax99vL_.n):]b<XNkaje_$n)DD.tm)?R5Frfma}++oQor{&orFY*a`?(`9leD,St{!ijXWn$2~}xh#]KV6k5VACWSku0(&5}&G8!)ZHNZ=/$\\\"2Mt:%*&A%?786N0oQ>oKLV>aF2@Dp)Q(:hC_uS~$x)kVx<ogu[?}1#vuuJ|}hWS3V^$5.HM%OU_oVZpuE}hKr7+F0iqAoO.*BK=m_.{Xw8}[%(SW2_O<VWhoNQ(nis(E)w1<at!ICjaP_yn\\\"ZP4o&JR5aW|/M(U<C_g+D![$~A*>t\\\"yj|q8llRMtQqGOP];y*GMwvud)%tE!8MdwG*Y.!H.{XWDbF9JQ2#=&BI]d=owd^c;uBYUrE$vwB<<FpHy&~B_u+lfI1Pw|2i&a&gm^mI;t>>sQ79`33+{M\\\"LCj9D^RHN$HCmc&:3eToTf9.P)z|1DQ&v=:rC#fx19K;6_)hzvIsVZc/ukRcaiF8L3:cXu;zJlKfy5a&Gs=bG7mdaH}*E)7ZT^ibG*+d<5H&}bX,!1UhkV]s0L#=W#}/mrx)sy&cZO?faN@upKQqh2`|a(.$v1v7DlYWTuZjZ:G@gQDm/B[%cbHVLy3L2Op%sAk@sbvOqhKK{h!cOw]I.*;5|v;;AY3~9_9>;E.VNUBv6Uh|OPOC)xbQ4H3S[1a]};<!Oq.dcA@`U%N0Kfl|c$zBpk`r)>QwEg,dx<>_O|y*x;P/(_;_iD_[JMEMX,6MK1/|UF=^FQp4eZ{0LpP6co)fim<]V;ZG5E?VP=r`tq0>dXNDFWX?8mGHr@bR}09q,^G_})Zf990i4xs7lr?YS^Od$jmQa}DYK1N>75Ol=NUbzWZ]]BU@{cB[GY}ZIxi}#;W*R(RV\\\")@cY2N{.5##T%Di.X_3*xCJe!75kZ(rEZ!;8.HR%_w`TdO`Iig~1d4LeVA}%3`,3Ds/@s$zp?4T}to,F#l*l$s!G,9ezJ,ww0_=qH0,a*^AL%w..S|BK_$ORvQS%zP50&G`a]48OoTF0;Q>t7N~|}Kj4K6DGgtSv7:#&T6q81udN`(:!Xrz|1g/&SqYosZr?qzR\", \"tag\": \"IJ56M($^/^8!sJM<97:S\", \"nonce\": \"e2J7O]z:`1Yy=yUcZ^qI\"}",
+        "plaintext": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": null, \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"55c2f6d5-eac7-47be-abed-69fe0eceb11f\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"unknown\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"city\": {\"code\": \"Lawrence\", \"name\": \"Lawrence\", \"state\": {\"code\": \"KS\", \"name\": \"Kansas\", \"country\": {\"code\": \"US\", \"name\": \"United States\"}}}, \"coordinate\": {\"latitude\": 38.971669, \"longitude\": -95.23525}, \"timezone\": {\"code\": \"America/Chicago\", \"name\": \"Central Standard Time\", \"dstOffset\": 3600000, \"offset\": -21600000}}, \"system_unit\": \"metric\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"site_id\": \"phone\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "encrypted": true,
+        "hive_msg_type": "hello"
+      },
+      {
+        "t": 6.824,
+        "dir": "client->hub",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"nar8Yj4KwLG&D8R^ao@MR@cT$h!y5Cru)Z@,,y{t9g+|4BVS;WpT_C2uz<2K{({@?vKU/7yU9+!1wi)mk!3kW{C!:pAiKMw,I8L,3U]Nf}SbY^?ckMs+kf2iTtjD,3M_f^h;mU+Vbm#vh&vcU)J7k,|c622t>~kas}f`Dj$d%l!([a*]01kDk2tE``^B9PJbOPWr1E]O/+^p<dHR3*Yvn]`Lv^<.0IGV<[p\\\"p8:u/!/n)^[LS3CEb,zGkv&a~6k}R2Z!6kkdW7Fk^)uTRU=;o_m8$N?EtGQP4D1yFqQD*fn)2jF=|9E<Wv$}Bjmml%.Xx!)2\\\"=1]bwg}~9$XXLRDUQ3YoNm{RX+s&9lZ9,V;r~FpWflTGd/)@6oTPq:\\\"vP>z1bHi,>DV/OPxBr?53(dFQE01B/o8nKD]Z~S9J9$j[I^u,/3Fgnr0j78!ourx:VjuWnWUJs^:vbORyMc^yPSM$]#A3QX_SAV`tDK+a(ur6X3RPe#wWhRX[Zx}z>p\\\"FlXh8?/Td:S,~&C\", \"tag\": \",b{U3eP@n)NV#i.x;.uS\", \"nonce\": \"2Kr>IxpP};IBn&rW8$aG\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"recognizer_loop:utterance\", \"data\": {\"utterances\": [\"what time is it\"], \"lang\": \"en-US\"}, \"context\": {\"source\": \"PyStockClient\", \"platform\": \"PyStockClient\", \"destination\": \"HiveMind\", \"session\": {\"session_id\": \"55c2f6d5-eac7-47be-abed-69fe0eceb11f\", \"site_id\": \"phone\"}}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "recognizer_loop:utterance"
+      },
+      {
+        "t": 6.847,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"$,6:</2vwhHp![09;$TBioA@Q:za.{94/Wa]H9#9hJF!9USN~<S+bkmdCgPegevM)1b5:`(HP}#GzDgDBHGZgB}0$tcw4M*>eA$4\\\")xg,>udN[z2R,O<k.+$A}j3>O!=m@Z]lDE%*,W_U|ch3;Z#!Tmp<0bFyyMTW!2|ps(%;4}(&w}LFDX3GYe;cS#2eZYN}b+(kP*:|X/20k9PmpXZM4|+QH,Z&Cc^>L:sJ/r:#{_i:R}~wZ~hi:9Bu]Z_^&/p`*DQOXOVL&?f,m/V=5[dPp!QaK,|`_^zI3|%Q>\\\"UUjIh`W1>?u\\\"7qCoszXErF~|LL<,b)m~Th&k}9%S@t&B=$}Q/vE:2eFY3#i^lQ;m!2?(.q*{E[w?PByAAL{0pU8]PU0#2l3$YCS|hXamNkiwHS;O}*BA7YIJS/.d&I{Fe:&,V?_GbYVrCXIC>8u_aWRR2yr{(R&bvbb>d2\\\"Q<?z96qV.eDG2o?MJO.lv+D{jGff#@Cl2<dSQ{0>5f$W{UH)$JMjC{$N!^?kOre{Z,O%<qV;*_^L%0[\\\"`PXa5{sWNH^s1v)6I_F26@P*81ezAjgI$C|YB}#(.}A>Aw>|{94OBi;[djT8w1qmwzs^+SE77Okzb=tR^94MX<A@h!=qp9p%%\\\"vvIBFcyr&_A!c;Q#yK>rK3/<*c]QJ!EbQEdqZ$a>o(!Vi}8yBG777fk%p]p]&jCS|cQ/l`5HSSEm/9{`;&8M<Hp+T[:oL%t#m[AN2BbX{4K$)uH#R[>{.(59:BxmkBY{Bw@3JP@._?_yI18PHZ{;&FgjjEc|C#9*ogJan;^Hm/)Og?O[|d2&@{%%aa[nYi|z6]SXYFrJ+FKcedJ},*rus;LFQrLYM&I$SQam`Y#\\\"sPSX;wZ!0aZz+`B+iLk}<$L95IY10Y3YQmk~Go>cHXevcTe&<sW\\\"kR%iRY&\\\"\\\"I/l<jZhyr,Z1?H{>?H:;KZ@NvPSMOaSz:8{_Gh{n^DbQbH^RFF#2Mrq?Ryvu+0GDwhWyR{Be8cCRkj>SYX:IX]VI(%nudC3Xw+aO2~L!axS3UJ=C`a2W.6:/*8*{%JwvUOK&kx{ekknR\\\"#7$>z2cZ#op}9k+:,Q@.RNGN+vw(TnbszE3R?!sPbaOnmW78\\\"+#o?V&BMuXz%h[ZuAl{0gd0$pBkkKr~#3deS;@kYIwe=w3;6_CG42sG!`)6xy]bXvY^wLGN5b3m>t1su#fy&vYh!dKeb@yZu5c}2#diJj`/Z;)n6P=Cg<#eCec<;$g\\\"r*a;JH&>{Ev|Q$:84s&t;@kb./YSa%vnmctL6]&W3zisfRJ6/?vP}r6~*5lXczJ!u&3|qC{Cnq!r/%ZG<57[3fExt/Cjf4v.sc78P6B{Jje^%AuPyD&?lbG0L$M#9H3iNSFAksZ><7=0NaZ]]g?.3!eR,^.bXO<A,D:{&25;xBg]9a=D3e)2cg.?g*!F.|sZ+,|YS=mHZzM:%w9<?sK(HPYb5Ccs,h\\\"B0N97`m{#w3jz~a5rlf4^p1xRfVffk(5kC$dVG9EFFki8LC*Jr1)_%MM6taxiVL5~kxR!:s{&@#&7#OO\\\"#;$8Cj<T9?/olYy$<YrPFso4e^`pk}S7/kIG*]^7gT*{b[9c/ka\\\"NW7ftSx@C&N3U*X&%+\\\"twJknddPcejuFn!Cj<tx^S/Ryl>pLZ,/:i_/#TI6wQ>6^>R,QGIkB3*5Mdk^|szTDA11|tlbC:S^K0jOsu\\\"?YW2+_>Ud*m+[)>e*:`ik*zR`0c&<%>y;F@iZTu{U6{?$xX0o%>F!?ws%><z:.,ri)ulf%flEn<u6UN!.%.Gs^iv}C\", \"tag\": \"T{TCTC*c!+vx5rmL@2:S\", \"nonce\": \"p@y%4?s54e!W$pPSo[@H\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"fake-skill.wiggins:WhatTime.intent\", \"data\": {\"utterance\": \"what time is it\"}, \"context\": {\"source\": \"hive\", \"platform\": \"PyStockClient\", \"destination\": \"PyStockClient::1::wiggins-live::55c2f6d5-eac7-47be-abed-69fe0eceb11f\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"55c2f6d5-eac7-47be-abed-69fe0eceb11f\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"city\": {\"code\": \"Lawrence\", \"name\": \"Lawrence\", \"state\": {\"code\": \"KS\", \"name\": \"Kansas\", \"country\": {\"code\": \"US\", \"name\": \"United States\"}}}, \"coordinate\": {\"latitude\": 38.971669, \"longitude\": -95.23525}, \"timezone\": {\"code\": \"America/Chicago\", \"name\": \"Central Standard Time\", \"dstOffset\": 3600000, \"offset\": -21600000}}, \"system_unit\": \"metric\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"PyStockClient::1::wiggins-live::55c2f6d5-eac7-47be-abed-69fe0eceb11f\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"PyStockClient::1::wiggins-live::55c2f6d5-eac7-47be-abed-69fe0eceb11f\"}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "fake-skill.wiggins:WhatTime.intent"
+      },
+      {
+        "t": 6.888,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"MYD<raP}z4kKcDJq+OtK{j!(tHZ:KHbT_d#n)_E+k0ScIA/p:iP3nL/{q:^87Sw?yGcC<?s:&4I7$vL>6z;OmTsLu5i;sxJ23beZ&#STA]OgRWJr9@NEAERB><u(K|`[oWTWccR>Gqq*KO#K+*_(v#S{]0e}2,d{n3pNLC,o$~tvr>O6F]Z[o{Q?2/(~:V{%8ge|DP(]9b+QyR/)S(X,dY(H?tUTQ#vh3cytIYsbmRe3[$^aj9tYpX_cS|n(RC|9n5w.]ch$\\\"|NP;Izt+l=WLRlOEXukk+lNwMp8WMhg|5Cp!aN)@1Vb/#gxg|/4.>p<K=oK\\\"wqI5S|$yTL3fE=ZF;~46m01zIPVz#](T+c|sv#b]6:[mi3OY~~+s,[WsI(Hcjik?PzvW04|*&>+*wAv[kBj9My8WU9Q#~Wy:q[C:3!CQ7mTt682TnVB<ewU>[.:Mp8X:lK3+._hU@EF?[a@,wJQ2J9ok$Q.%M9&s6VS)DHi:llyK%.OJvh.i@S~oIil><2<?Zx%i>O3<wMs5(7_~|~:fIR@sWGS`/P_5LTH[$JL(=Do7v.5DLX/>4^7SUTt0F7g,_|xt?9tR~R=ag$~Pv#Qg3;&[t5#!LrGrKMW4Sl@|6X5,gZxpYsvKDBe:6W*l`Bkf;*3`AR1.?K&k4GdGl:pI6zGs@=ZDaG_cCtko3TM&cBzb)X!;g0!/{Y[]%bk|Yq+6B|1rNo}5r%d+(/4o0({s}9oc)]&@7O8KS5H\\\"UYE9TqfB=qgUN#Hd)n1Q:ugO=`3+V>RF=gmnj}QTnV1>30iV42=mYPnjPeI[QMJ|\\\"ArJm@)(jvn6F!P]~{vybP+MM|])~Y7,z,zxbBmX#:ggbb&\\\"4avy,Ql[*)=coVikbs_!jN;h03W:V!lR(>d@W0{qB>s*Vl.^)2{FKwIf8UI4lB@3kc~1Adu#jZ:LPq{akcLczH7Z}b,k2B6vZT&Y3(D)VEkPW6nz&$V:@wv75@g2Ac`@H|VG*SuHCMiAM=x3NsS]_NI:Qj?}9TmJ+WCph&t<`wo4iqN5bIs)g2Uv6MF;ztK;)NBn:3:U%+4TS)0O>CL~b]@6M.WpG:QO$}<Ac!awh^o<fYt,E>_6V;EXin2!`[F)9k_QEb)tF@MH~.I!d^rgZHQ)]V[}lb/c(k`9O`6q^Pt9&+L[=6t]6V*H>+V3=wrB@bGz#$d|Y#s\\\"Z#^y$O{G}zY|RVg|UEzBzq>OL<,qdl&Y3rq<b?Y+$@z=PKAM<rD@Tdr8M2F,~LZ0nT2d#xli`$dJdvzB:>]5)^kXds1Y94PZ(J7s@SFAWIGO>ns$l];c{4xR5JL$%E2M#8YZ9.VN5pKyoYk8+m+uFF?dL5(@)]Kvsc;ymZu.MQ}X78R=Q\\\"3JF].EjvT80qeE`RXS?&HZWD=Th,Dho|+/j@8Ll.8+DbpE~2^~$L5qG_oqpTC0e[x+22n=t^HX*q:\\\"O;},L9spHm>,M=TU<37i3VaDc)^5y+(lFC_hS6psY[/+zjf]FP?CMS&;]i*EB@34G\\\"<]99B\\\"S!88g!n$n0BjWT~KY:(giHgeY=r@gg,sVR{(L,7*%DgPxhErK6t%+]]zc~A~5]KzP<_/l$f355d@aKYW?\\\"*Xh<[sK,^cdw3a~a,/<8N3bC;ZBZkeZ,oKl5pp6u_f:mcy:8:Rq1.#NaL(uqW+^a,V(qtj95SWuiY`dyl^[kp0F!xBQi.?W)=YP9E{AH#8?595\\\"0T~%~ci:*glSd[0LuI$p>*wGB5(]z3l_;KU,jFh_JfE%ph)?556O._s{GI``QvqY#Qd7/_eeHbKHf#4y<L?Cd!!aKSZ<lqZt2E}|cQGn5_7+jwSO:HP,$g&I4cV?\\\"(LnP1y$}n]S@]JQd_t7$+`Jq&n<rB{G8HSM5*TuBME&<D9`Xb*^.pW}IJ5!|(L\", \"tag\": \"njW{5[db380/Z7{G033O\", \"nonce\": \".L~}K7&^4@XN(!G*=r1E\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"speak\", \"data\": {\"utterance\": \"It's 3:14 PM.\", \"expect_response\": false, \"meta\": {\"skill\": \"fake-skill.wiggins\", \"dialog\": \"time.current\"}, \"lang\": \"en-US\"}, \"context\": {\"source\": \"hive\", \"platform\": \"PyStockClient\", \"destination\": \"PyStockClient::1::wiggins-live::55c2f6d5-eac7-47be-abed-69fe0eceb11f\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"55c2f6d5-eac7-47be-abed-69fe0eceb11f\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"city\": {\"code\": \"Lawrence\", \"name\": \"Lawrence\", \"state\": {\"code\": \"KS\", \"name\": \"Kansas\", \"country\": {\"code\": \"US\", \"name\": \"United States\"}}}, \"coordinate\": {\"latitude\": 38.971669, \"longitude\": -95.23525}, \"timezone\": {\"code\": \"America/Chicago\", \"name\": \"Central Standard Time\", \"dstOffset\": 3600000, \"offset\": -21600000}}, \"system_unit\": \"metric\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"PyStockClient::1::wiggins-live::55c2f6d5-eac7-47be-abed-69fe0eceb11f\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"PyStockClient::1::wiggins-live::55c2f6d5-eac7-47be-abed-69fe0eceb11f\"}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "speak"
+      },
+      {
+        "t": 6.893,
+        "dir": "hub->client",
+        "opcode": "text",
+        "wire": "{\"ciphertext\": \"k5cw~PB;OLc<{H~d0C,w>hL<h\\\"=/y%{z~[j3IsSk^wzwHt=l8U/H9bC@p01h8Lk~eHfoR#tc<k<!k:zjaGIn3GZ.kEzxL6(N;aWu*6$\\\"Y2~mZlRDM5jHuS7ppXlzplh6bqSm]hopL\\\"*F(p$aTPv@SYr@)yIo%!^NFRY^~F.U.VCCUPk=z&XBg]tKmX8,.$k$)sX2%rQ}tHIGfV*B|.K^u3.|[>h@I^*BI4%ku6nToO#]gTp&]%wj\\\"4kGITjVkJxSLYY1}_)DK@\\\"2<[lTgg!pcARp]dkw)D9y0G5%)_Q(:9gy+.\\\"O<1ygk/NB`W=&k.>GB!4,0@%^Wt5t9T$+)6?b_^;=nfT{p^uqhGXt>dr)i5CWab^{$S;)^)?J.#^?x$lTGkI>Il;uY16Z!MV)Na;x66ReBybF8ME5iZ)d<[$fS\\\"`_]&__&0JS\\\"/R~>S6?!`cTf}qd;b%X6p8PsiqmpMO<`[ytKl=Ih%#V3?~V1Sj88V7LmF\\\"$5{>4L.slueyVz7q]YLtK#Cncr?3rMV#bJ;X[arW.2]rV<2kNU!3IAByRk}ym:^9\\\"eTFxZ_>Ta*t!*Y?Fgr_}i)D!I@mo=?]~Au@;2z+4;*DnTMO)?SKw7vzeg=f6S`CtAN4GjOg!mv5mH[G?H)!ieEQBjW&+E}>0OcWTEtLKT[+%6nCIsnS[TM2%<l7pRi8h4W%qyqOdIA@>.?[I{E)>dB6M;nDwg>UWCQscGFR4)7G~$=b|0fh)%v=1n!3PDXK7F^qxkSUt+FV~V$&qI>D1e|iyJj.R[I.(pTFYH2jOQ*a,qqVp}vyC6JG@]ET})oP<7C&z%6zBOADoh&IT!obZ:hi;ki*{tCdbKYcoUY&oaJ^cj&v<u#u$dkoo$6<o=`}v\\\"`X2ak)+Iwo<QBLZ.+%xv<Wrl5V%>i!#eZk?srwq<%48i!gJn~,>ksw&?\\\"7`ahftErg(wGELtZnB3Ja?6@Gd4th%~`HvQHZT8}}.3uVb9@[^=w3Ze][`T*xJKFGV+]~|OI$0_b:KwrfTTebO9T3W;0D|NrNOW4YyPqNdBlT`(h6_Lm%8`=ShV,}JMK^%U8QUqvC`X;tyFQ2&v1(AOHS/Ui}cWutB($p^Y;tH:&D@(BG$o0)R6~A6X[=k})Q4qX9FjqCDSQb_&E2jdDbQgWc0[}3X|8H6e~NZBd%YhmV&!O@k1K{Y7Gih%GYC[v]?IceR3o1bfTWwJ^[2[L]uER)@Ne*U1gqG{%%h5?ndk8|D4W#I?A5oYJZm<0Wdy/_8/tIXTF)<WTDZzdWBm:d2x%dlO$km70I?Q}v{~J_fZi4.:8x&H~StafvQLOGd>G6}B/a10Dv>#Ya=:utEVReoaX>3kLx3Od&dSvQs/e>Zyn}IT8{EDlrv@Bmf)W*]tg\\\"P$5D$PW^LQ_K(jQ:IrHO7X@@K;g!FBgH,f`F(b$2Di^R>d4~PcmW1H|w;G$NDB!XgUp1FuC)MdJeS9<S\\\"(`+o+O!F(X3j>%6q46aic&<!c`04PG!4`BJ<9?1t3NhoaBP|Me*@LYz77/VA@wvK=L*+F;;p?/~%9QB%+D~~k6C(5txY;\\\"0ZR)+OwU&4l}*[nL7i)/OYL54}[FeF1;aG3}P0b}75`3>hHXI%w~`7q/Dz(|MHU`lIC98m{RSJ\\\"Ns&JxpL.P?aEo9Gp>Ye8okqFQKxkO>oOYdF6R#%7^9e,TWuy),bP[ci$_%V]LtTNXo`!2TX#[It~;fj>783oYK48Id~,jE9lFxF91*!_Zc{11G}FS`QA*oo_y4s#hy#utM]7\", \"tag\": \"Oyf/5KEe9j0)2&in#^+T\", \"nonce\": \"#pIRdi_&f&kmLNCQS5bD\"}",
+        "plaintext": "{\"msg_type\": \"bus\", \"payload\": {\"type\": \"ovos.utterance.handled\", \"data\": {\"name\": \"WhatTime\"}, \"context\": {\"source\": \"hive\", \"platform\": \"PyStockClient\", \"destination\": \"PyStockClient::1::wiggins-live::55c2f6d5-eac7-47be-abed-69fe0eceb11f\", \"session\": {\"active_skills\": [], \"utterance_states\": {}, \"session_id\": \"55c2f6d5-eac7-47be-abed-69fe0eceb11f\", \"lang\": \"en-US\", \"context\": {\"timeout\": 120, \"frame_stack\": []}, \"site_id\": \"phone\", \"pipeline\": [\"stop_high\", \"converse\", \"ocp_high\", \"padatious_high\", \"adapt_high\", \"ocp_medium\", \"fallback_high\", \"stop_medium\", \"adapt_medium\", \"adapt_low\", \"common_qa\", \"fallback_medium\", \"fallback_low\"], \"location\": {\"city\": {\"code\": \"Lawrence\", \"name\": \"Lawrence\", \"state\": {\"code\": \"KS\", \"name\": \"Kansas\", \"country\": {\"code\": \"US\", \"name\": \"United States\"}}}, \"coordinate\": {\"latitude\": 38.971669, \"longitude\": -95.23525}, \"timezone\": {\"code\": \"America/Chicago\", \"name\": \"Central Standard Time\", \"dstOffset\": 3600000, \"offset\": -21600000}}, \"system_unit\": \"metric\", \"time_format\": \"half\", \"date_format\": \"MDY\", \"is_speaking\": false, \"is_recording\": false, \"blacklisted_skills\": [\"skill-ovos-stop.openvoiceos\"], \"blacklisted_intents\": []}, \"peer\": \"PyStockClient::1::wiggins-live::55c2f6d5-eac7-47be-abed-69fe0eceb11f\"}}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": \"PyStockClient::1::wiggins-live::55c2f6d5-eac7-47be-abed-69fe0eceb11f\"}",
+        "encrypted": true,
+        "hive_msg_type": "bus",
+        "bus_type": "ovos.utterance.handled"
+      }
+    ],
+    "hub_log": [
+      "2026-10-04 05:19:01.678 - HiveMind - hivemind_core.protocol:decode:158 - WARNING - Message was unencrypted",
+      "2026-10-04 05:19:01.749 - HiveMind - hivemind_core.protocol:handle_inject_agent_msg:817 - INFO - Forwarding message 'recognizer_loop:utterance' to agent bus from client: PyStockClient::1::wiggins-live::55c2f6d5-eac7-47be-abed-69fe0eceb11f"
+    ]
+  },
+  "errors": [
+    {
+      "name": "invalid access key",
+      "url": "ws://127.0.0.1:5678/?authorization=V2lnZ2luczp3cm9uZy1rZXk=",
+      "frames": [
+        {
+          "t": 0.038,
+          "dir": "hub->client",
+          "opcode": "close",
+          "close_code": null,
+          "close_reason": ""
+        },
+        {
+          "t": 0.039,
+          "dir": "hub->client",
+          "event": "WebSocketConnectionClosedException('Connection to remote host was lost.')"
+        }
+      ],
+      "hub_log": [
+        "2026-10-04 05:19:03.335 - HiveMind - hivemind_websocket_protocol:open:196 - ERROR - Client provided an invalid api key",
+        "2026-10-04 05:19:03.338 - HiveMind - hivemind_core.protocol:handle_invalid_key_connected:341 - ERROR - Client provided an invalid api key"
+      ]
+    },
+    {
+      "name": "wrong password",
+      "server_envelope_verified": false,
+      "frames": [
+        {
+          "t": 0.037,
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5+KCQ18CNI4NsihhXdqZ\\nqNtmm4P8knVZewnGxiH9nzprJA6CI3mDCTKbcsuXF2ueAE3mUuPYtcNb4spINTZf\\nsiVGFFy2AxWuteNludi3jVe0+fgOkeORt/qv2cf6faX/kDFH4/8aKAzYiP3U9gmt\\n7I+FiSPJaXKytXqySR5z9wZv+icrVO7AaFAfQi3gmKGou+XtHWEoqq7qrVXEyGP3\\nAUSEaHyOMf4BFZmBSaraM+yK/xEUTaPF06wEyW6zfd7ZDTMf+PH1c7it5ghYd1Ym\\nWVvDVjKJmPDaknhraFhUJxUx7qzXAoJs9fwzWDRxWutyitxqqiFsVJy9VfIxF2nI\\npQIDAQAB\\n-----END PUBLIC KEY-----\", \"peer\": \"Wiggins::1::wiggins-live::default\", \"node_id\": \"master:0.0.0.0\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}"
+        },
+        {
+          "t": 0.04,
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"handshake\": false, \"min_protocol_version\": 0, \"max_protocol_version\": 1, \"binarize\": false, \"preshared_key\": true, \"password\": true, \"crypto_required\": true, \"encodings\": [\"JSON-B64\", \"JSON-URLSAFE-B64\", \"JSON-B91\", \"JSON-Z85B\", \"JSON-Z85P\", \"JSON-B32\", \"JSON-HEX\"], \"ciphers\": [\"CHACHA20-POLY1305\", \"AES-GCM\"]}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}"
+        },
+        {
+          "t": 0.04,
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"binarize\": false, \"encodings\": [\"JSON-B64\"], \"ciphers\": [\"CHACHA20-POLY1305\"], \"envelope\": \"1b2325f0c9a28c8a190360fe33ec8ae7dcd6204a1c73621d\"}}"
+        },
+        {
+          "t": 0.064,
+          "dir": "hub->client",
+          "opcode": "text",
+          "wire": "{\"msg_type\": \"shake\", \"payload\": {\"envelope\": \"ecce69b819b2acaefc1c3365ab667ac9e1804602d5229b1a\", \"encoding\": \"JSON-B64\", \"cipher\": \"CHACHA20-POLY1305\"}, \"metadata\": {}, \"route\": [], \"node\": null, \"target_site_id\": null, \"target_pubkey\": null, \"source_peer\": null}"
+        },
+        {
+          "t": 0.084,
+          "dir": "client->hub",
+          "opcode": "text",
+          "wire": "{\"ciphertext\": \"+uIFLY/Ywwoqzzi0s9e7UkJtBszdfAFo1gWRkxG8Hv37n42z\", \"tag\": \"JRpmF5YKyZi+ts78RxL8Eg==\", \"nonce\": \"nZ5mnM75Euiptt3Y\"}"
+        },
+        {
+          "t": 0.086,
+          "dir": "hub->client",
+          "event": "WebSocketConnectionClosedException('Connection to remote host was lost.')"
+        }
+      ],
+      "hub_log": [
+        "2026-10-04 05:19:03.380 - HiveMind - hivemind_core.protocol:decode:158 - WARNING - Message was unencrypted",
+        "2026-10-04 05:19:03,423 - ERROR - Uncaught exception GET /?authorization=V2lnZ2luczpsaXZlMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYg== (127.0.0.1)",
+        "Traceback (most recent call last):",
+        "    raise ValueError(\"MAC check failed\")",
+        "ValueError: MAC check failed",
+        "Traceback (most recent call last):",
+        "    raise DecryptionKeyError from e",
+        "hivemind_bus_client.exceptions.DecryptionKeyError",
+        "Traceback (most recent call last):",
+        "    raise DecryptionKeyError from e",
+        "hivemind_bus_client.exceptions.DecryptionKeyError"
+      ]
+    },
+    {
+      "name": "missing authorization query parameter",
+      "result": {
+        "exception": "WebSocketConnectionClosedException('Connection to remote host was lost.')"
+      },
+      "hub_log": [
+        "2026-10-04 05:19:03,429 - ERROR - Uncaught exception GET / (127.0.0.1)",
+        "Traceback (most recent call last):",
+        "binascii.Error: Invalid number of data characters"
+      ]
+    },
+    {
+      "name": "authorization with + / = sent raw (correct)",
+      "useragent": "Wigginsx>ÿÿ",
+      "raw": "V2lnZ2luc3g+w7/DvzpsaXZlMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYg==",
+      "sent": "V2lnZ2luc3g+w7/DvzpsaXZlMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYg==",
+      "result": {
+        "opcode": 1,
+        "data_prefix": "{\"msg_type\": \"hello\", \"payload\": {\"pubkey\": \"-----BEGIN PUBL",
+        "close_code": null
+      },
+      "hub_log": []
+    },
+    {
+      "name": "authorization with + / = sent percent-encoded (WRONG)",
+      "useragent": "Wigginsx>ÿÿ",
+      "raw": "V2lnZ2luc3g+w7/DvzpsaXZlMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYg==",
+      "sent": "V2lnZ2luc3g%2Bw7%2FDvzpsaXZlMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYg%3D%3D",
+      "result": {
+        "exception": "WebSocketConnectionClosedException('Connection to remote host was lost.')"
+      },
+      "hub_log": [
+        "2026-10-04 05:19:03,470 - ERROR - Uncaught exception GET /?authorization=V2lnZ2luc3g%2Bw7%2FDvzpsaXZlMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYg%3D%3D (127.0.0.1)",
+        "Traceback (most recent call last):",
+        "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xf6 in position 11: invalid start byte"
+      ]
+    }
+  ]
+}
