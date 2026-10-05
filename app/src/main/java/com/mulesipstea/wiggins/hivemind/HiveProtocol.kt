@@ -47,15 +47,6 @@ class HiveProtocol(
 
     val isReady get() = stage == Stage.READY
 
-    /**
-     * Forgets the session state OVOS handed back, so the next message starts with no
-     * active skills or pending question. The session_id stays: the hub only accepts
-     * session updates for the id it already has (docs/hivemind-protocol.md §11.2).
-     */
-    fun resetSession() {
-        hubSession = null
-    }
-
     /** Session settings sent in HELLO; set before the handshake completes. */
     fun setSession(context: SessionContext) {
         session = context

@@ -37,19 +37,22 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
     private var session: SessionContext? = null
 
     /**
-     * Connects with [transport], which carries the auth mode's TLS settings (a client
-     * certificate), and with any [headers] the reverse proxy needs.
+     * Connects as OVOS session [sessionId], with [transport], which carries the auth
+     * mode's TLS settings (a client certificate), and with any [headers] the reverse
+     * proxy needs. The hub keeps one session per connection, so a different session
+     * means a new connection.
      */
     fun connect(
         url: HttpUrl,
         accessKey: String,
         password: String,
         context: SessionContext,
+        sessionId: String,
         transport: OkHttpClient = http,
         headers: Map<String, String> = emptyMap(),
     ) = synchronized(lock) {
         close()
-        val proto = HiveProtocol(USERAGENT, password).also { it.setSession(context) }
+        val proto = HiveProtocol(USERAGENT, password, sessionId = sessionId).also { it.setSession(context) }
         protocol = proto
         session = context
         _state.value = ConnectionState.Connecting
@@ -62,11 +65,6 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
     fun disconnect() = synchronized(lock) {
         close()
         _state.value = ConnectionState.Disconnected
-    }
-
-    /** Forgets OVOS's per-session state (active skills, pending questions) for a fresh conversation. */
-    fun resetSession() = synchronized(lock) {
-        protocol?.resetSession()
     }
 
     /** Sends a data-less BUS message such as `recognizer_loop:record_begin`; false if not connected. */

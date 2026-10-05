@@ -61,6 +61,11 @@ class Assistant(private val app: WigginsApp) {
     /** The assistant panel's conversation while it's open; it lives only in memory. */
     private var panel: ConversationStore? = null
 
+    // OVOS keeps conversation memory on the hub keyed by session_id: a persona's chat
+    // history, active skills. The app and the panel share one session, which changes
+    // when the conversation is cleared.
+    private var sessionId = newSessionId()
+
     /** Where questions and replies go right now: the panel while it's open, else the saved conversation. */
     private val conversation get() = panel ?: saved
     private val logIds = AtomicLong()
@@ -216,7 +221,13 @@ class Assistant(private val app: WigginsApp) {
         deliver(id)
     }
 
-    fun clearConversation() = saved.clear()
+    /** Clears the saved conversation, and starts a new hub session so OVOS forgets it too. */
+    fun clearConversation() {
+        saved.clear()
+        endTurn()
+        sessionId = newSessionId()
+        switchSession()
+    }
 
     /** Stops reading aloud; the reply stays on screen. A pending follow-up won't auto-listen. */
     fun stopSpeaking() {
@@ -242,7 +253,6 @@ class Assistant(private val app: WigginsApp) {
         followUp = false
         setThinking(false)
         endTurn()
-        client.resetSession()
     }
 
     /** The panel closed: drop its conversation and stop talking. */
@@ -254,7 +264,17 @@ class Assistant(private val app: WigginsApp) {
         followUp = false
         endTurn()
         speaker.stop()
-        client.resetSession()
+    }
+
+    /** Reconnects as the current session if a connection is open or opening (the hub keeps one session per connection). */
+    private fun switchSession() {
+        when (connection.value) {
+            is ConnectionState.Connected, ConnectionState.Connecting, ConnectionState.Handshaking -> {
+                client.disconnect()
+                connect()
+            }
+            else -> Unit
+        }
     }
 
     fun clearLog() = _log.update { emptyList() }
@@ -315,7 +335,7 @@ class Assistant(private val app: WigginsApp) {
             } else {
                 emptyMap()
             }
-            client.connect(url, s.accessKey, s.password, sessionContext(), transport, headers)
+            client.connect(url, s.accessKey, s.password, sessionContext(), sessionId, transport, headers)
         }
     }
 
@@ -465,6 +485,8 @@ class Assistant(private val app: WigginsApp) {
             dateFormat = order.takeIf { it in setOf("MDY", "DMY", "YMD") } ?: "DMY",
         )
     }
+
+    private fun newSessionId() = java.util.UUID.randomUUID().toString()
 
     private companion object {
         const val TAG = "Wiggins"
