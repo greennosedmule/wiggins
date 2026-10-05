@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.MoreVert
@@ -23,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.mulesipstea.wiggins.hivemind.ConnectionState
 
 /** The full app: the saved conversation (SPEC "Conversation screen"). */
@@ -45,6 +47,12 @@ fun ChatScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    WigginsAvatar(
+                        Modifier.padding(start = 12.dp, end = 4.dp).size(40.dp),
+                        blowing = thinking || connection.isConnecting(),
+                    )
+                },
                 title = {
                     Column {
                         Text("Wiggins")

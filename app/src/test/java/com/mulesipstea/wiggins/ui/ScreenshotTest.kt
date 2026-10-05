@@ -1,7 +1,17 @@
 package com.mulesipstea.wiggins.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import com.mulesipstea.wiggins.R
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -83,6 +93,15 @@ class ScreenshotTest {
     @Test fun panelLight() = panel(false, conversation.take(4), thinking = false)
     @Test fun panelDark() = panel(true, conversation.take(3), thinking = true)
     @Test fun panelEmptyLight() = panel(false, emptyList(), thinking = false)
+
+    /** The launcher icon as a circular mask shows it: the 72dp middle of the 108dp layers. */
+    @Test fun launcherIcon() = shoot("launcher-icon", false) {
+        Box(Modifier.fillMaxSize().background(Color(0xFFEEEEEE)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(216.dp).clip(CircleShape).background(colorResource(R.color.ic_launcher_background)), contentAlignment = Alignment.Center) {
+                Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.requiredSize(324.dp))
+            }
+        }
+    }
 
     @Test fun setupLight() = shoot("setup", false) {
         SetupScreen(

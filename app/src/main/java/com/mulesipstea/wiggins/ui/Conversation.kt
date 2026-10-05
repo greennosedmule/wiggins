@@ -1,11 +1,5 @@
 package com.mulesipstea.wiggins.ui
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,7 +41,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -122,26 +115,10 @@ internal fun Bubble(entry: TranscriptEntry, onResend: (Long) -> Unit) {
     }
 }
 
-/** Three pulsing dots in a hub bubble while an answer is on its way. */
+/** Wiggins blowing bubbles where the hub's answer will appear. */
 @Composable
 internal fun ThinkingBubble() {
-    val transition = rememberInfiniteTransition(label = "thinking")
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp),
-    ) {
-        Row(Modifier.padding(horizontal = 18.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(3) { i ->
-                val alpha by transition.animateFloat(
-                    initialValue = 0.25f,
-                    targetValue = 1f,
-                    animationSpec = infiniteRepeatable(tween(durationMillis = 600, delayMillis = i * 150), RepeatMode.Reverse),
-                    label = "dot$i",
-                )
-                Box(Modifier.size(8.dp).alpha(alpha).background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
-            }
-        }
-    }
+    WigginsAvatar(Modifier.size(48.dp), blowing = true)
 }
 
 /** What an empty conversation shows: the mark, a prompt, and questions to try. */
@@ -153,9 +130,8 @@ internal fun EmptyConversation(canListen: Boolean, onAsk: (String) -> Unit, comp
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (!compact) {
-            Box(Modifier.size(88.dp).background(colorResource(R.color.ic_launcher_background), CircleShape), contentAlignment = Alignment.Center) {
-                Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(120.dp))
-            }
+            // Slow bubbles: he's waiting, not working.
+            WigginsAvatar(Modifier.size(132.dp), blowing = true, periodMillis = 3600)
             Text("Ask Wiggins", style = MaterialTheme.typography.headlineSmall)
         }
         Text(
@@ -242,6 +218,8 @@ internal fun StatusLine(connection: ConnectionState) {
         Text(connection.label(), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant, maxLines = 1)
     }
 }
+
+internal fun ConnectionState.isConnecting() = this == ConnectionState.Connecting || this == ConnectionState.Handshaking
 
 /** One short line; why a connection failed is the banner's job. */
 internal fun ConnectionState.label() = when (this) {

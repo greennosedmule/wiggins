@@ -93,7 +93,11 @@ fun AssistPanel(
                                 .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(2.dp)),
                         )
                     }
-                    Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        WigginsAvatar(
+                            Modifier.padding(end = 12.dp).size(44.dp),
+                            blowing = thinking || connection.isConnecting(),
+                        )
                         Column(Modifier.weight(1f)) {
                             Text("Wiggins", style = MaterialTheme.typography.titleMedium)
                             StatusLine(connection)

@@ -6,7 +6,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.font.FontWeight
+import com.mulesipstea.wiggins.R
 
 // Wiggins' palette: honey amber (the Waggle bees) on deep ink navy (Baker
 // Street), with a teal accent. Fixed rather than dynamic, so status and
@@ -89,7 +95,23 @@ object StatusColors {
     val ColorScheme.disconnected get() = error
 }
 
+// Libre Baskerville (SIL OFL, licenses/LibreBaskerville-OFL.txt) for the app's
+// name and screen titles: a Victorian serif. Everything people read at length,
+// the conversation included, stays in the system font.
+private val Baskerville = FontFamily(
+    Font(R.font.libre_baskerville, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.libre_baskerville, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+)
+
+private val Titles = Typography().run {
+    copy(
+        headlineSmall = headlineSmall.copy(fontFamily = Baskerville),
+        titleLarge = titleLarge.copy(fontFamily = Baskerville),
+        titleMedium = titleMedium.copy(fontFamily = Baskerville, fontWeight = FontWeight.Bold),
+    )
+}
+
 @Composable
 fun WigginsTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (darkTheme) Dark else Light, content = content)
+    MaterialTheme(colorScheme = if (darkTheme) Dark else Light, typography = Titles, content = content)
 }
