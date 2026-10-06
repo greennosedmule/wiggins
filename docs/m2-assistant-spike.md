@@ -1,6 +1,6 @@
 # M2 spike: assistant role and trigger
 
-Answers the SPEC open question "Trigger: `VoiceInteractionService` or an `ACTION_ASSIST` activity?", plus the background-launch question that gates M5.
+Answers the SPEC open question "Trigger: `VoiceInteractionService` or an `ACTION_ASSIST` activity?", plus the background-launch question that gates M6.
 Researched 2026-10-04 against AOSP `android14-release`, `android15-release` and `android16-release`, Dicio `main` @ [`7315c37`](https://github.com/Stypox/dicio-android/tree/7315c37f241d6580d5d86499e46481f1b08fe936) (version 4.1, versionCode 18), and the Android 16 AOSP emulator (`sdk_phone64_x86_64`, `BE2A.250530.026.D1`).
 
 Link shorthand: `fw/` = `https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/`, `perm/` = `https://android.googlesource.com/platform/packages/modules/Permission/+/refs/heads/android16-release/`, `settings/` = `https://android.googlesource.com/platform/packages/apps/Settings/+/refs/heads/android16-release/`. Line numbers are for android16-release unless noted.
@@ -12,13 +12,13 @@ Link shorthand: `fw/` = `https://android.googlesource.com/platform/frameworks/ba
 - An `ACTION_ASSIST` activity is enough to qualify for `android.app.role.ASSISTANT`. When the user picks Wiggins, the system writes `Settings.Secure.ASSISTANT` = Wiggins' activity, and the assist gesture, `KEYCODE_ASSIST` and long-press home all launch it with `startActivity`. Checked on the emulator: `KEYCODE_ASSIST` launched an `ACTION_ASSIST` holder from SystemUI.
 - Wiggins needs an activity anyway, to call `startActivityForResult(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)`. A VIS would show a `VoiceInteractionSession` window and then still have to start a Wiggins activity to get a result.
 - A VIS must declare a `recognitionService` to qualify. That pulls in a `RecognitionService` stub, and a careless one can become the system's default `SpeechRecognizer` (see Q3). An `ACTION_ASSIST` holder leaves the recognizer settings alone (also checked on the emulator).
-- The one thing only a VIS gives is a persistent system binding with `BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS` (Q5). For M5, an `ACTION_ASSIST` assistant can get a background-launch exemption another way: declare `SYSTEM_ALERT_WINDOW`, and the assistant role grants its app-op automatically. That is simpler than running a VIS.
+- The one thing only a VIS gives is a persistent system binding with `BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS` (Q5). For M6, an `ACTION_ASSIST` assistant can get a background-launch exemption another way: declare `SYSTEM_ALERT_WINDOW`, and the assistant role grants its app-op automatically. That is simpler than running a VIS.
 - The role **cannot** be requested with `RoleManager.createRequestRoleIntent` (`requestable="false"`). Send the user to Settings with `Settings.ACTION_VOICE_INPUT_SETTINGS` ("Assist & voice input" → "Default digital assistant app"), falling back to `Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS`. Check the result with `RoleManager.isRoleHeld(RoleManager.ROLE_ASSISTANT)`.
 
 Manifest snippet:
 
 ```xml
-<!-- Only if M5 needs background launches: the assistant role grants this app-op
+<!-- Only if M6 needs background launches: the assistant role grants this app-op
      automatically (see Q5). Leave it out for M2. -->
 <!-- <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" /> -->
 
@@ -114,7 +114,7 @@ All entry points converge on SystemUI `AssistManager.startAssist()`:
   - **GrapheneOS doesn't offer "hold power for assistant" in Settings.** It is an open feature request, [GrapheneOS/os-issue-tracker#7035](https://github.com/GrapheneOS/os-issue-tracker/issues/7035) (Jan 2026, no developer response). An adb override (`settings put global power_button_long_press 5`) should work per the code above, but this is unverified on GrapheneOS (see open items).
 - **GrapheneOS otherwise:** it uses AOSP SystemUI, Launcher3 and PermissionController. I found no GrapheneOS-specific changes to the assistant role or assist gesture, and community reports describe Dicio working as the default assistant with FUTO Voice Input. Set it under Settings → Apps → Default apps → Digital assistant app ([usage guide](https://grapheneos.org/usage)). The corner-swipe toggle lives under gesture navigation settings ("Swipe to invoke assistant" = `ASSIST_TOUCH_GESTURE_ENABLED`).
 
-## 5. Background activity launch (BAL) and M5
+## 5. Background activity launch (BAL) and M6
 
 There is **no exemption for "holds `ROLE_ASSISTANT`" as such.** The caller-side chain in [`BackgroundActivityStartController.java` L995–1013](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/services/core/java/com/android/server/wm/BackgroundActivityStartController.java#995) is: visible window, non-app visible window, foreground process, allowlisted UID (root/system/NFC), allowlisted component (home, active IME, persistent system, recents, device owner, companion app; L1066–1104), `START_ACTIVITIES_FROM_BACKGROUND`, **`SYSTEM_ALERT_WINDOW`**, a system-exempt app-op, and **process tokens**. Assistant and voice interaction appear nowhere. Two routes still reach an assistant:
 
@@ -138,12 +138,12 @@ What doesn't help:
 - **A `shortService` (or any) foreground service gives no BAL exemption.** An FGS is not in the chain above, matching the [background-starts docs](https://developer.android.com/guide/components/activities/background-starts).
 - **The UnifiedPush distributor's binding doesn't help either.** The [UnifiedPush Android spec](https://unifiedpush.org/developers/spec/android/) (AND_3.1.0) has the distributor raise the app to foreground importance for 5 s, or bind its `RAISE_TO_FOREGROUND` service. That lets Wiggins *start an FGS*, not an activity. "Bound by foreground UID" only counts when the binder has a visible window, and for targetSdk 34+ it also needs `BIND_ALLOW_ACTIVITY_STARTS` ([`BackgroundLaunchProcessController.java` L69–73, L267–279](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/services/core/java/com/android/server/wm/BackgroundLaunchProcessController.java#267)).
 
-**Meaning for M5:** M5 can go ahead with the `ACTION_ASSIST` design. The UnifiedPush message gives the right to start a `shortService` FGS that holds the websocket, and then:
+**Meaning for M6:** M6 can go ahead with the `ACTION_ASSIST` design. The UnifiedPush message gives the right to start a `shortService` FGS that holds the websocket, and then:
 
 - **(a)** declare `SYSTEM_ALERT_WINDOW` so the assistant role makes `startActivity` (with `NEW_TASK`) legal from the background; or
 - **(b)** without SAW, post a high-priority notification whose tap launches the intent. That always works, but needs a tap (similar to the ask card).
 
-A VIS is not needed for M5. Keep it in reserve only if (a) turns out to be blocked on GrapheneOS. All of this needs a device test (below) before M5 is committed.
+A VIS is not needed for M6. Keep it in reserve only if (a) turns out to be blocked on GrapheneOS. All of this needs a device test (below) before M6 is committed.
 
 ## Trade-offs at a glance
 
@@ -153,7 +153,7 @@ A VIS is not needed for M5. Keep it in reserve only if (a) turns out to be block
 | Assist gesture / `KEYCODE_ASSIST` | starts the activity | shows a `VoiceInteractionSession`; Wiggins must then `startAssistantActivity` to get an activity for `startActivityForResult` |
 | Effect on system recognizer | none | none from the role, but its stub `RecognitionService` can become the default if intent-filtered |
 | Process cost | none until invoked | VIS bound permanently with `BIND_FOREGROUND_SERVICE` |
-| Background launches (M5) | via the role's SAW app-op, if `SYSTEM_ALERT_WINDOW` is declared | always (`BAL_ALLOW_TOKEN`) |
+| Background launches (M6) | via the role's SAW app-op, if `SYSTEM_ALERT_WINDOW` is declared | always (`BAL_ALLOW_TOKEN`) |
 | Lock-screen / hotword / assist-structure APIs | no | yes (unused by Wiggins) |
 | Reference | Dicio | none among FOSS assistants checked |
 
@@ -181,7 +181,7 @@ The coordinator was using the emulator for end-to-end tests, so these weren't ru
 3. **Role grants SAW** (after adding `SYSTEM_ALERT_WINDOW` to the manifest and re-selecting Wiggins as assistant):
    - `adb shell appops get com.mulesipstea.wiggins SYSTEM_ALERT_WINDOW` → expect `allow`.
    - `adb shell dumpsys role | grep -A3 ASSISTANT` → holder `com.mulesipstea.wiggins`.
-4. **BAL from background (decides M5).** Add a debug-only exported receiver to Wiggins that calls `startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(FLAG_ACTIVITY_NEW_TASK))` after a 15 s delay (via a `shortService` FGS, to mirror M5). Then:
+4. **BAL from background (decides M6).** Add a debug-only exported receiver to Wiggins that calls `startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(FLAG_ACTIVITY_NEW_TASK))` after a 15 s delay (via a `shortService` FGS, to mirror M6). Then:
    - `adb shell am broadcast -n com.mulesipstea.wiggins/.debug.BalTestReceiver`, press Home, and wait.
    - Check `adb logcat | grep -E "Background activity launch blocked|BAL_ALLOW"`. Expect `BAL_ALLOW_SAW_PERMISSION` with SAW, and "blocked" without it.
    - Run once with SAW granted and once after `adb shell appops set com.mulesipstea.wiggins SYSTEM_ALERT_WINDOW default`, then re-grant with `appops set ... allow` or by re-selecting the role.

@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicLong
  * The assistant itself, owned by the application rather than a screen: the hub
  * connection, the conversation, speech and follow-ups. Screens come and go;
  * this outlives them, so a duplicate activity can't open a second connection,
- * and Waggle requests (M4) can outlive the UI.
+ * and Waggle requests (M5) can outlive the UI.
  *
  * Main-thread confined: call it from the UI; hub callbacks are hopped onto [scope].
  */

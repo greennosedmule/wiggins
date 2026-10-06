@@ -713,7 +713,7 @@ The default for a new record is
 - `ovos.common_play.SEI.get.response`
 
 `recognizer_loop:utterance` is always added. `hivemind-core allow-msg <type> <id>`
-appends a type. The Waggle types for M4 must be added this way.
+appends a type. The Waggle types for M5 must be added this way.
 
 What the client **receives** is filtered by `message_blacklist`, which drops
 outgoing types silently, not by `allowed_types`.
@@ -862,7 +862,7 @@ run, and the other files are byte-stable.
    pipeline and blacklist question needs checking against the real ovos-core.
 9. Replies are routed only after HELLO with a non-`default` `session_id`.
    Keep the `session_id` constant for the connection.
-10. **Unauthorized message types vanish silently.** For Waggle (M4), run
+10. **Unauthorized message types vanish silently.** For Waggle (M5), run
     `hivemind-core allow-msg` per type and reconnect.
 11. **Every hub message is either plaintext `hello`/`shake` or encrypted.** Detect
     encrypted frames by the `ciphertext` key.

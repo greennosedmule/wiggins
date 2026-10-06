@@ -1,6 +1,6 @@
 # Wiggins
 
-An Android [HiveMind](https://github.com/JarbasHiveMind) client for OpenVoiceOS: it sends your questions to a HiveMind hub, shows and speaks the replies, and (from M4) runs phone actions the hub asks for, within limits you set on the phone. See [SPEC.md](SPEC.md).
+An Android [HiveMind](https://github.com/JarbasHiveMind) client for OpenVoiceOS: it sends your questions to a HiveMind hub, shows and speaks the replies, and (from M5) runs phone actions the hub asks for, within limits you set on the phone. See [SPEC.md](SPEC.md).
 
 Status: **M3, first release**. Wiggins can be the default digital assistant: the assist gesture opens a panel over the current app and starts your speech recognizer (for example FUTO Voice Input), replies are shown and spoken with the system TTS engine, and it listens again when the hub asks a follow-up question. Typing always works. It reaches the hub on a LAN or VPN, with a client certificate, or by signing in through an identity-aware proxy. A setup screen checks for the recognizer, TTS engine, assistant role and hub.
 
