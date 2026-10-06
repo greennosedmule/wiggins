@@ -64,9 +64,13 @@ jobs:
       - name: Check the signature and name the APK
         run: |
           apk=app/build/outputs/apk/release/app-release.apk
-          signer=$("$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs "$apk" | sed -nE 's/^Signer #1 certificate SHA-256 digest: //p')
-          if [ "$signer" != "$SIGNING_CERT_SHA256" ]; then
-            echo "::error::The APK is signed by $signer, not the release key"
+          # apksigner prints a line per signature scheme, e.g. "V2 Signer: certificate
+          # SHA-256 digest: <hex>" (older versions: "Signer #1 certificate ..."). Every
+          # signer must be the release key, and there must be one.
+          certs=$("$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs "$apk" \
+            | sed -nE 's/^.*[Ss]igner.* certificate SHA-256 digest: ([0-9a-f]+)$/\1/p' | sort -u)
+          if [ "$certs" != "$SIGNING_CERT_SHA256" ]; then
+            echo "::error::The APK is signed by '${certs//$'\n'/, }', not only the release key"
             exit 1
           fi
           cp "$apk" "wiggins-$VERSION.apk"
