@@ -15,8 +15,8 @@ android {
         applicationId = "com.mulesipstea.wiggins"
         minSdk = 34
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.1.0"
+        versionCode = 5
+        versionName = "0.2.0-rc1"
         // AppAuth's redirect receiver: com.mulesipstea.wiggins://oauth2redirect.
         manifestPlaceholders["appAuthRedirectScheme"] = "com.mulesipstea.wiggins"
     }
