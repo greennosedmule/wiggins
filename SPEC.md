@@ -118,7 +118,7 @@ The WAV header and the two sample fields cover both plugin versions: 2.1.x reads
 Until M5, Wiggins is a plain HiveMind client: it sends utterances and handles `speak`, the follow-up messages above and, from M4, the hub speech replies. Stock skills should work as they do through any text satellite. Things to find out during M1–M3:
 
 - **Other downlink messages:** which message types stock skills send to a satellite beyond `speak`, such as sound effects, media playback (OCP) and GUI messages. M1 logs them all; each one is then handled, ignored on purpose, or added to the spec.
-- **Timers and alarms:** the stock timer and alarm skills run on the hub. Whether their alert reaches the phone, or only plays on the hub, decides how much ovos-skill-waggle's alarm and timer handlers matter.
+- **Timers and alarms:** the stock timer and alarm skills run on the hub, so their alerts play there. Decided 2026-10-06: a request spoken to the phone is meant for the phone. ovos-skill-waggle's pipeline stage takes it ahead of the alerts skill, but only for a client that has announced `waggle.capabilities`, so other satellites keep the hub's timers (`ovos-skill-waggle/SPEC.md` "The pipeline stage").
 
 ## Phone actions (Waggle)
 
@@ -142,14 +142,18 @@ The ask card for an unmatched intent offers "Allow always", which creates a rule
 
 - Intents launch with `startActivity`. The response reports whether the launch succeeded, not what the target app did.
 - Wiggins never adds hub-supplied flags and never grants URI permissions. It rejects `content:`, `file:`, `intent:` and `android-app:` URIs in `data` and in `uri` extras, and any intent that would resolve to Wiggins itself.
-- Android limits activity launches from the background. With the connection tied to the UI, Wiggins is normally in the foreground when requests arrive; a launch that Android refuses returns `launch_failed`.
-- `ACTION_CALL` is never supported, so Wiggins never holds `CALL_PHONE`.
+- Android limits activity launches from the background, and drops a refused launch without an error. With the connection tied to the UI, Wiggins is normally in the foreground when requests arrive; when no Wiggins screen is visible it doesn't try, and answers `launch_failed`.
+- `ACTION_CALL` (and its privileged and emergency variants) is never supported: it answers `blocked`, whatever the rules say, so Wiggins never holds `CALL_PHONE`.
+- Android only lets Wiggins see apps its manifest's `<queries>` names, so the targets of the default rules are listed there. An intent for anything else can still launch, but Wiggins can't tell in advance whether an app handles it, and may answer `no_handler`.
+- Opening an app by package (`MAIN` + `LAUNCHER` + `package`) targets that app's launcher activity directly, since launcher activities usually don't accept implicit intents.
 
 **Asking.** For an "ask" rule, Wiggins shows a confirmation card with the hub's `description` and, beneath it, the raw action, URI and target, so a hub can't disguise what it asks for. If the user doesn't answer within `ask_timeout_s` (default 15 s, announced in capabilities), it answers `timeout`. Wiggins stays connected until the card is resolved.
 
 **Queries.** `calendar.next`, `contacts.lookup` and `apps.list` are implemented in the client. Each is off until the user enables it, which is also when Wiggins requests the matching permission. `apps.list` uses a `<queries>` entry for launcher activities, so no `QUERY_ALL_PACKAGES` permission is needed.
 
-**Action log.** Every Waggle request is logged on the phone: time, request, the matching rule and the outcome. The log stays on the phone and can be cleared.
+**Action log.** Every Waggle request is logged on the phone: time, request, the matching rule and the outcome. The log keeps the latest 500 and stays on the phone; it can be cleared.
+
+**Where it lives.** Rules, the unmatched setting and the queries are on the Phone actions screen (the app's overflow menu), with the action log beside it. Wiggins announces `waggle.capabilities` after each connection's handshake and again whenever any of them changes. The ask card appears above the text box, in the app or the assistant panel, and a pending one keeps the connection open.
 
 ## Security requirements
 

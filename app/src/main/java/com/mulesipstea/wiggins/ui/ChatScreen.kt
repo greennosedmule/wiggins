@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.mulesipstea.wiggins.actions.PhoneActions
 import com.mulesipstea.wiggins.hivemind.ConnectionState
 
 /** The full app: the saved conversation (SPEC "Conversation screen"). */
@@ -54,6 +55,9 @@ fun ChatScreen(
     onStopListening: () -> Unit = {},
     onCancelListening: () -> Unit = {},
     hint: String? = null,
+    ask: PhoneActions.Ask? = null,
+    onAnswerAsk: (Long, Boolean, Boolean) -> Unit = { _, _, _ -> },
+    onOpenActions: () -> Unit = {},
 ) {
     // Back discards an utterance being recorded.
     BackHandler(enabled = listening, onBack = onCancelListening)
@@ -80,6 +84,7 @@ fun ChatScreen(
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "More") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text("Setup") }, onClick = { menu = false; onOpenSetup() })
+                        DropdownMenuItem(text = { Text("Phone actions") }, onClick = { menu = false; onOpenActions() })
                         DropdownMenuItem(
                             text = { Text("Clear conversation") },
                             enabled = transcript.isNotEmpty(),
@@ -101,6 +106,7 @@ fun ChatScreen(
             ) {
                 EmptyConversation(canListen, onAsk = onSend)
             }
+            ask?.let { a -> AskCard(a, onAnswer = { allow, always -> onAnswerAsk(a.key, allow, always) }) }
             InputRow(onSend, canListen, onListen, speaking, onStopSpeaking, listening, level, onStopListening, hint)
         }
     }

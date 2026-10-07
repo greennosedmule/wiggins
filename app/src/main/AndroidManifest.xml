@@ -4,6 +4,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Hub speech-to-text records the utterance; asked for the first time it listens. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Waggle queries calendar.next and contacts.lookup; asked for when the user
+         enables the query, never before. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Waggle's alarm and timer rules: clock apps require it of SET_ALARM, SET_TIMER
+         and SHOW_ALARMS callers. A normal permission, granted at install. -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
     <queries>
         <!-- The system TTS engine, for speaking replies. -->
@@ -13,6 +20,34 @@
         <!-- The user's speech recognizer (SPEC "Voice pipeline"). -->
         <intent>
             <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+        <!-- Launcher activities: the Waggle apps.list query (no QUERY_ALL_PACKAGES needed)
+             and the MAIN/LAUNCHER default rule's target. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- The default Waggle rules' targets, which Wiggins must be able to see to resolve. -->
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_TIMER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SHOW_ALARMS" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="sms" />
         </intent>
     </queries>
 

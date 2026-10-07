@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import com.mulesipstea.wiggins.waggle.Mode
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +32,14 @@ data class SpeechSettings(
     val sttMode get() = stt ?: SpeechMode.DEVICE
     val ttsMode get() = tts ?: SpeechMode.DEVICE
 }
+
+/** Waggle settings besides the rules (SPEC "Phone actions (Waggle)"). */
+data class ActionSettings(
+    /** What happens to an intent no rule matches: block (the default) or ask. */
+    val unmatched: Mode = Mode.BLOCK,
+    /** The queries the user has enabled; all are off until enabled. */
+    val queries: Set<String> = emptySet(),
+)
 
 /** How the connection to the hub's reverse proxy is authenticated (SPEC "Security requirements"). */
 enum class AuthMode {
@@ -133,6 +143,25 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it.remove(HUB_SPEECH_AVAILABLE) }
     }
 
+    val actions: Flow<ActionSettings> = context.dataStore.data.map {
+        ActionSettings(
+            unmatched = Mode.fromWire(it[UNMATCHED])?.takeIf { m -> m != Mode.RUN } ?: Mode.BLOCK,
+            queries = it[QUERIES].orEmpty(),
+        )
+    }
+
+    suspend fun setUnmatched(mode: Mode) {
+        require(mode != Mode.RUN) { "unmatched intents can only be blocked or asked about" }
+        context.dataStore.edit { it[UNMATCHED] = mode.wire }
+    }
+
+    suspend fun setQueryEnabled(name: String, enabled: Boolean) {
+        context.dataStore.edit {
+            val now = it[QUERIES].orEmpty()
+            it[QUERIES] = if (enabled) now + name else now - name
+        }
+    }
+
     private fun <T> MutablePreferences.putOrRemove(key: Preferences.Key<T>, value: T?) {
         if (value != null) this[key] = value else remove(key)
     }
@@ -170,5 +199,7 @@ class SettingsRepository(private val context: Context) {
         val TTS_MODE = stringPreferencesKey("tts_mode")
         val EARLY_TRANSCRIPTION = booleanPreferencesKey("early_transcription")
         val HUB_SPEECH_AVAILABLE = booleanPreferencesKey("hub_speech_available")
+        val UNMATCHED = stringPreferencesKey("waggle_unmatched")
+        val QUERIES = stringSetPreferencesKey("waggle_queries")
     }
 }

@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
+import com.mulesipstea.wiggins.actions.PhoneActions
 import com.mulesipstea.wiggins.hivemind.ConnectionState
 
 /**
@@ -62,6 +63,8 @@ fun AssistPanel(
     level: Float = 0f,
     onStopListening: () -> Unit = {},
     hint: String? = null,
+    ask: PhoneActions.Ask? = null,
+    onAnswerAsk: (Long, Boolean, Boolean) -> Unit = { _, _, _ -> },
 ) {
     val shown = remember { MutableTransitionState(startVisible).apply { targetState = true } }
     val dismiss = { shown.targetState = false }
@@ -123,6 +126,7 @@ fun AssistPanel(
                     ) {
                         EmptyConversation(canListen, onAsk = onSend, compact = true)
                     }
+                    ask?.let { a -> AskCard(a, onAnswer = { allow, always -> onAnswerAsk(a.key, allow, always) }) }
                     InputRow(onSend, canListen, onListen, speaking, onStopSpeaking, listening, level, onStopListening, hint)
                 }
             }

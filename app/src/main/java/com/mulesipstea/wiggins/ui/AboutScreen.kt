@@ -40,7 +40,7 @@ private const val SOURCE = "https://github.com/greennosedmule/wiggins"
 
 /** Open-source components in the app, with their licenses. */
 private val COMPONENTS = listOf(
-    "Android Jetpack (AndroidX, Compose, Material 3, DataStore)" to "Apache-2.0",
+    "Android Jetpack (AndroidX, Compose, Material 3, DataStore, Room)" to "Apache-2.0",
     "Kotlin, kotlinx.coroutines, kotlinx.serialization" to "Apache-2.0",
     "OkHttp and Okio" to "Apache-2.0",
     "Tink" to "Apache-2.0",

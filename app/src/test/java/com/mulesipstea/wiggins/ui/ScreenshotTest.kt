@@ -21,7 +21,13 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.mulesipstea.wiggins.actions.ActionDatabase
+import com.mulesipstea.wiggins.actions.LogEntity
+import com.mulesipstea.wiggins.actions.PhoneActions
+import com.mulesipstea.wiggins.actions.RuleEntity
 import com.mulesipstea.wiggins.hivemind.ConnectionState
+import com.mulesipstea.wiggins.settings.ActionSettings
+import com.mulesipstea.wiggins.waggle.IntentRequest
 import com.mulesipstea.wiggins.settings.AuthMode
 import com.mulesipstea.wiggins.settings.HubSettings
 import com.mulesipstea.wiggins.settings.SpeechMode
@@ -145,6 +151,45 @@ class ScreenshotTest {
             onSend = {}, onResend = {}, onClearConversation = {}, canListen = true, onListen = {},
             onOpenSetup = {}, onOpenSettings = {}, onOpenMessages = {}, onOpenAbout = {},
             listening = true, level = 0.7f,
+        )
+    }
+
+    @Test fun askLight() = shoot("ask", false) {
+        ChatScreen(
+            connection = ConnectionState.Connected("hub"),
+            transcript = listOf(TranscriptEntry(1, Who.USER, "Call Mom")),
+            thinking = false, speaking = false, speakReplies = true, onStopSpeaking = {}, onSpeakRepliesChange = {},
+            banner = null, onSend = {}, onResend = {}, onClearConversation = {}, canListen = true, onListen = {},
+            onOpenSetup = {}, onOpenSettings = {}, onOpenMessages = {}, onOpenAbout = {},
+            ask = PhoneActions.Ask(
+                key = 1,
+                request = IntentRequest(
+                    id = "1", action = "android.intent.action.DIAL", description = "Call Mom", data = "tel:+15555550100",
+                    mimeType = null, categories = emptyList(), packageName = null, extras = emptyMap(),
+                ),
+                rule = ActionDatabase.DEFAULT_RULES.first { it.action.endsWith("DIAL") },
+                target = "Phone (com.android.dialer)",
+                deadlineMillis = System.currentTimeMillis() + 12_000,
+            ),
+        )
+    }
+
+    @Test fun phoneActionsDark() = shoot("phone-actions", true) {
+        PhoneActionsScreen(
+            rules = ActionDatabase.DEFAULT_RULES.mapIndexed { i, r -> RuleEntity.of(r, i + 1L) },
+            settings = ActionSettings(queries = setOf("apps.list")),
+            onSaveRule = { _, _ -> }, onDeleteRule = {}, onResetRules = {}, onUnmatchedChange = {},
+            onQueryEnabledChange = { _, _ -> }, onOpenLog = {}, onBack = {},
+        )
+    }
+
+    @Test fun actionLogLight() = shoot("action-log", false) {
+        ActionLogScreen(
+            entries = listOf(
+                LogEntity(2, 1_791_300_000_000, "intent", "Call Mom", "{}", null, "declined"),
+                LogEntity(1, 1_791_299_000_000, "intent", "Set a timer for 10 minutes", "{}", "{}", "ok"),
+            ),
+            onClear = {}, onBack = {},
         )
     }
 }

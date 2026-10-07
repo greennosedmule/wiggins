@@ -1,8 +1,8 @@
 # Wiggins
 
-An Android [HiveMind](https://github.com/JarbasHiveMind) client for OpenVoiceOS: it sends your questions to a HiveMind hub, shows and speaks the replies, and (from M5) runs phone actions the hub asks for, within limits you set on the phone. See [SPEC.md](SPEC.md).
+An Android [HiveMind](https://github.com/JarbasHiveMind) client for OpenVoiceOS: it sends your questions to a HiveMind hub, shows and speaks the replies, and runs phone actions the hub asks for, within limits you set on the phone. See [SPEC.md](SPEC.md).
 
-Status: **M4, hub speech** (in progress). Wiggins can be the default digital assistant: the assist gesture opens a panel over the current app and starts listening, replies are shown and spoken, and it listens again when the hub asks a follow-up question. Speech-to-text and text-to-speech are each done by the hub, if it has speech services (HiveMind's `hivemind-audio-binary-protocol` plugin), or by the phone's own recognizer app and TTS engine. Typing always works. It reaches the hub on a LAN or VPN, with a client certificate, or by signing in through an identity-aware proxy. A setup screen checks the hub's speech, the recognizer, TTS engine and assistant role.
+Status: **M5, phone actions** (in progress). With ovos-skill-waggle on the hub (not yet published), Wiggins runs the hub's Waggle requests (setting alarms and timers, opening apps, dialing, and reading upcoming events, contacts or app names) within an allowlist edited only on the phone: each rule runs, asks first, or blocks, queries are off until enabled, and every request is in an action log. Wiggins can be the default digital assistant: the assist gesture opens a panel over the current app and starts listening, replies are shown and spoken, and it listens again when the hub asks a follow-up question. Speech-to-text and text-to-speech are each done by the hub, if it has speech services (HiveMind's `hivemind-audio-binary-protocol` plugin), or by the phone's own recognizer app and TTS engine. Typing always works. It reaches the hub on a LAN or VPN, with a client certificate, or by signing in through an identity-aware proxy. A setup screen checks the hub's speech, the recognizer, TTS engine and assistant role.
 
 ## Install
 
@@ -32,6 +32,10 @@ hivemind-core allow-msg recognizer_loop:utterance <id>
 # For hub speech, one type per command:
 hivemind-core allow-msg recognizer_loop:b64_transcribe <id>
 hivemind-core allow-msg speak:b64_audio <id>
+# For phone actions (Waggle):
+hivemind-core allow-msg waggle.capabilities <id>
+hivemind-core allow-msg waggle.intent.response <id>
+hivemind-core allow-msg waggle.query.response <id>
 ```
 
 The URL is `ws://host:5678` on a LAN or VPN (HiveMind encrypts payloads either way) or `wss://` through a TLS proxy.
@@ -39,6 +43,7 @@ The URL is `ws://host:5678` on a LAN or VPN (HiveMind encrypts payloads either w
 ## Layout
 
 - `app/src/main/java/.../speech/`: speech. `Recorder` and `Endpointer` record an utterance and find its end, `Transcription` gets it transcribed by the hub (with early transcription), `HubSpeaker` and `PcmPlayer` play the hub's voice, and `Speaker` is the device TTS engine.
+- `app/src/main/java/.../waggle/`: the Waggle protocol (request parsing, the rule matcher, intent building, and the three queries); `actions/` runs the hub's requests within the rules, with the rules and the action log in Room.
 - `vad/`: the WebRTC voice activity detector from android-vad, vendored and built from source with a pinned NDK (see `vad/README.md`).
 - `app/src/main/java/.../hivemind/`: the HiveMind protocol. `HiveProtocol` is the transport-free state machine, `PasswordHandshake` and `FrameCipher` are the crypto, and `HiveMindClient` is the OkHttp websocket.
 - `docs/hivemind-protocol.md`: the wire protocol as spoken by the targeted hivemind-core, with sources.

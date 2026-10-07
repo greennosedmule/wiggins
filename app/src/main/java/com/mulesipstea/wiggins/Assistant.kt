@@ -7,6 +7,8 @@ import android.media.AudioManager
 import android.icu.util.ULocale
 import android.text.format.DateFormat
 import android.util.Log
+import com.mulesipstea.wiggins.actions.ActionDatabase
+import com.mulesipstea.wiggins.actions.PhoneActions
 import com.mulesipstea.wiggins.hivemind.ConnectionState
 import com.mulesipstea.wiggins.hivemind.HiveMindClient
 import com.mulesipstea.wiggins.hivemind.HubEvent
@@ -32,6 +34,7 @@ import com.mulesipstea.wiggins.ui.LoggedMessage
 import com.mulesipstea.wiggins.ui.Problem
 import com.mulesipstea.wiggins.ui.TranscriptEntry
 import com.mulesipstea.wiggins.ui.Who
+import com.mulesipstea.wiggins.waggle.Waggle
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,6 +78,8 @@ class Assistant(private val app: WigginsApp) {
     private val speaker = Speaker(app)
     private val client = HiveMindClient(app.http, scope)
     private val recorder = Recorder(app, scope, ::WebRtcDetector)
+    /** Waggle: the hub's requests to launch intents and run queries, within the user's rules. */
+    val phoneActions = PhoneActions(app, scope, ActionDatabase.open(app), app.settings, isForeground = { foreground })
     private val hubSpeaker = HubSpeaker(
         scope,
         request = { id, text -> client.sendSynthesize(id, text, sessionContext()) },
@@ -227,6 +232,10 @@ class Assistant(private val app: WigginsApp) {
             }
         }
         scope.launch {
+            // The hub's copy of the rules follows every change made on the phone.
+            phoneActions.capabilityChanges.collect { announceCapabilities() }
+        }
+        scope.launch {
             // Music ducks while the hub's voice speaks (the device engine manages its own).
             val audio = app.getSystemService(AudioManager::class.java)
             hubSpeaker.speaking.collect { on -> if (on) audio.requestAudioFocus(playbackFocus) else audio.abandonAudioFocusRequest(playbackFocus) }
@@ -257,6 +266,8 @@ class Assistant(private val app: WigginsApp) {
         reconnect?.cancel()
         idleDisconnect?.cancel()
         idleDisconnect = scope.launch {
+            // A pending confirmation keeps the connection, so its answer can reach the hub.
+            phoneActions.asks.first { it.isEmpty() }
             delay(IDLE_DISCONNECT_MS)
             client.disconnect()
         }
@@ -441,6 +452,26 @@ class Assistant(private val app: WigginsApp) {
     }
 
     private fun newRequestId() = UUID.randomUUID().toString()
+
+    /**
+     * Sends a Waggle response, waiting through a reconnect if the connection dropped
+     * while the request was being handled (a network handover, say).
+     */
+    private suspend fun sendWhenConnected(type: String, data: JsonObject) {
+        withTimeoutOrNull(CONNECT_WAIT_MS) {
+            while (true) {
+                connection.first { it is ConnectionState.Connected }
+                if (client.sendBus(type, data, sessionContext())) return@withTimeoutOrNull
+                delay(RESEND_PAUSE_MS)
+            }
+        } ?: Log.w(TAG, "dropped $type: no connection")
+    }
+
+    /** Tells the hub what the phone allows (WAGGLE.md `waggle.capabilities`), if connected. */
+    private fun announceCapabilities() {
+        if (connection.value !is ConnectionState.Connected) return
+        scope.launch { client.sendBus(Waggle.CAPABILITIES, phoneActions.capabilities().toJson(), sessionContext()) }
+    }
 
     /** Stops any reply being read aloud, by either voice. */
     private fun stopVoice() {
@@ -636,6 +667,7 @@ class Assistant(private val app: WigginsApp) {
                 retries = 0
                 forceTokenRefresh = false
                 _problem.value = null
+                announceCapabilities()
                 // Once per hub (and once after upgrading from before hub speech).
                 scope.launch { if (app.settings.speech.first().hubSpeechAvailable == null) checkHubSpeech() }
                 val queued = pending.toList()
@@ -689,6 +721,13 @@ class Assistant(private val app: WigginsApp) {
                 if (!isSpeaking) onSpeechIdle()
             }
             // Early answers come while the utterance is still being recorded.
+            is HubEvent.WaggleRequest -> scope.launch {
+                val (handled, responseType) = when (event.type) {
+                    Waggle.INTENT -> phoneActions.onIntent(event.data) to Waggle.INTENT_RESPONSE
+                    else -> phoneActions.onQuery(event.data) to Waggle.QUERY_RESPONSE
+                }
+                handled?.let { sendWhenConnected(responseType, it.toJson()) }
+            }
             is HubEvent.Transcription -> (transcribing.keys + listOfNotNull(recording)).forEach { it.onAnswer(event.id, event.text) }
             is HubEvent.SpeechAudio -> {
                 val check = speechCheck
@@ -782,6 +821,7 @@ class Assistant(private val app: WigginsApp) {
         const val IDLE_SESSION_MS = 30 * 60 * 1000L
         const val CONNECT_WAIT_MS = 10_000L
         const val FOREGROUND_WAIT_MS = 2_000L
+        const val RESEND_PAUSE_MS = 500L
         const val HINT_MS = 3_000L
         const val SPEECH_CHECK_TIMEOUT_MS = 10_000L
         const val SPEECH_CHECK_PHRASE = "Hello."

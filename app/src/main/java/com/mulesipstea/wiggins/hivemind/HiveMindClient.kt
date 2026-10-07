@@ -77,6 +77,9 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
         socket?.send(frame) ?: false
     }
 
+    /** Sends a BUS message of [type] with [data] (a Waggle response, say); false if not connected. */
+    fun sendBus(type: String, data: JsonObject, context: SessionContext): Boolean = send { it.bus(type, data, context) }
+
     /** Sends an utterance; false if not connected. */
     fun sendUtterance(text: String, context: SessionContext): Boolean = synchronized(lock) {
         val frame = protocol?.utterance(text, context) ?: return false

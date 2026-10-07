@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.roborazzi)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -79,6 +80,11 @@ android {
     }
 }
 
+// Room's schema history, for migrations: app/schemas/, committed.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -96,6 +102,9 @@ dependencies {
     implementation(libs.tink.android)
     implementation(libs.appauth)
     implementation(project(":vad"))
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 

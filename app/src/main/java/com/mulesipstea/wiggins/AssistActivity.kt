@@ -64,6 +64,7 @@ class AssistActivity : ComponentActivity() {
                 val listening by assistant.listening.collectAsStateWithLifecycle()
                 val level by assistant.inputLevel.collectAsStateWithLifecycle()
                 val hint by assistant.hint.collectAsStateWithLifecycle()
+                val asks by assistant.phoneActions.asks.collectAsStateWithLifecycle()
                 AssistPanel(
                     connection = connection,
                     transcript = transcript,
@@ -90,6 +91,8 @@ class AssistActivity : ComponentActivity() {
                     level = level,
                     onStopListening = assistant::finishListening,
                     hint = hint,
+                    ask = asks.firstOrNull(),
+                    onAnswerAsk = assistant.phoneActions::answer,
                 )
             }
         }

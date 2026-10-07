@@ -27,6 +27,9 @@ sealed interface HubEvent {
     /** The hub's speech for a `speak:b64_audio` request with [id]: a base64 WAV file. */
     data class SpeechAudio(val id: String, val wavBase64: String) : HubEvent
 
+    /** A Waggle request from the hub: [type] is `waggle.intent` or `waggle.query`. */
+    data class WaggleRequest(val type: String, val data: JsonObject) : HubEvent
+
     /** Every downlink bus message, handled or not, for the message log M1 keeps. */
     data class Downlink(val hiveType: String, val busType: String?, val raw: JsonObject) : HubEvent
 }

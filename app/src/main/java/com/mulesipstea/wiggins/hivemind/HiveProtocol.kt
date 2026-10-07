@@ -219,6 +219,7 @@ class HiveProtocol(
                 out += Output.Event(HubEvent.Speak(it, expect))
             }
             "mycroft.mic.listen" -> out += Output.Event(HubEvent.Listen)
+            "waggle.intent", "waggle.query" -> out += Output.Event(HubEvent.WaggleRequest(busType, data ?: JsonObject(emptyMap())))
             "recognizer_loop:b64_transcribe.response" -> {
                 val id = ((payload["context"] as? JsonObject)?.get(REQUEST_ID) as? JsonPrimitive)?.contentOrNull
                 if (id != null) out += Output.Event(HubEvent.Transcription(id, firstTranscription(data)))
