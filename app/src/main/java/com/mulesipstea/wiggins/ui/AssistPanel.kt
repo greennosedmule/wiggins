@@ -58,6 +58,10 @@ fun AssistPanel(
     onOpenApp: () -> Unit,
     onClosed: () -> Unit,
     startVisible: Boolean = false,
+    listening: Boolean = false,
+    level: Float = 0f,
+    onStopListening: () -> Unit = {},
+    hint: String? = null,
 ) {
     val shown = remember { MutableTransitionState(startVisible).apply { targetState = true } }
     val dismiss = { shown.targetState = false }
@@ -119,7 +123,7 @@ fun AssistPanel(
                     ) {
                         EmptyConversation(canListen, onAsk = onSend, compact = true)
                     }
-                    InputRow(onSend, canListen, onListen, speaking, onStopSpeaking)
+                    InputRow(onSend, canListen, onListen, speaking, onStopSpeaking, listening, level, onStopListening, hint)
                 }
             }
         }

@@ -718,6 +718,45 @@ appends a type. The Waggle types for M5 must be added this way.
 What the client **receives** is filtered by `message_blacklist`, which drops
 outgoing types silently, not by `allowed_types`.
 
+### 11.5 Hub speech (M4)
+
+With the hub's `hivemind-audio-binary-protocol` plugin enabled, a client can have
+the hub transcribe and synthesize speech using ordinary encrypted `bus` messages
+(binarize stays off). The plugin's handlers subscribe on the hub's own OVOS bus
+connection: the request goes onto the bus, the handler answers with
+`message.reply(...)`, and the answer is routed back like any other reply (§12).
+Wiggins' code: `HiveProtocol.transcribe`/`synthesize` and the two response cases
+in `onBus`.
+
+**Speech to text.** Client → hub:
+
+```json
+{"type": "recognizer_loop:b64_transcribe",
+ "data": {"audio": "<base64 WAV>", "lang": "en-US", "sample_rate": 16000, "sample_width": 2},
+ "context": {"…": "…", "session": {"…": "…"}, "wiggins_id": "<random id>"}}
+```
+
+Hub → client: `recognizer_loop:b64_transcribe.response` with
+`data.transcriptions`, a list of `[text, confidence]`. A failed STT answers
+`[[null, 1.0]]`. The data doesn't echo the request, but `reply` copies the
+request's context, so `context.wiggins_id` matches it.
+
+- Send 16 kHz mono 16-bit **WAV**. Plugin 2.1.x reads the base64 as an audio
+  file (and the hub image has no ffmpeg, so only WAV works); the 2.2 alphas read
+  raw 16 kHz s16 PCM and check `sample_rate`/`sample_width`, for which the
+  44-byte header is about 1 ms of noise.
+- Never send `lang: "auto"`: the hub's STT client then asks a public language
+  detection server, and the audio leaves the hub.
+
+**Text to speech.** Client → hub: `speak:b64_audio` with
+`{"utterance": "…", "lang": "en-US", "wiggins_id": "<random id>"}`. Hub → client:
+`speak:b64_audio.response`, whose data is the request's data plus `audio`, a
+base64 WAV file at the engine's own rate and format (Kokoro: 24 kHz mono 16-bit;
+Piper: 22050 Hz). A failed TTS sends **no** reply, so the client needs a timeout.
+
+Both types are in stable's default `allowed_types` (§11.4); on hubs that grant
+nothing by default, add them with `allow-msg`, one type per command.
+
 ## 12. Downlink: what the hub sends after the handshake
 
 The hub sends nothing on its own after HELLO. No pings, no status messages.

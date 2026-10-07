@@ -1,5 +1,6 @@
 package com.mulesipstea.wiggins.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -48,7 +49,14 @@ fun ChatScreen(
     onOpenSettings: () -> Unit,
     onOpenMessages: () -> Unit,
     onOpenAbout: () -> Unit,
+    listening: Boolean = false,
+    level: Float = 0f,
+    onStopListening: () -> Unit = {},
+    onCancelListening: () -> Unit = {},
+    hint: String? = null,
 ) {
+    // Back discards an utterance being recorded.
+    BackHandler(enabled = listening, onBack = onCancelListening)
     Scaffold(
         topBar = {
             TopAppBar(
@@ -93,7 +101,7 @@ fun ChatScreen(
             ) {
                 EmptyConversation(canListen, onAsk = onSend)
             }
-            InputRow(onSend, canListen, onListen, speaking, onStopSpeaking)
+            InputRow(onSend, canListen, onListen, speaking, onStopSpeaking, listening, level, onStopListening, hint)
         }
     }
 }

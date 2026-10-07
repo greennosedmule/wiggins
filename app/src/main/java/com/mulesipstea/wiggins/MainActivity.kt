@@ -1,5 +1,6 @@
 package com.mulesipstea.wiggins
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.media.AudioManager
 import android.os.Bundle
@@ -20,10 +21,15 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
-    /** Hands speech-to-text to the user's recognizer app; Wiggins never records audio. */
+    /** Device speech-to-text: the user's recognizer app. */
     private val recognize = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val text = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
         viewModel.assistant.onRecognized(text)
+    }
+
+    /** Hub speech-to-text records here, so asks for the microphone the first time. */
+    private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        viewModel.assistant.onMicPermission(granted)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,7 +42,8 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             // RESUMED, not STARTED: whichever Wiggins screen is in front starts the recognizer.
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                viewModel.assistant.listenRequests.collect { startRecognizer() }
+                launch { viewModel.assistant.listenRequests.collect { startRecognizer() } }
+                viewModel.assistant.micPermissionRequests.collect { micPermission.launch(Manifest.permission.RECORD_AUDIO) }
             }
         }
     }

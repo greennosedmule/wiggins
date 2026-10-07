@@ -95,6 +95,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.tink.android)
     implementation(libs.appauth)
+    implementation(project(":vad"))
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 

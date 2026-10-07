@@ -1,11 +1,14 @@
 package com.mulesipstea.wiggins.speech
 
+import android.Manifest
 import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import com.mulesipstea.wiggins.settings.SpeechMode
+import com.mulesipstea.wiggins.settings.SpeechSettings
 import java.util.Locale
 
 /** What Wiggins needs from the rest of the phone (SPEC "Prerequisites"), checked on each resume. */
@@ -15,8 +18,14 @@ data class Prerequisites(
     /** Labels of installed TTS engines. */
     val ttsEngines: List<String>,
     val isAssistant: Boolean,
+    /** RECORD_AUDIO is granted, for hub speech-to-text. */
+    val micAllowed: Boolean = false,
 ) {
-    val speechReady get() = recognizer != null && ttsEngines.isNotEmpty()
+    /** Something can turn speech into text in the chosen mode (the microphone permission is asked for when first needed). */
+    fun canListen(speech: SpeechSettings) = speech.sttMode == SpeechMode.HUB || recognizer != null
+
+    fun speechReady(speech: SpeechSettings) =
+        canListen(speech) && (speech.ttsMode == SpeechMode.HUB || ttsEngines.isNotEmpty())
 
     companion object {
         fun check(context: Context): Prerequisites {
@@ -28,10 +37,11 @@ data class Prerequisites(
             val engines = pm.queryIntentServices(Intent(TextToSpeech.Engine.INTENT_ACTION_TTS_SERVICE), 0)
                 .map { it.loadLabel(pm).toString() }
             val roles = context.getSystemService(RoleManager::class.java)
-            return Prerequisites(recognizer, engines, roles.isRoleHeld(RoleManager.ROLE_ASSISTANT))
+            val mic = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+            return Prerequisites(recognizer, engines, roles.isRoleHeld(RoleManager.ROLE_ASSISTANT), mic)
         }
 
-        /** The request Wiggins hands to the user's recognizer app; it never records audio itself. */
+        /** The request Wiggins hands to the user's recognizer app, for device speech-to-text. */
         fun recognizeIntent(prompt: String? = null): Intent =
             Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)

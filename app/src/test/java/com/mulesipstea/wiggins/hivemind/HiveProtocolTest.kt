@@ -132,6 +132,51 @@ class HiveProtocolTest {
         assertEquals(carried, proto.handedBackSession)
     }
 
+    /** Hub speech (SPEC "Hub speech-to-text", "Hub text-to-speech"): requests carry an id the responses are matched by. */
+    @Test fun speechRequestsAndResponses() {
+        val session = Vectors.cases("full_session.json", "sessions")[0]
+        val inputs = session.getValue("inputs").jsonObject
+        val negotiated = session.getValue("negotiated").jsonObject
+        val proto = HiveProtocol(
+            useragent = "Wiggins",
+            password = inputs.str("password"),
+            handshake = PasswordHandshake(inputs.str("password"), inputs.hex("client_iv_hex")),
+        ).also { it.setSession(context) }
+        session.arr("frames").map { it.jsonObject }.filter { it.str("dir") == "hub->client" && !it.bool("encrypted") }
+            .forEach { proto.onFrame(it.str("wire")) }
+        val hub = FrameCipher(negotiated.hex("key_hex"), HiveCipher.CHACHA20_POLY1305, HiveEncoding.JSON_B64)
+
+        val transcribe = hub.open(checkNotNull(proto.transcribe("t1", byteArrayOf(1, 2, 3), context))).json().jsonObject.getValue("payload").jsonObject
+        assertEquals("recognizer_loop:b64_transcribe", transcribe.str("type"))
+        val tData = transcribe.getValue("data").jsonObject
+        assertEquals("AQID", tData.str("audio"))
+        assertEquals("en-US", tData.str("lang"))
+        assertEquals("16000", tData.getValue("sample_rate").jsonPrimitive.content)
+        assertEquals("2", tData.getValue("sample_width").jsonPrimitive.content)
+        assertEquals("t1", transcribe.getValue("context").jsonObject.str("wiggins_id"))
+
+        val synthesize = hub.open(checkNotNull(proto.synthesize("s1", "Hello.", context))).json().jsonObject.getValue("payload").jsonObject
+        assertEquals("speak:b64_audio", synthesize.str("type"))
+        val sData = synthesize.getValue("data").jsonObject
+        assertEquals("Hello.", sData.str("utterance"))
+        assertEquals("en-US", sData.str("lang"))
+        assertEquals("s1", sData.str("wiggins_id"))
+
+        // The plugin answers with Message.reply, which copies the request's context.
+        fun events(json: String) = proto.onFrame(hub.seal(json)).filterIsInstance<HiveProtocol.Output.Event>().map { it.event }
+        val heard = events("""{"msg_type":"bus","payload":{"type":"recognizer_loop:b64_transcribe.response",
+            "data":{"transcriptions":[["what time is it",0.92],["what time is", 0.5]]},
+            "context":{"wiggins_id":"t1","session":{"session_id":"${proto.sessionId}"}}}}""")
+        assertEquals(HubEvent.Transcription("t1", "what time is it"), heard.filterIsInstance<HubEvent.Transcription>().single())
+        // A failed STT answers [[null, 1.0]].
+        val failed = events("""{"msg_type":"bus","payload":{"type":"recognizer_loop:b64_transcribe.response",
+            "data":{"transcriptions":[[null,1.0]]},"context":{"wiggins_id":"t2"}}}""")
+        assertEquals(HubEvent.Transcription("t2", null), failed.filterIsInstance<HubEvent.Transcription>().single())
+        val audio = events("""{"msg_type":"bus","payload":{"type":"speak:b64_audio.response",
+            "data":{"utterance":"Hello.","lang":"en-US","wiggins_id":"s1","audio":"UklGRg=="},"context":{}}}""")
+        assertEquals(HubEvent.SpeechAudio("s1", "UklGRg=="), audio.filterIsInstance<HubEvent.SpeechAudio>().single())
+    }
+
     @Test fun envelopeHasOnlyKnownKeys() {
         val text = HiveProtocol.hiveMessage("bus", JsonObject(emptyMap()))
         assertEquals(setOf("msg_type", "payload"), text.json().jsonObject.keys)

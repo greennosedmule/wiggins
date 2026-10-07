@@ -2,6 +2,7 @@ package com.mulesipstea.wiggins.ui
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -52,6 +53,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -104,17 +106,22 @@ internal fun Bubble(entry: TranscriptEntry, onResend: (Long) -> Unit) {
                 contentColor = if (user) colors.onPrimaryContainer else colors.onSurface,
                 // The small corner points at the speaker.
                 shape = if (user) RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp) else RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp),
-                modifier = Modifier.weight(0.85f, fill = false).alpha(if (entry.delivery == Delivery.PENDING) 0.6f else 1f),
+                modifier = Modifier.weight(0.85f, fill = false)
+                    .alpha(if (entry.delivery == Delivery.PENDING || entry.delivery == Delivery.TRANSCRIBING) 0.6f else 1f),
             ) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                    Text(entry.text, style = MaterialTheme.typography.bodyLarge)
+                    if (entry.delivery == Delivery.TRANSCRIBING) {
+                        Text("Transcribing…", style = MaterialTheme.typography.bodyLarge, fontStyle = FontStyle.Italic)
+                    } else {
+                        Text(entry.text, style = MaterialTheme.typography.bodyLarge)
+                    }
                     if (entry.streaming) MoreToCome(Modifier.padding(top = 6.dp))
                 }
             }
             if (!user) Spacer(Modifier.weight(0.15f))
         }
         when (entry.delivery) {
-            Delivery.SENT -> Unit
+            Delivery.SENT, Delivery.TRANSCRIBING -> Unit
             Delivery.PENDING -> Text(
                 "Sending…",
                 style = MaterialTheme.typography.labelSmall,
@@ -185,8 +192,9 @@ internal fun EmptyConversation(canListen: Boolean, onAsk: (String) -> Unit, comp
 }
 
 /**
- * The text box and its button: send when there's text; otherwise stop while a reply is
- * being read aloud, else the mic.
+ * The text box and its button: send when there's text; otherwise, while listening, the
+ * mic showing the input level, which ends the utterance; stop while a reply is being read
+ * aloud; else the mic. [hint] replaces the placeholder for a moment ("Didn't catch that").
  */
 @Composable
 internal fun InputRow(
@@ -195,6 +203,10 @@ internal fun InputRow(
     onListen: () -> Unit,
     speaking: Boolean,
     onStopSpeaking: () -> Unit,
+    listening: Boolean = false,
+    level: Float = 0f,
+    onStopListening: () -> Unit = {},
+    hint: String? = null,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     val submit = {
@@ -212,7 +224,7 @@ internal fun InputRow(
             value = text,
             onValueChange = { text = it },
             modifier = Modifier.weight(1f).testTag("utterance"),
-            placeholder = { Text("Ask something") },
+            placeholder = { Text(hint ?: if (listening) "Listening…" else "Ask something") },
             singleLine = true,
             shape = RoundedCornerShape(28.dp),
             colors = OutlinedTextFieldDefaults.colors(
@@ -227,6 +239,7 @@ internal fun InputRow(
             text.isNotBlank() -> FilledIconButton(onClick = submit, modifier = Modifier.size(52.dp)) {
                 Icon(Icons.AutoMirrored.Filled.Send, "Send")
             }
+            listening -> ListeningButton(level, onStopListening)
             speaking -> FilledIconButton(onClick = onStopSpeaking, modifier = Modifier.size(52.dp)) {
                 Icon(painterResource(R.drawable.ic_stop), "Stop speaking")
             }
@@ -236,6 +249,21 @@ internal fun InputRow(
             else -> FilledIconButton(onClick = submit, enabled = false, modifier = Modifier.size(52.dp)) {
                 Icon(Icons.AutoMirrored.Filled.Send, "Send")
             }
+        }
+    }
+}
+
+/** The mic while recording: a halo that follows the input level. Tapping it ends the utterance. */
+@Composable
+private fun ListeningButton(level: Float, onStop: () -> Unit) {
+    val halo by animateFloatAsState(level, tween(durationMillis = 90), label = "level")
+    Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(52.dp).scale(1f + 0.4f * halo)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f + 0.22f * halo), CircleShape),
+        )
+        FilledIconButton(onClick = onStop, modifier = Modifier.size(52.dp).testTag("listening")) {
+            Icon(painterResource(R.drawable.ic_mic), "Listening; tap when you've finished")
         }
     }
 }

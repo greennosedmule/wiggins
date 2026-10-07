@@ -24,6 +24,8 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import com.mulesipstea.wiggins.hivemind.ConnectionState
 import com.mulesipstea.wiggins.settings.AuthMode
 import com.mulesipstea.wiggins.settings.HubSettings
+import com.mulesipstea.wiggins.settings.SpeechMode
+import com.mulesipstea.wiggins.settings.SpeechSettings
 import com.mulesipstea.wiggins.speech.Prerequisites
 import com.mulesipstea.wiggins.ui.theme.WigginsTheme
 import org.junit.Rule
@@ -116,6 +118,8 @@ class ScreenshotTest {
     @Test fun setupLight() = shoot("setup", false) {
         SetupScreen(
             prerequisites = Prerequisites(recognizer = "FUTO Voice Input", ttsEngines = listOf("RHVoice"), isAssistant = false),
+            speech = SpeechSettings(stt = SpeechMode.HUB, tts = SpeechMode.DEVICE, hubSpeechAvailable = true),
+            checkingHubSpeech = false, onCheckHubSpeech = {},
             hubConfigured = true, connection = ConnectionState.Connected("hub"), onOpenHubSettings = {}, onBack = {},
         )
     }
@@ -127,7 +131,20 @@ class ScreenshotTest {
                 authMode = AuthMode.SIGN_IN, signInIssuer = "https://login.microsoftonline.com/tenant/v2.0",
                 signInClientId = "00000000-0000-0000-0000-000000000000", signInScope = "api://example/hivemind",
             ),
-            onSave = {}, onBack = {},
+            initialSpeech = SpeechSettings(stt = SpeechMode.HUB, tts = SpeechMode.HUB, hubSpeechAvailable = true),
+            onSave = { _, _ -> }, onBack = {},
+        )
+    }
+
+    @Test fun listeningLight() = shoot("listening", false) {
+        ChatScreen(
+            connection = ConnectionState.Connected("hub"),
+            transcript = conversation.take(2) + TranscriptEntry(8, Who.USER, "", Delivery.TRANSCRIBING),
+            thinking = false, speaking = false, speakReplies = true, onStopSpeaking = {}, onSpeakRepliesChange = {},
+            banner = Banner("Hub speech isn't answering.", "Use device speech", isProblem = true) {},
+            onSend = {}, onResend = {}, onClearConversation = {}, canListen = true, onListen = {},
+            onOpenSetup = {}, onOpenSettings = {}, onOpenMessages = {}, onOpenAbout = {},
+            listening = true, level = 0.7f,
         )
     }
 }

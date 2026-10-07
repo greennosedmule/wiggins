@@ -7,6 +7,7 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import java.util.Locale
 import java.util.UUID
 
@@ -74,6 +75,13 @@ class Speaker(context: Context) {
             engine == Engine.UNAVAILABLE
         }
         if (idleNow) onIdle?.invoke()
+    }
+
+    /** Speaks [text] and returns once it (and anything queued before it) has been spoken. */
+    suspend fun speakAndWait(text: String) {
+        if (!isAvailable) return
+        speak(text)
+        speaking.first { !it }
     }
 
     /** Stops speech without firing [onIdle]: the user interrupted. */

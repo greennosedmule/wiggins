@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Hub speech-to-text records the utterance; asked for the first time it listens. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <queries>
         <!-- The system TTS engine, for speaking replies. -->

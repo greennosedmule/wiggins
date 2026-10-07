@@ -1,6 +1,7 @@
 package com.mulesipstea.wiggins.hivemind
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -11,6 +12,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import java.util.Base64
 import java.util.UUID
 
 /**
@@ -89,10 +91,37 @@ class HiveProtocol(
     )
 
     /**
+     * Asks the hub to transcribe [wav] (16 kHz mono 16-bit), marking the request with
+     * [id] in its context, which the hub's reply copies (SPEC "Hub speech-to-text").
+     */
+    fun transcribe(id: String, wav: ByteArray, context: SessionContext): String? = bus(
+        "recognizer_loop:b64_transcribe",
+        buildJsonObject {
+            put("audio", Base64.getEncoder().encodeToString(wav))
+            put("lang", context.lang)
+            put("sample_rate", 16_000)
+            put("sample_width", 2)
+        },
+        context,
+        mapOf(REQUEST_ID to id),
+    )
+
+    /** Asks the hub to synthesize [utterance]; the reply's data echoes [id] (SPEC "Hub text-to-speech"). */
+    fun synthesize(id: String, utterance: String, context: SessionContext): String? = bus(
+        "speak:b64_audio",
+        buildJsonObject {
+            put("utterance", utterance)
+            put("lang", context.lang)
+            put(REQUEST_ID, id)
+        },
+        context,
+    )
+
+    /**
      * Builds an encrypted BUS message of [type] (e.g. `recognizer_loop:record_begin`),
      * or null if the handshake isn't done. The hub drops types the client isn't allowed to send.
      */
-    fun bus(type: String, data: JsonObject, context: SessionContext): String? {
+    fun bus(type: String, data: JsonObject, context: SessionContext, extraContext: Map<String, String> = emptyMap()): String? {
         if (stage != Stage.READY) return null
         session = context
         val payload = buildJsonObject {
@@ -103,6 +132,7 @@ class HiveProtocol(
                 put("destination", "HiveMind")
                 put("platform", useragent)
                 put("session", sessionJson(context))
+                extraContext.forEach { (key, value) -> put(key, value) }
             }
         }
         return encrypted(hiveMessage("bus", payload))
@@ -189,8 +219,24 @@ class HiveProtocol(
                 out += Output.Event(HubEvent.Speak(it, expect))
             }
             "mycroft.mic.listen" -> out += Output.Event(HubEvent.Listen)
+            "recognizer_loop:b64_transcribe.response" -> {
+                val id = ((payload["context"] as? JsonObject)?.get(REQUEST_ID) as? JsonPrimitive)?.contentOrNull
+                if (id != null) out += Output.Event(HubEvent.Transcription(id, firstTranscription(data)))
+            }
+            "speak:b64_audio.response" -> {
+                val id = (data?.get(REQUEST_ID) as? JsonPrimitive)?.contentOrNull
+                val audio = (data?.get("audio") as? JsonPrimitive)?.contentOrNull
+                if (id != null && audio != null) out += Output.Event(HubEvent.SpeechAudio(id, audio))
+            }
         }
         return out
+    }
+
+    /** The first of `transcriptions`, a list of `[text, confidence]`; text is null when the STT failed. */
+    private fun firstTranscription(data: JsonObject?): String? {
+        val first = (data?.get("transcriptions") as? JsonArray)?.firstOrNull() ?: return null
+        val text = (first as? JsonArray)?.firstOrNull() ?: first
+        return (text as? JsonPrimitive)?.takeIf { it.isString }?.content
     }
 
     private fun encrypted(plaintext: String) = checkNotNull(cipher).seal(plaintext)
@@ -202,6 +248,9 @@ class HiveProtocol(
 
     companion object {
         const val DEFAULT_SITE_ID = "phone"
+
+        /** Marks a speech request so its response can be matched to it. */
+        const val REQUEST_ID = "wiggins_id"
         val OFFERED_CIPHER = HiveCipher.CHACHA20_POLY1305
         val OFFERED_ENCODING = HiveEncoding.JSON_B64
 

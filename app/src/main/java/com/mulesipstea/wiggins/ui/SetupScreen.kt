@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.mulesipstea.wiggins.hivemind.ConnectionState
+import com.mulesipstea.wiggins.settings.SpeechMode
+import com.mulesipstea.wiggins.settings.SpeechSettings
 import com.mulesipstea.wiggins.speech.Prerequisites
 
 private const val FUTO_VOICE_INPUT = "https://voiceinput.futo.org/"
@@ -41,6 +43,9 @@ private const val RHVOICE = "https://f-droid.org/packages/com.github.olga_yakovl
 @Composable
 fun SetupScreen(
     prerequisites: Prerequisites,
+    speech: SpeechSettings,
+    checkingHubSpeech: Boolean,
+    onCheckHubSpeech: () -> Unit,
     hubConfigured: Boolean,
     connection: ConnectionState,
     onOpenHubSettings: () -> Unit,
@@ -71,13 +76,39 @@ fun SetupScreen(
                 action = "Hub settings" to onOpenHubSettings,
             )
             Item(
+                title = "Hub speech",
+                ok = speech.hubSpeechAvailable == true,
+                detail = when {
+                    checkingHubSpeech -> "Asking the hub to say something…"
+                    speech.hubSpeechAvailable == true -> "The hub can transcribe what you say and speak its replies."
+                    speech.hubSpeechAvailable == false ->
+                        "The hub didn't answer a speech request, so the phone's speech apps are used. " +
+                            "The hub needs the hivemind-audio-binary-protocol plugin, and this client needs " +
+                            "allow-msg for recognizer_loop:b64_transcribe and speak:b64_audio."
+                    else -> "Checked when Wiggins next connects to the hub."
+                },
+                action = if (connection is ConnectionState.Connected && !checkingHubSpeech) "Check again" to onCheckHubSpeech else null,
+            )
+            if (speech.sttMode == SpeechMode.HUB) {
+                Item(
+                    title = "Microphone",
+                    ok = prerequisites.micAllowed,
+                    detail = if (prerequisites.micAllowed) {
+                        "Wiggins records only while the mic button shows it's listening, and sends the audio only to your hub."
+                    } else {
+                        "Wiggins asks for the microphone the first time you speak to it, to record for the hub's speech-to-text."
+                    },
+                    action = null,
+                )
+            }
+            if (speech.sttMode == SpeechMode.DEVICE) Item(
                 title = "Speech recognizer",
                 ok = prerequisites.recognizer != null,
                 detail = prerequisites.recognizer?.let { "$it turns your speech into text." }
                     ?: "No app handles speech recognition. Typing still works. FUTO Voice Input works offline without Google services.",
                 action = if (prerequisites.recognizer == null) "Get FUTO Voice Input" to { context.open(Uri.parse(FUTO_VOICE_INPUT)) } else null,
             )
-            Item(
+            if (speech.ttsMode == SpeechMode.DEVICE) Item(
                 title = "Text-to-speech engine",
                 ok = prerequisites.ttsEngines.isNotEmpty(),
                 detail = if (prerequisites.ttsEngines.isEmpty()) {

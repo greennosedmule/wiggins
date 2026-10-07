@@ -14,8 +14,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var lastAssistMillis = 0L
 
     /**
-     * Wiggins was opened by the assist gesture: listen straight away when a recognizer
-     * exists, unless it was invoked from a keyboard, where typing is the natural answer.
+     * Wiggins was opened by the assist gesture: listen straight away, unless it was
+     * invoked from a keyboard, where typing is the natural answer.
      */
     fun onAssistInvoked(fromKeyboard: Boolean) {
         // Android can deliver the assist intent twice in a row (seen by Dicio).
@@ -23,7 +23,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (now - lastAssistMillis < ASSIST_DEBOUNCE_MS) return
         lastAssistMillis = now
         assistant.refreshPrerequisites()
-        if (!fromKeyboard && assistant.prerequisites.value.recognizer != null) assistant.listen()
+        if (!fromKeyboard) assistant.listen()
     }
 
     private companion object {

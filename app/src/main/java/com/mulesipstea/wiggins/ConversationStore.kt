@@ -70,6 +70,17 @@ class ConversationStore(
         changed()
     }
 
+    /** Replaces an entry's text and delivery: a transcription arrived. */
+    fun setText(id: Long, text: String, delivery: Delivery) {
+        _entries.update { list -> list.map { if (it.id == id) it.copy(text = text, delivery = delivery) else it } }
+        changed()
+    }
+
+    fun remove(id: Long) {
+        _entries.update { list -> list.filterNot { it.id == id } }
+        changed()
+    }
+
     /** Adds the next sentence of a streaming reply. */
     fun append(id: Long, text: String) {
         _entries.update { list -> list.map { if (it.id == id) it.copy(text = it.text + " " + text) else it } }
@@ -118,10 +129,10 @@ class ConversationStore(
             // The first format was a bare list of entries, with no session.
             ?: runCatching { Saved(newSessionId(), source.lastModified(), json.decodeFromString(listSerializer, text)) }.getOrNull()
             ?: return fresh
-        // A question still pending when the app died never reached the hub, and no
-        // more of a reply that was still arriving will come.
+        // A question still pending when the app died never reached the hub, no more of
+        // a reply that was still arriving will come, and a transcription won't either.
         return saved.copy(
-            entries = saved.entries.map {
+            entries = saved.entries.filterNot { it.delivery == Delivery.TRANSCRIBING }.map {
                 it.copy(delivery = if (it.delivery == Delivery.PENDING) Delivery.NOT_SENT else it.delivery, streaming = false)
             },
         )

@@ -4,12 +4,32 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+
+/** Who does speech-to-text or text-to-speech (SPEC "Speech modes"). */
+enum class SpeechMode { HUB, DEVICE }
+
+/**
+ * The speech settings. A mode is null until the user picks one or the hub speech
+ * check has run; until then the device does it.
+ */
+data class SpeechSettings(
+    val stt: SpeechMode? = null,
+    val tts: SpeechMode? = null,
+    /** Transcribe at a short pause while waiting for the end of speech (SPEC "Hub speech-to-text"). */
+    val earlyTranscription: Boolean = true,
+    /** What the last hub speech check found: true if the hub synthesized, false if not, null if it hasn't run. */
+    val hubSpeechAvailable: Boolean? = null,
+) {
+    val sttMode get() = stt ?: SpeechMode.DEVICE
+    val ttsMode get() = tts ?: SpeechMode.DEVICE
+}
 
 /** How the connection to the hub's reverse proxy is authenticated (SPEC "Security requirements"). */
 enum class AuthMode {
@@ -77,6 +97,46 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[SPEAK_REPLIES] = on }
     }
 
+    val speech: Flow<SpeechSettings> = context.dataStore.data.map {
+        SpeechSettings(
+            stt = it[STT_MODE]?.let { m -> runCatching { SpeechMode.valueOf(m) }.getOrNull() },
+            tts = it[TTS_MODE]?.let { m -> runCatching { SpeechMode.valueOf(m) }.getOrNull() },
+            earlyTranscription = it[EARLY_TRANSCRIPTION] ?: true,
+            hubSpeechAvailable = it[HUB_SPEECH_AVAILABLE],
+        )
+    }
+
+    suspend fun saveSpeech(speech: SpeechSettings) {
+        context.dataStore.edit {
+            it.putOrRemove(STT_MODE, speech.stt?.name)
+            it.putOrRemove(TTS_MODE, speech.tts?.name)
+            it[EARLY_TRANSCRIPTION] = speech.earlyTranscription
+            it.putOrRemove(HUB_SPEECH_AVAILABLE, speech.hubSpeechAvailable)
+        }
+    }
+
+    /**
+     * Records the hub speech check's result, and makes it the default for any mode
+     * the user hasn't chosen (SPEC "Speech modes").
+     */
+    suspend fun saveHubSpeechCheck(available: Boolean) {
+        val default = if (available) SpeechMode.HUB else SpeechMode.DEVICE
+        context.dataStore.edit {
+            it[HUB_SPEECH_AVAILABLE] = available
+            if (it[STT_MODE] == null) it[STT_MODE] = default.name
+            if (it[TTS_MODE] == null) it[TTS_MODE] = default.name
+        }
+    }
+
+    /** Forgets the hub speech check (a different hub), so it runs again on the next connection. */
+    suspend fun forgetHubSpeechCheck() {
+        context.dataStore.edit { it.remove(HUB_SPEECH_AVAILABLE) }
+    }
+
+    private fun <T> MutablePreferences.putOrRemove(key: Preferences.Key<T>, value: T?) {
+        if (value != null) this[key] = value else remove(key)
+    }
+
     /** Stores refreshed tokens without touching the rest of the settings. */
     suspend fun saveAuthState(authState: String) = withContext(Dispatchers.Default) {
         val encrypted = secrets.encrypt(AUTH_STATE.name, authState)
@@ -106,5 +166,9 @@ class SettingsRepository(private val context: Context) {
         val SIGN_IN_SCOPE = stringPreferencesKey("sign_in_scope")
         val AUTH_STATE = stringPreferencesKey("auth_state_enc")
         val SPEAK_REPLIES = booleanPreferencesKey("speak_replies")
+        val STT_MODE = stringPreferencesKey("stt_mode")
+        val TTS_MODE = stringPreferencesKey("tts_mode")
+        val EARLY_TRANSCRIPTION = booleanPreferencesKey("early_transcription")
+        val HUB_SPEECH_AVAILABLE = booleanPreferencesKey("hub_speech_available")
     }
 }

@@ -45,6 +45,8 @@ private val COMPONENTS = listOf(
     "OkHttp and Okio" to "Apache-2.0",
     "Tink" to "Apache-2.0",
     "AppAuth for Android" to "Apache-2.0",
+    "android-vad (Georgiy Konovalov)" to "MIT",
+    "WebRTC voice activity detector (WebRTC project authors)" to "BSD-3-Clause",
     "Material icons" to "Apache-2.0",
     "Libre Baskerville font" to "SIL OFL 1.1",
 )
@@ -94,6 +96,8 @@ fun AboutScreen(onBack: () -> Unit) {
                 }
             }
             LicenseCard("Libre Baskerville", "SIL Open Font License 1.1", R.raw.license_ofl)
+            LicenseCard("android-vad", "MIT License", R.raw.license_android_vad)
+            LicenseCard("WebRTC voice activity detector", "BSD 3-Clause License and patent grant", R.raw.license_webrtc)
         }
     }
 }

@@ -32,7 +32,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,11 +51,20 @@ import com.mulesipstea.wiggins.net.EntraSignIn
 import com.mulesipstea.wiggins.settings.AuthMode
 import com.mulesipstea.wiggins.settings.HubSettings
 import com.mulesipstea.wiggins.settings.HubUrl
+import com.mulesipstea.wiggins.settings.SpeechMode
+import com.mulesipstea.wiggins.settings.SpeechSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(initial: HubSettings?, onSave: (HubSettings) -> Unit, onBack: () -> Unit) {
+fun SettingsScreen(
+    initial: HubSettings?,
+    initialSpeech: SpeechSettings,
+    onSave: (HubSettings, SpeechSettings) -> Unit,
+    onBack: () -> Unit,
+) {
     val start = initial ?: HubSettings()
+    // A mode left unchosen stays null, so the hub speech check can still pick it.
+    var speech by remember(initialSpeech) { mutableStateOf(initialSpeech) }
     var url by remember(start) { mutableStateOf(start.hubUrl) }
     var key by remember(start) { mutableStateOf(start.accessKey) }
     var password by remember(start) { mutableStateOf(start.password) }
@@ -74,15 +88,14 @@ fun SettingsScreen(initial: HubSettings?, onSave: (HubSettings) -> Unit, onBack:
             AuthMode.CLIENT_CERT -> certAlias.isNotBlank()
             AuthMode.SIGN_IN -> authState.isNotBlank()
         }
-    val save = {
-        onSave(
-            start.copy(
-                hubUrl = url.trim(), accessKey = key.trim(), password = password, authMode = mode,
-                clientCertAlias = certAlias,
-                signInIssuer = issuer, signInClientId = clientId, signInScope = scope, authState = authState,
-            ),
-        )
-    }
+    val edited = start.copy(
+        hubUrl = url.trim(), accessKey = key.trim(), password = password, authMode = mode,
+        clientCertAlias = certAlias,
+        signInIssuer = issuer, signInClientId = clientId, signInScope = scope, authState = authState,
+    )
+    val save = { onSave(edited, speech) }
+    // Speech settings alone can always be saved.
+    val savable = canSave || (edited == start && speech != initialSpeech)
 
     Scaffold(
         topBar = {
@@ -96,9 +109,9 @@ fun SettingsScreen(initial: HubSettings?, onSave: (HubSettings) -> Unit, onBack:
             Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
                 Button(
                     onClick = save,
-                    enabled = canSave,
+                    enabled = savable,
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(16.dp).height(52.dp),
-                ) { Text("Save and connect") }
+                ) { Text(if (edited == start) "Save" else "Save and connect") }
             }
         },
     ) { padding ->
@@ -131,6 +144,40 @@ fun SettingsScreen(initial: HubSettings?, onSave: (HubSettings) -> Unit, onBack:
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+            SettingsSection(
+                "Speech",
+                when (speech.hubSpeechAvailable) {
+                    true -> "The hub can transcribe and speak. Its voices are usually better than the phone's."
+                    false -> "The hub didn't answer a speech request, so the phone does both. Check again on the Setup screen."
+                    null -> "Not checked yet: the hub is asked when Wiggins next connects."
+                },
+            ) {
+                SpeechModeChoice("Speech to text", speech.sttMode, "Wiggins records, the hub transcribes", "Your speech recognizer app") {
+                    speech = speech.copy(stt = it)
+                }
+                if (speech.sttMode == SpeechMode.HUB) {
+                    Row(
+                        Modifier.fillMaxWidth().toggleable(
+                            value = speech.earlyTranscription,
+                            role = Role.Switch,
+                            onValueChange = { speech = speech.copy(earlyTranscription = it) },
+                        ),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text("Early transcription", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "Start transcribing at a short pause, so answers come sooner. Costs the hub some extra work.",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Switch(checked = speech.earlyTranscription, onCheckedChange = null)
+                    }
+                }
+                SpeechModeChoice("Spoken replies", speech.ttsMode, "Hub's voice", "Phone's TTS engine") {
+                    speech = speech.copy(tts = it)
+                }
             }
             SettingsSection("Reaching the hub", "How the connection gets past the hub's reverse proxy, if it has one.") {
                 AuthModeOption(AuthMode.NONE, mode, "LAN or VPN", "No proxy sign-in. ws:// or wss://.") { mode = it }
@@ -199,6 +246,24 @@ private fun AuthModeOption(value: AuthMode, selected: AuthMode, title: String, d
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(detail, style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+/** Hub or Device for one direction of speech. */
+@Composable
+private fun SpeechModeChoice(title: String, selected: SpeechMode, hubDetail: String, deviceDetail: String, onSelect: (SpeechMode) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, style = MaterialTheme.typography.bodyLarge)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            SpeechMode.entries.forEachIndexed { i, value ->
+                SegmentedButton(
+                    selected = value == selected,
+                    onClick = { onSelect(value) },
+                    shape = SegmentedButtonDefaults.itemShape(i, SpeechMode.entries.size),
+                ) { Text(if (value == SpeechMode.HUB) "Hub" else "Phone") }
+            }
+        }
+        Text(if (selected == SpeechMode.HUB) hubDetail else deviceDetail, style = MaterialTheme.typography.bodySmall)
     }
 }
 

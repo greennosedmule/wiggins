@@ -83,6 +83,17 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
         socket?.send(frame) ?: false
     }
 
+    /** Asks the hub to transcribe [wav], marked [id]; false if not connected. Builds a large frame: call off the main thread. */
+    fun sendTranscribe(id: String, wav: ByteArray, context: SessionContext): Boolean = send { it.transcribe(id, wav, context) }
+
+    /** Asks the hub to synthesize [utterance], marked [id]; false if not connected. */
+    fun sendSynthesize(id: String, utterance: String, context: SessionContext): Boolean = send { it.synthesize(id, utterance, context) }
+
+    private fun send(build: (HiveProtocol) -> String?): Boolean = synchronized(lock) {
+        val frame = protocol?.let(build) ?: return false
+        socket?.send(frame) ?: false
+    }
+
     private fun close() {
         socket?.close(NORMAL_CLOSURE, null)
         forget()
