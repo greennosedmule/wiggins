@@ -146,8 +146,12 @@ class HiveProtocol(
      */
     private fun sessionJson(context: SessionContext): JsonObject {
         val ours = context.toSessionJson(sessionId, siteId)
+        // Until the hub hands a session back, it fills the location (and its timezone) itself.
         val theirs = hubSession ?: return ours
-        return JsonObject(theirs + ours)
+        val merged = theirs + ours
+        // The phone's timezone, inside the hub's location so its city and coordinates stay.
+        val location = theirs["location"] as? JsonObject ?: return JsonObject(merged)
+        return JsonObject(merged + ("location" to JsonObject(location + ("timezone" to context.timezoneJson()))))
     }
 
     private fun onMessage(message: JsonObject): List<Output> {

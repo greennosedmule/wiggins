@@ -636,16 +636,19 @@ So Wiggins should send, in HELLO and in each BUS context:
 {"session_id": "<uuid4, new per connection, never \"default\">",
  "lang": "en-US",
  "site_id": "phone",
- "location": {"timezone": {"code": "Europe/London", "name": "Greenwich Mean Time",
-                           "offset": 0, "dstOffset": 3600000}},
  "system_unit": "metric",
  "time_format": "full",
  "date_format": "DMY"}
 ```
 
-`location` follows OVOS's `mycroft.conf` `location` schema. `city` and
-`coordinate` can be added if wanted. `offset` and `dstOffset` are in
-milliseconds. Optionally also send `pipeline` if the operator's ovos-core uses a
+**Don't send a partial `location`.** A sent `location` replaces the hub's
+whole one, not just the keys it has, so a timezone alone drops the hub's
+city and coordinates, and the weather skill fails with `KeyError:
+'coordinate'` (found 2026-10-07). Wiggins sends no `location` until the hub
+has handed a session back, so the hub fills its own; after that it sends the
+hub's location with the phone's `timezone`
+(`{"code", "name", "offset", "dstOffset"}`, offsets in milliseconds) put in.
+The first message of a new session therefore uses the hub's timezone. Optionally also send `pipeline` if the operator's ovos-core uses a
 non-default intent pipeline. Otherwise the hub's default list above is what
 ovos-core will use for this session. Whether that list matches the ovos-core
 release in use is **not verified** here.
@@ -897,7 +900,8 @@ run, and the other files are byte-stable.
    skips negotiation and the password. Leave it out.
 8. **Session defaults come from the hub container**, which has stock OVOS
    config: Lawrence, KS, en-us, metric, a default pipeline, and the stop skill
-   blacklisted. Send lang, location.timezone, units and formats explicitly. The
+   blacklisted. Send lang, units and formats explicitly, and the timezone
+only inside the hub's own location (§11.1). The
    pipeline and blacklist question needs checking against the real ovos-core.
 9. Replies are routed only after HELLO with a non-`default` `session_id`.
    Keep the `session_id` constant for the connection.

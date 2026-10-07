@@ -64,6 +64,9 @@ android {
         // Robolectric screenshot tests (Roborazzi) need the app's resources.
         unitTests.isIncludeAndroidResources = true
         unitTests.all {
+            // Robolectric unpacks its native runtime into the temp directory; keep
+            // that under build/, off a small /tmp tmpfs.
+            it.systemProperty("java.io.tmpdir", layout.buildDirectory.dir("tmp/unit-tests").get().asFile.also { d -> d.mkdirs() }.path)
             // Robolectric reaches into JDK internals that Java 17+ hides.
             it.jvmArgs(
                 "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED",

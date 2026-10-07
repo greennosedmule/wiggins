@@ -110,6 +110,37 @@ class HiveProtocolTest {
         assertEquals("imperial", sentSession.str("system_unit"))
     }
 
+    /**
+     * The phone's timezone goes inside the hub's location, so its city and coordinates
+     * stay (the weather skill needs them); before the hub has handed a session back, no
+     * location is sent and the hub fills its own.
+     */
+    @Test fun phoneTimezoneMergesIntoTheHubsLocation() {
+        val session = Vectors.cases("full_session.json", "sessions")[0]
+        val inputs = session.getValue("inputs").jsonObject
+        val negotiated = session.getValue("negotiated").jsonObject
+        val proto = HiveProtocol(
+            useragent = "Wiggins",
+            password = inputs.str("password"),
+            handshake = PasswordHandshake(inputs.str("password"), inputs.hex("client_iv_hex")),
+        ).also { it.setSession(context) }
+        val sent = session.arr("frames").map { it.jsonObject }.filter { it.str("dir") == "hub->client" && !it.bool("encrypted") }
+            .flatMap { proto.onFrame(it.str("wire")) }.filterIsInstance<HiveProtocol.Output.Send>()
+        val hub = FrameCipher(negotiated.hex("key_hex"), HiveCipher.CHACHA20_POLY1305, HiveEncoding.JSON_B64)
+        val hello = hub.open(sent.last().text).json().jsonObject.getValue("payload").jsonObject.getValue("session").jsonObject
+        assertTrue("no location before the hub's session", "location" !in hello)
+
+        proto.onFrame(hub.seal("""{"msg_type":"bus","payload":{"type":"speak","data":{"utterance":"Hi"},
+            "context":{"session":{"session_id":"${proto.sessionId}","location":{"city":{"name":"Johnson City"},
+            "coordinate":{"latitude":36.3,"longitude":-82.4},"timezone":{"code":"America/Chicago","name":"Central"}}}}}}"""))
+        val utterance = hub.open(checkNotNull(proto.utterance("weather", context))).json().jsonObject
+        val location = utterance.getValue("payload").jsonObject.getValue("context").jsonObject
+            .getValue("session").jsonObject.getValue("location").jsonObject
+        assertEquals("36.3", location.getValue("coordinate").jsonObject.getValue("latitude").jsonPrimitive.content)
+        assertEquals("Johnson City", location.getValue("city").jsonObject.str("name"))
+        assertEquals("America/New_York", location.getValue("timezone").jsonObject.str("code"))
+    }
+
     /** A reconnect in the same session hands OVOS's state back in the new connection's HELLO. */
     @Test fun carriedSessionGoesInHello() {
         val session = Vectors.cases("full_session.json", "sessions")[0]
