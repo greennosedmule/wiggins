@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "wiggins"
 include(":app")
+include(":vad")
