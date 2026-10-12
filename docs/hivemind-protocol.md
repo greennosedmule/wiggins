@@ -797,6 +797,15 @@ this client's peer id is wrapped and sent:
 - **Handling replies:** take `payload.type == "speak"` and read
   `data.utterance`. `data.expect_response == true` means the skill wants a
   follow-up utterance.
+- **The `ovos.*` rename (ovos-core 3):** speech also arrives as
+  `ovos.utterance.speak`, with the same data. Persona replies and
+  `get_response` questions come only under the new name. ovos-bus-client 2.11
+  can also put a legacy `speak` twin on the wire after the canonical message,
+  with the same data and context plus `"_namespace_compat_twin": true`. Wiggins
+  treats both names alike and, as ovos-spec-tools' mirror guard does, drops a
+  message whose counterpart with the same data and context arrived just before
+  (within 2 s; repeats under one name are kept). `mycroft.mic.listen` likewise
+  becomes `ovos.mic.listen`.
 - **End of turn:** `ovos.utterance.handled` marks the end of handling for an
   utterance.
 

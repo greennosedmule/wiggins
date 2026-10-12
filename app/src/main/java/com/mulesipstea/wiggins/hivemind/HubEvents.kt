@@ -12,7 +12,7 @@ sealed interface ConnectionState {
 }
 
 sealed interface HubEvent {
-    /** A `speak` message from the hub. */
+    /** A `speak` or `ovos.utterance.speak` message from the hub, once even if both arrive. */
     data class Speak(val utterance: String, val expectResponse: Boolean) : HubEvent
 
     /** The hub asked the satellite to listen (`mycroft.mic.listen`). */

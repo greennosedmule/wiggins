@@ -31,6 +31,8 @@ class HiveProtocol(
     private val nonces: ((Int) -> ByteArray)? = null,
     /** The session OVOS last handed back, carried over from an earlier connection in the same session. */
     initialSession: JsonObject? = null,
+    /** Milliseconds on a monotonic clock. */
+    private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     sealed interface Output {
         data class Send(val text: String) : Output
@@ -45,6 +47,11 @@ class HiveProtocol(
     private var cipher: FrameCipher? = null
     private var session: SessionContext? = null
     private var hubPeer: String? = null
+
+    private class SpeechSeen(val busType: String, val fingerprint: JsonObject, val at: Long)
+
+    /** The last speech message kept, to spot its twin under the other name; see [isSpeechMirror]. */
+    private var lastSpeech: SpeechSeen? = null
 
     /** The session as OVOS last sent it back for our session_id; see [sessionJson]. */
     private var hubSession: JsonObject? = initialSession
@@ -218,11 +225,13 @@ class HiveProtocol(
         val data = payload["data"] as? JsonObject
         val out = mutableListOf<Output>(Output.Event(HubEvent.Downlink("bus", busType, message)))
         when (busType) {
-            "speak" -> data?.get("utterance")?.jsonPrimitive?.contentOrNull?.let {
-                val expect = data["expect_response"]?.jsonPrimitive?.booleanOrNull ?: false
-                out += Output.Event(HubEvent.Speak(it, expect))
+            "speak", "ovos.utterance.speak" -> if (!isSpeechMirror(busType, payload)) {
+                data?.get("utterance")?.jsonPrimitive?.contentOrNull?.let {
+                    val expect = data["expect_response"]?.jsonPrimitive?.booleanOrNull ?: false
+                    out += Output.Event(HubEvent.Speak(it, expect))
+                }
             }
-            "mycroft.mic.listen" -> out += Output.Event(HubEvent.Listen)
+            "mycroft.mic.listen", "ovos.mic.listen" -> out += Output.Event(HubEvent.Listen)
             "waggle.intent", "waggle.query" -> out += Output.Event(HubEvent.WaggleRequest(busType, data ?: JsonObject(emptyMap())))
             "recognizer_loop:b64_transcribe.response" -> {
                 val id = ((payload["context"] as? JsonObject)?.get(REQUEST_ID) as? JsonPrimitive)?.contentOrNull
@@ -235,6 +244,29 @@ class HiveProtocol(
             }
         }
         return out
+    }
+
+    /**
+     * Whether this speech is the other spelling of the one just before it. While OVOS
+     * moves `speak` to `ovos.utterance.speak`, a bus client can send the same speech under
+     * both names: the same data and context, the second marked as a compatibility twin.
+     * As ovos-spec-tools' mirror guard does, drop a message whose counterpart name with
+     * the same payload arrived within [SPEECH_MIRROR_WINDOW_MS]; repeats under one name are kept.
+     */
+    private fun isSpeechMirror(busType: String, payload: JsonObject): Boolean {
+        val context = payload["context"] as? JsonObject ?: JsonObject(emptyMap())
+        val fingerprint = JsonObject(mapOf(
+            "data" to (payload["data"] ?: JsonObject(emptyMap())),
+            "context" to JsonObject(context - NAMESPACE_TWIN_KEY),
+        ))
+        val now = clock()
+        val previous = lastSpeech?.takeIf { now - it.at < SPEECH_MIRROR_WINDOW_MS }
+        if (previous != null && previous.busType != busType && previous.fingerprint == fingerprint) {
+            lastSpeech = null
+            return true
+        }
+        lastSpeech = SpeechSeen(busType, fingerprint, now)
+        return false
     }
 
     /** The first of `transcriptions`, a list of `[text, confidence]`; text is null when the STT failed. */
@@ -256,6 +288,12 @@ class HiveProtocol(
 
         /** Marks a speech request so its response can be matched to it. */
         const val REQUEST_ID = "wiggins_id"
+
+        /** Context key ovos-bus-client sets on the legacy-named twin of an `ovos.*` message. */
+        private const val NAMESPACE_TWIN_KEY = "_namespace_compat_twin"
+
+        /** The window ovos-spec-tools' mirror guard uses, doubled for the trip through HiveMind. */
+        private const val SPEECH_MIRROR_WINDOW_MS = 2_000L
         val OFFERED_CIPHER = HiveCipher.CHACHA20_POLY1305
         val OFFERED_ENCODING = HiveEncoding.JSON_B64
 

@@ -208,6 +208,66 @@ class HiveProtocolTest {
         assertEquals(HubEvent.SpeechAudio("s1", "UklGRg=="), audio.filterIsInstance<HubEvent.SpeechAudio>().single())
     }
 
+    /**
+     * ovos-core 3 speaks as `ovos.utterance.speak`, and during the rename a bus client can
+     * also send a `speak` twin with the same data and context; each sentence is said once.
+     */
+    @Test fun speaksBothNamesOnce() {
+        val session = Vectors.cases("full_session.json", "sessions")[0]
+        val inputs = session.getValue("inputs").jsonObject
+        val negotiated = session.getValue("negotiated").jsonObject
+        var now = 0L
+        val proto = HiveProtocol(
+            useragent = "Wiggins",
+            password = inputs.str("password"),
+            handshake = PasswordHandshake(inputs.str("password"), inputs.hex("client_iv_hex")),
+            clock = { now },
+        ).also { it.setSession(context) }
+        session.arr("frames").map { it.jsonObject }.filter { it.str("dir") == "hub->client" && !it.bool("encrypted") }
+            .forEach { proto.onFrame(it.str("wire")) }
+        val hub = FrameCipher(negotiated.hex("key_hex"), HiveCipher.CHACHA20_POLY1305, HiveEncoding.JSON_B64)
+
+        fun bus(type: String, utterance: String, twin: Boolean = false) = proto.onFrame(hub.seal(
+            """{"msg_type":"bus","payload":{"type":"$type","data":{"utterance":"$utterance","expect_response":false},
+            "context":{${if (twin) "\"_namespace_compat_twin\":true," else ""}"session":{"session_id":"${proto.sessionId}"}}}}""",
+        )).filterIsInstance<HiveProtocol.Output.Event>().map { it.event }.filterIsInstance<HubEvent.Speak>().map { it.utterance }
+
+        // A persona reply: only the new name.
+        assertEquals(listOf("Paris."), bus("ovos.utterance.speak", "Paris."))
+        // A skill's speech with its legacy twin, either order.
+        assertEquals(listOf("Timer set."), bus("ovos.utterance.speak", "Timer set."))
+        assertEquals(emptyList<String>(), bus("speak", "Timer set.", twin = true))
+        assertEquals(listOf("Done."), bus("speak", "Done."))
+        assertEquals(emptyList<String>(), bus("ovos.utterance.speak", "Done."))
+        // A real repeat under one name is said again.
+        assertEquals(listOf("Done."), bus("speak", "Done."))
+        assertEquals(listOf("Done."), bus("speak", "Done."))
+        // The other name long after is a new sentence, not a twin.
+        now += 5_000
+        assertEquals(listOf("Done."), bus("ovos.utterance.speak", "Done."))
+        // Different words under the other name are never dropped.
+        assertEquals(listOf("Anything else?"), bus("speak", "Anything else?"))
+    }
+
+    @Test fun listensOnBothNames() {
+        val session = Vectors.cases("full_session.json", "sessions")[0]
+        val inputs = session.getValue("inputs").jsonObject
+        val negotiated = session.getValue("negotiated").jsonObject
+        val proto = HiveProtocol(
+            useragent = "Wiggins",
+            password = inputs.str("password"),
+            handshake = PasswordHandshake(inputs.str("password"), inputs.hex("client_iv_hex")),
+        ).also { it.setSession(context) }
+        session.arr("frames").map { it.jsonObject }.filter { it.str("dir") == "hub->client" && !it.bool("encrypted") }
+            .forEach { proto.onFrame(it.str("wire")) }
+        val hub = FrameCipher(negotiated.hex("key_hex"), HiveCipher.CHACHA20_POLY1305, HiveEncoding.JSON_B64)
+        for (type in listOf("mycroft.mic.listen", "ovos.mic.listen")) {
+            val events = proto.onFrame(hub.seal("""{"msg_type":"bus","payload":{"type":"$type","data":{},"context":{}}}"""))
+                .filterIsInstance<HiveProtocol.Output.Event>().map { it.event }
+            assertTrue(type, HubEvent.Listen in events)
+        }
+    }
+
     @Test fun envelopeHasOnlyKnownKeys() {
         val text = HiveProtocol.hiveMessage("bus", JsonObject(emptyMap()))
         assertEquals(setOf("msg_type", "payload"), text.json().jsonObject.keys)
