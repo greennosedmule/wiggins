@@ -31,6 +31,8 @@ hivemind-core add-client --name <phone>
 hivemind-core allow-msg recognizer_loop:utterance <id>
 hivemind-core allow-msg recognizer_loop:record_begin <id>
 hivemind-core allow-msg recognizer_loop:record_end <id>
+hivemind-core allow-msg recognizer_loop:audio_output_start <id>
+hivemind-core allow-msg recognizer_loop:audio_output_end <id>
 # For hub speech, one type per command:
 hivemind-core allow-msg recognizer_loop:b64_transcribe <id>
 hivemind-core allow-msg speak:b64_audio <id>

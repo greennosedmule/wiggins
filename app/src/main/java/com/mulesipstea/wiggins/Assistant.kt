@@ -24,6 +24,7 @@ import com.mulesipstea.wiggins.settings.HubSettings
 import com.mulesipstea.wiggins.settings.HubUrl
 import com.mulesipstea.wiggins.settings.SpeechMode
 import com.mulesipstea.wiggins.settings.SpeechSettings
+import com.mulesipstea.wiggins.speech.AudioOutput
 import com.mulesipstea.wiggins.speech.HubSpeaker
 import com.mulesipstea.wiggins.speech.PcmPlayer
 import com.mulesipstea.wiggins.speech.Prerequisites
@@ -90,6 +91,8 @@ class Assistant(private val app: WigginsApp) {
         onHubAnswered = ::onHubSpeechAnswered,
         newId = ::newRequestId,
     )
+    /** Tells the hub when a reply is being read aloud, which skills speaking with wait=True wait for. */
+    private val audioOutput = AudioOutput { type -> client.sendBus(type, sessionContext()) }
     private val saved = ConversationStore(File(app.filesDir, "conversation.json"), scope)
 
     /** The assistant panel's conversation while it's open; it lives only in memory. */
@@ -226,8 +229,8 @@ class Assistant(private val app: WigginsApp) {
             // Setting up the hub is a problem until it's done.
             settings.collect { s -> if (s != null && !s.isComplete) _problem.value = NOT_CONFIGURED }
         }
-        speaker.onIdle = { scope.launch { if (!isSpeaking) onSpeechIdle() } }
-        hubSpeaker.onIdle = { if (!isSpeaking) onSpeechIdle() }
+        speaker.onIdle = { scope.launch { if (!isSpeaking) onPlaybackIdle() } }
+        hubSpeaker.onIdle = { if (!isSpeaking) onPlaybackIdle() }
         scope.launch {
             // Back on device speech, the hub's speech services no longer matter.
             speech.collect { s ->
@@ -273,6 +276,8 @@ class Assistant(private val app: WigginsApp) {
         idleDisconnect = scope.launch {
             // A pending confirmation keeps the connection, so its answer can reach the hub.
             phoneActions.asks.first { it.isEmpty() }
+            // So is a reply still being read aloud, so its audio_output_end reaches the hub.
+            speaking.first { !it }
             delay(IDLE_DISCONNECT_MS)
             client.disconnect()
         }
@@ -482,6 +487,8 @@ class Assistant(private val app: WigginsApp) {
     private fun stopVoice() {
         speaker.stop()
         hubSpeaker.stop()
+        // The voices don't report a stop as idle; the hub still needs to hear it ended.
+        audioOutput.onIdle()
     }
 
     /**
@@ -757,7 +764,10 @@ class Assistant(private val app: WigginsApp) {
                 }
                 if (speakReplies.value) {
                     if (speech.value.ttsMode == SpeechMode.HUB) hubSpeaker.speak(event.utterance) else speaker.speak(event.utterance)
-                } else if (!isSpeaking) {
+                }
+                // Muted, an utterance with no words, or no TTS engine: nothing plays, which the hub hears at once.
+                audioOutput.onSpeak(playing = isSpeaking)
+                if (!speakReplies.value && !isSpeaking) {
                     // Silent: nothing to wait for before listening for an answer.
                     onSpeechIdle()
                 }
@@ -833,6 +843,12 @@ class Assistant(private val app: WigginsApp) {
             delay(THINKING_TIMEOUT_MS)
             _thinking.value = false
         }
+    }
+
+    /** Both voices have played their queues to the end. */
+    private fun onPlaybackIdle() {
+        audioOutput.onIdle()
+        onSpeechIdle()
     }
 
     /** Speech finished: listen again if the hub expects an answer (SPEC "Follow-ups"). */
