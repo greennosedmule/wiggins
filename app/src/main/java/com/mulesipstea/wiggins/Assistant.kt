@@ -526,6 +526,8 @@ class Assistant(private val app: WigginsApp) {
     /** Clears the saved conversation, and starts a new hub session so OVOS forgets it too. */
     fun clearConversation() {
         endTurn()
+        // Under the old session, which a skill may be waiting on; speech still playing belongs to no turn now.
+        audioOutput.onIdle()
         saved.newSession()
         switchSession()
     }
