@@ -3,6 +3,7 @@
 Answers the SPEC open question "Trigger: `VoiceInteractionService` or an `ACTION_ASSIST` activity?", plus the background-launch question that gated M6.
 
 > **2026-10-12:** M6 (push wake-up for hub-initiated actions) was dropped: actions the phone didn't ask for are out of scope. Section 5 and the BAL device test are kept for reference only.
+
 Researched 2026-10-04 against AOSP `android14-release`, `android15-release` and `android16-release`, Dicio `main` @ [`7315c37`](https://github.com/Stypox/dicio-android/tree/7315c37f241d6580d5d86499e46481f1b08fe936) (version 4.1, versionCode 18), and the Android 16 AOSP emulator (`sdk_phone64_x86_64`, `BE2A.250530.026.D1`).
 
 Link shorthand: `fw/` = `https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/`, `perm/` = `https://android.googlesource.com/platform/packages/modules/Permission/+/refs/heads/android16-release/`, `settings/` = `https://android.googlesource.com/platform/packages/apps/Settings/+/refs/heads/android16-release/`. Line numbers are for android16-release unless noted.
