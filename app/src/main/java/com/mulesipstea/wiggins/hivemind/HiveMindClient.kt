@@ -17,6 +17,7 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import okio.ByteString.Companion.toByteString
 import java.util.Base64
 
 /**
@@ -43,7 +44,8 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
      * Connects as OVOS session [sessionId], with [transport], which carries the auth
      * mode's TLS settings (a client certificate), and with any [headers] the reverse
      * proxy needs. The hub keeps one session per connection, so a different session
-     * means a new connection.
+     * means a new connection. [noiseKeys] are used if the hub needs the Noise handshake,
+     * or always with [forceNoise].
      */
     fun connect(
         url: HttpUrl,
@@ -53,10 +55,14 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
         sessionId: String,
         transport: OkHttpClient = http,
         headers: Map<String, String> = emptyMap(),
+        noiseKeys: NoiseKeys = EphemeralNoiseKeys(password),
+        forceNoise: Boolean = false,
     ) = synchronized(lock) {
         close()
         val seed = carried?.takeIf { it.first == sessionId }?.second
-        val proto = HiveProtocol(USERAGENT, password, sessionId = sessionId, initialSession = seed).also { it.setSession(context) }
+        val proto = HiveProtocol(
+            USERAGENT, password, sessionId = sessionId, initialSession = seed, noiseKeys = noiseKeys, forceNoise = forceNoise,
+        ).also { it.setSession(context) }
         protocol = proto
         session = context
         _state.value = ConnectionState.Connecting
@@ -72,19 +78,13 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
     }
 
     /** Sends a data-less BUS message such as `recognizer_loop:record_begin`; false if not connected. */
-    fun sendBus(type: String, context: SessionContext): Boolean = synchronized(lock) {
-        val frame = protocol?.bus(type, JsonObject(emptyMap()), context) ?: return false
-        socket?.send(frame) ?: false
-    }
+    fun sendBus(type: String, context: SessionContext): Boolean = send { it.bus(type, JsonObject(emptyMap()), context) }
 
     /** Sends a BUS message of [type] with [data] (a Waggle response, say); false if not connected. */
     fun sendBus(type: String, data: JsonObject, context: SessionContext): Boolean = send { it.bus(type, data, context) }
 
     /** Sends an utterance; false if not connected. */
-    fun sendUtterance(text: String, context: SessionContext): Boolean = synchronized(lock) {
-        val frame = protocol?.utterance(text, context) ?: return false
-        socket?.send(frame) ?: false
-    }
+    fun sendUtterance(text: String, context: SessionContext): Boolean = send { it.utterance(text, context) }
 
     /** Asks the hub to transcribe [wav], marked [id]; false if not connected. Builds a large frame: call off the main thread. */
     fun sendTranscribe(id: String, wav: ByteArray, context: SessionContext): Boolean = send { it.transcribe(id, wav, context) }
@@ -92,9 +92,17 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
     /** Asks the hub to synthesize [utterance], marked [id]; false if not connected. */
     fun sendSynthesize(id: String, utterance: String, context: SessionContext): Boolean = send { it.synthesize(id, utterance, context) }
 
-    private fun send(build: (HiveProtocol) -> String?): Boolean = synchronized(lock) {
-        val frame = protocol?.let(build) ?: return false
-        socket?.send(frame) ?: false
+    private fun send(build: (HiveProtocol) -> List<HiveProtocol.Frame>?): Boolean = synchronized(lock) {
+        val frames = protocol?.let(build) ?: return false
+        socket?.sendAll(frames) ?: false
+    }
+
+    /** Queues [frames] in order; OkHttp sends them in the order queued. */
+    private fun WebSocket.sendAll(frames: List<HiveProtocol.Frame>): Boolean = frames.all {
+        when (it) {
+            is HiveProtocol.Frame.Text -> send(it.text)
+            is HiveProtocol.Frame.Binary -> send(it.bytes.toByteString())
+        }
     }
 
     private fun close() {
@@ -117,11 +125,21 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
         }
 
         override fun onMessage(webSocket: WebSocket, text: String): Unit = synchronized(lock) {
-            if (!current()) return
-            for (out in proto.onFrame(text)) {
+            if (current()) handle(webSocket, proto.onFrame(text))
+        }
+
+        override fun onMessage(webSocket: WebSocket, bytes: ByteString): Unit = synchronized(lock) {
+            if (current()) handle(webSocket, proto.onBinary(bytes.toByteArray()))
+        }
+
+        private fun handle(webSocket: WebSocket, outputs: List<HiveProtocol.Output>) {
+            for (out in outputs) {
                 when (out) {
-                    is HiveProtocol.Output.Send -> webSocket.send(out.text)
-                    is HiveProtocol.Output.Connected -> _state.value = ConnectionState.Connected(out.peer)
+                    is HiveProtocol.Output.Send -> webSocket.sendAll(listOf(out.frame))
+                    is HiveProtocol.Output.Connected -> {
+                        Log.i(TAG, "connected with protocol v${out.protocolVersion}")
+                        _state.value = ConnectionState.Connected(out.peer, out.protocolVersion, out.noiseNodeId)
+                    }
                     is HiveProtocol.Output.Event -> emit(out.event)
                     is HiveProtocol.Output.Fail -> {
                         Log.w(TAG, "protocol failure: ${out.reason}")
@@ -133,10 +151,6 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
             }
         }
 
-        override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-            Log.w(TAG, "ignoring binary frame of ${bytes.size} bytes (binarize is off)")
-        }
-
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
             webSocket.close(NORMAL_CLOSURE, null)
         }
@@ -144,7 +158,8 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String): Unit = synchronized(lock) {
             if (!current()) return
             val beforeHandshake = !proto.isReady
-            ended(closeReason(code), retryable = !beforeHandshake)
+            // The hub closes with 1008 (policy) when it refuses the client, which a retry won't change.
+            ended(closeReason(code, reason), retryable = !beforeHandshake && code != POLICY_VIOLATION)
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?): Unit = synchronized(lock) {
@@ -163,7 +178,15 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
             )
         }
 
-        /** The hub signals errors only by closing; infer the cause from how far we got (§13). */
+        /** The hub signals errors only by closing; infer the cause from how far we got, or its reason (§13, §16.5). */
+        private fun closeReason(code: Int, reason: String): String = when {
+            code == POLICY_VIOLATION && "pinned key" in reason ->
+                "The hub has a different Noise key on record for this phone, from before Wiggins was reinstalled or " +
+                    "its data was cleared. On the hub, run hivemind-core reset-noise-pin with this client's id, then reconnect."
+            code == POLICY_VIOLATION && reason.isNotBlank() -> "Hub refused the connection: $reason"
+            else -> closeReason(code)
+        }
+
         private fun closeReason(code: Int): String = when (_state.value) {
             ConnectionState.Connecting, ConnectionState.Handshaking ->
                 if (proto.isReady) "Hub closed the connection" else "Hub rejected the access key (closed before handshake)"
@@ -202,6 +225,7 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
         const val USERAGENT = "Wiggins"
         private const val TAG = "HiveMindClient"
         private const val NORMAL_CLOSURE = 1000
+        private const val POLICY_VIOLATION = 1008
 
         /**
          * `ws(s)://host:port/?authorization=<base64("useragent:key")>`. The value must

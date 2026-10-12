@@ -12,6 +12,8 @@ import com.mulesipstea.wiggins.actions.PhoneActions
 import com.mulesipstea.wiggins.hivemind.ConnectionState
 import com.mulesipstea.wiggins.hivemind.HiveMindClient
 import com.mulesipstea.wiggins.hivemind.HubEvent
+import com.mulesipstea.wiggins.hivemind.Noise
+import com.mulesipstea.wiggins.hivemind.StoredNoiseKeys
 import com.mulesipstea.wiggins.hivemind.SessionContext
 import com.mulesipstea.wiggins.net.ClientCertificateException
 import com.mulesipstea.wiggins.net.ClientCertificates
@@ -193,6 +195,9 @@ class Assistant(private val app: WigginsApp) {
 
     /** The hub wants an answer: listen once current speech ends. */
     private var followUp = false
+
+    /** A PSK is being stretched in the background; see [prepareNoiseKey]. */
+    private var stretching = false
 
     /** Number of Wiggins screens (the app and the panel) currently started. */
     private var visibleScreens = 0
@@ -585,6 +590,16 @@ class Assistant(private val app: WigginsApp) {
 
     fun clearLog() = _log.update { emptyList() }
 
+    val forceNoise: StateFlow<Boolean> = app.settings.forceNoise.stateIn(scope, SharingStarted.Eagerly, false)
+
+    /** The testing switch: Noise even when the hub offers the password handshake. Takes effect on reconnecting. */
+    fun setForceNoise(on: Boolean) {
+        scope.launch {
+            app.settings.setForceNoise(on)
+            switchSession()
+        }
+    }
+
     private fun deliver(id: Long, store: ConversationStore = conversation) {
         val text = store.get(id)?.text ?: return
         if (client.sendUtterance(text, sessionContext())) {
@@ -642,7 +657,37 @@ class Assistant(private val app: WigginsApp) {
             } else {
                 emptyMap()
             }
-            client.connect(url, s.accessKey, s.password, sessionContext(), sessionId, transport, headers)
+            val noise = app.settings.noiseSecrets()
+            val noiseKeys = StoredNoiseKeys(
+                noise.staticKey, s.password, noise.psks,
+                onDerived = { nodeId, psk -> scope.launch { app.settings.saveNoisePsk(nodeId, psk) } },
+                onRejected = { nodeId -> scope.launch { app.settings.forgetNoisePsk(nodeId) } },
+            )
+            val forceNoise = app.settings.forceNoise.first()
+            client.connect(url, s.accessKey, s.password, sessionContext(), sessionId, transport, headers, noiseKeys, forceNoise)
+        }
+    }
+
+    /**
+     * Stretches the password for this hub's Noise handshake ahead of time (argon2id
+     * takes a second or more), so the first Noise connection doesn't wait for it:
+     * after a password-handshake connection to a hub that offers both (4.7–4.15),
+     * before it moves to Noise only. The node id must survive that: the hub has to
+     * keep its identity file (~/.config/hivemind/_identity.json).
+     */
+    private fun prepareNoiseKey(nodeId: String) {
+        if (stretching) return
+        stretching = true
+        scope.launch {
+            try {
+                if (nodeId in app.settings.noiseSecrets().psks) return@launch
+                val password = app.settings.settings.first().password
+                val psk = withContext(Dispatchers.Default) { Noise.derivePsk(password, nodeId) }
+                // Only if the password didn't change meanwhile.
+                if (app.settings.settings.first().password == password) app.settings.saveNoisePsk(nodeId, psk)
+            } finally {
+                stretching = false
+            }
         }
     }
 
@@ -664,6 +709,7 @@ class Assistant(private val app: WigginsApp) {
         }
         when (state) {
             is ConnectionState.Connected -> {
+                if (state.protocolVersion < Noise.PROTOCOL_VERSION) state.noiseNodeId?.let(::prepareNoiseKey)
                 retries = 0
                 forceTokenRefresh = false
                 _problem.value = null

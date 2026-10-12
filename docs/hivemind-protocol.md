@@ -854,6 +854,7 @@ All files carry `_meta` with the generator and package versions.
 | `messages.json` | Plaintext HiveMessage JSON for: server HELLO, server HANDSHAKE request, client HANDSHAKE, server HANDSHAKE response, client HELLO, client utterance, server `speak`, server `ovos.utterance.handled`. Includes a `parsed` copy. | Compare parsed JSON. |
 | `full_session.json` | 3 deterministic sessions, run against the real hub handler code in-process: ChaCha20+B64, AES-GCM+HEX, and a preference-order demo. Each frame has `dir`, `wire`, `plaintext`, `encrypted`, `hive_msg_type` and `bus_type`, plus inputs, the negotiated cipher, encoding and key, and what the hub injected into the OVOS bus. | Feed hub→client `wire` frames into the client given `inputs.client_iv_hex` and check the decrypted plaintexts and the derived key. For client→hub frames, decrypt `wire` and compare parsed JSON. To compare ciphertext exactly, use the frame's own nonce and the plaintext string. |
 | `errors.json` | In-process: invalid key, unauthorized BUS type dropped, unknown cipher name. | Behavior reference. |
+| `noise.json` | Protocol v3 (§16.6): PSK, prologue, the three Noise handshake messages, split keys and transport frames both ways, for a 5.x-shaped and a 4.15-shaped offer, plus a wrong-password message 2. From `tools/vectors/noise_vectors.py` (hivemind-bus-client 1.2.11a1). | Exact equality: handshake messages and client→hub frames byte for byte; hub→client frames decrypt to the plaintexts. |
 | `live_capture.json` | Real frames from a throwaway hub container (random IVs and nonces). `reference_client` is the recommended config, plus a ws ping, an unauthorized `speak` and an unencrypted BUS. `stock_python_client` is HiveMessageBusClient 0.4.4. `errors` covers bad key, wrong password, missing auth, and raw vs. percent-encoded auth. Each includes `negotiated.key_hex` and the hub log lines. | Decrypt every frame with `negotiated.key_hex` as a realism check. Timings are in `t`. |
 
 ### 14.1 Regenerating
@@ -931,3 +932,155 @@ only inside the hub's own location (§11.1). The
 16. **The protocol is moving.** Newer hivemind-core no longer grants default
     `allowed_types`, so each client needs explicit `allow-msg` grants there.
     Re-run `tools/vectors` against any new image tag before bumping the hub.
+
+## 16. Protocol v3: the Noise handshake
+
+hivemind-core 4.7 added a third handshake, Noise, next to the password one, and
+5.0 made it the only one. Wiggins speaks both and picks by what the hub's
+HANDSHAKE request offers, not by version. Read from hivemind-core 4.15.0a1 and
+5.3.3a1 and hivemind-bus-client 1.2.11a1 (`hivemind_bus_client/noise.py`, over
+poorman-handshake 2.0.3a1 `poorman_handshake/noise`), then checked against
+vectors (§16.6) and against both hubs running locally. Code:
+`app/src/main/java/com/mulesipstea/wiggins/hivemind/Noise.kt` and `HiveProtocol.kt`.
+
+### 16.1 Which handshake
+
+| Hub | HANDSHAKE request offers | Wiggins uses |
+|---|---|---|
+| ≤ 4.6 (3.4.0 today) | `"password": true`, no `noise` | password (§5) |
+| 4.7–4.15 | `"password": true` and `noise`, `max_protocol_version: 3` | password |
+| 5.x | `noise` and `max_protocol_version: 3` only, no `password` field | Noise |
+
+Noise is usable when `max_protocol_version >= 3` and `noise.patterns` contains
+`XXpsk2` and `noise.suites` contains `25519_ChaChaPoly_SHA256` (the "MUST
+support" options). Wiggins prefers the password handshake whenever it's offered
+because **hivemind-core 4.15 can't send a message over 64 KB over Noise**: its
+`send` uses `NoiseTransport.encrypt_frame`, which doesn't chunk, so anything
+bigger fails on the hub with `NoiseInvalidMessage: … less or equal 65535 bytes`
+and never arrives. Hub speech audio for a sentence is usually bigger. 5.x sends
+with `send_message`, which chunks (§16.4). Seen live on 2026-10-12.
+
+A switch on the Hub messages screen ("Force the Noise handshake", stored as
+`force_noise`) makes Wiggins use Noise on a hub offering both, for testing. A
+hub that offers neither, or Noise with options Wiggins lacks, fails with a
+message naming the problem.
+
+### 16.2 On the wire
+
+The hub's HELLO and HANDSHAKE request come in the clear as before (§4.1, §4.2).
+Then, all as plaintext `shake` text frames:
+
+```
+client -> hub  {"msg_type":"shake","payload":{"noise":{"pattern":"XXpsk2","suite":"25519_ChaChaPoly_SHA256","msg":"<hex msg 1>"}}}
+hub -> client  {"msg_type":"shake","payload":{"noise":{"msg":"<hex msg 2>"}}}
+client -> hub  {"msg_type":"shake","payload":{"noise":{"msg":"<hex msg 3>"}}}
+```
+
+and then Wiggins' HELLO (§4.5) as the first Noise transport message. Everything
+after the handshake, both ways, is binary websocket messages (§16.4); text
+frames on a Noise session are dropped. A repeated HANDSHAKE request without
+`noise.msg` while waiting for message 2 is ignored, as the Python client does.
+
+The pattern is `Noise_XXpsk2_25519_ChaChaPoly_SHA256`: `-> e`,
+`<- e, ee, s, es, psk`, `-> s, se`. Message 1's payload is
+`{"binarize":false,"encodings":["JSON-B64"]}` (the hub reads `binarize` and the
+first encoding, which on v3 names the framing only). Message 2's payload is the
+hub's `{"encoding": "JSON-B64"}`, ignored. Message 3's payload is empty.
+`KKpsk0` (offered once the hub has pinned our key) and `25519_AESGCM_SHA256`
+are never chosen; XX keeps working after pinning.
+
+### 16.3 Keys and prologue
+
+- **PSK:** argon2id over the password's UTF-8 bytes, salt `SHA-256(node_id)` of
+  the `node_id` in the hub's HELLO, `t=3`, `m=64 MiB`, `p=1`, 32 bytes, version
+  0x13 (`poorman_handshake.noise.derive_psk`). On 5.x the node id is the hub's
+  PEM public key (its identity, `~/.config/hivemind/_identity.json`; from 4.7 on
+  too, while ≤ 4.6 send the shared default `master:0.0.0.0`). This takes a second or more on a phone, so Wiggins stores the
+  result, encrypted like the password, keyed by node id (`noise_psks_enc`). It
+  is stretched in the background after a password-handshake connection to a hub
+  that offers Noise too (4.7–4.15), so moving it to 5.x needs no wait as long as
+  it keeps its identity file, and inline only the first time
+  Wiggins meets a Noise-only hub. Saving a new password clears the stored PSKs;
+  a message 2 that fails to authenticate forgets that hub's PSK.
+- **Static key:** one X25519 key pair for the phone, made on first use and
+  stored encrypted (`noise_static_key_enc`). The hub pins its public half to the
+  client record at the first Noise handshake (trust on first use). Backup is off
+  (`allowBackup="false"`), so a reinstalled phone or one with cleared data has a
+  new key and is refused (§16.5). Wiggins doesn't pin the hub's key: the PSK
+  already authenticates the hub.
+- **Prologue:** `canonical(hub HELLO payload) + canonical(hub HANDSHAKE request
+  payload) + "Noise_XXpsk2_25519_ChaChaPoly_SHA256"`, where canonical is Python's
+  `json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)`:
+  keys sorted at every level, no spaces, only `"`, `\` and control characters
+  escaped (`\n`, `\t`… and `\u00xx` lowercase), numbers exactly as they arrived.
+  A difference of one byte fails message 2 as if the password were wrong.
+
+### 16.4 Transport framing
+
+Each websocket binary message is one Noise transport message (ChaChaPoly,
+nonce = 4 zero bytes + 64-bit little-endian counter, no associated data). Its
+first plaintext byte says what follows:
+
+| Byte | Meaning |
+|---|---|
+| `0x00` | a whole JSON HiveMessage (UTF-8) |
+| `0x01` | a whole binary (bitstring) HiveMessage; ignored, binarize is off |
+| `0x02` / `0x03` | first chunk of a JSON / binary message |
+| `0x04` | a middle chunk |
+| `0x05` | the last chunk |
+
+A message over 65,000 bytes is sent as FIRST, MORE…, LAST chunks of 65,000
+bytes, in order (OkHttp keeps send order). Wiggins' 30 s recordings for hub
+transcription are about 1.3 MB, about 21 chunks. Reassembly is capped at 32 MiB.
+A frame that fails to decrypt ends the session: the counters are out of step.
+
+### 16.5 Failures
+
+| What | Seen as | Wiggins says |
+|---|---|---|
+| Wrong password | Message 2 fails to authenticate (the hub can't tell from message 1) | "Wrong password (the hub's Noise handshake doesn't match it)", and forgets the stored PSK |
+| Phone key changed (reinstall, cleared data) | Hub closes 1008 `client Noise static key contradicts the pinned key` after message 3 | Explains it and to run `hivemind-core reset-noise-pin <client id>` on the hub (the hub's log names the id) |
+| Other refusals | Hub closes 1008 with a reason, e.g. `this node requires protocol v3 (the Noise handshake)` | "Hub refused the connection: <reason>", not retried |
+
+### 16.6 Vectors and a live check
+
+`noise.json` comes from `tools/vectors/noise_vectors.py`, which runs the Python
+client's initiator and the hub's responder code (`start_noise_handshake`,
+`build_prologue`, `NoiseTransport`) with fixed static and ephemeral keys, for a
+5.x-shaped and a 4.15-shaped offer (the second with a non-ASCII password and
+node id and a PEM key full of escapes). It gives the PSK, prologue, all three
+handshake messages, the split keys, and transport frames both ways; chunking
+uses a 1,000-byte chunk size to keep the file small. `NoiseTest` and
+`HiveProtocolTest` check Wiggins byte for byte against it.
+
+```sh
+uv venv --python 3.13 /tmp/hm-noise-venv
+VIRTUAL_ENV=/tmp/hm-noise-venv uv pip install -r tools/vectors/requirements-noise.txt
+/tmp/hm-noise-venv/bin/python -I tools/vectors/noise_vectors.py
+```
+
+`LiveHubTest` runs `HiveProtocol` over a real websocket against a hub and is
+skipped unless `WIGGINS_LIVE_HUB` is set (its KDoc lists the variables). A
+local hub, isolated from `~/.config` (ovos-config and hivemind-core ignore
+`HOME`, so set all four `XDG_*`):
+
+```sh
+uv venv --python 3.13 /tmp/hub5 && VIRTUAL_ENV=/tmp/hub5 uv pip install --prerelease=allow \
+  hivemind-core==5.3.3a1 hivemind-ovos-agent-plugin 'hivemind-websocket-protocol>=1.0.0a1' bitstring==4.4.0 ovos-messagebus
+export XDG_CONFIG_HOME=/tmp/hub5-x/config XDG_DATA_HOME=/tmp/hub5-x/data XDG_CACHE_HOME=/tmp/hub5-x/cache XDG_STATE_HOME=/tmp/hub5-x/state
+# mycroft/mycroft.conf: {"websocket": {"host": "127.0.0.1", "port": 28181, "route": "/core", "ssl": false}}
+# hivemind-core/server.json: agent plugin on port 28181, websocket plugin on 127.0.0.1:25678, presence off
+/tmp/hub5/bin/hivemind-core add-client --name live --access-key <key> --password <password> --allow recognizer_loop:utterance
+/tmp/hub5/bin/ovos-messagebus & /tmp/hub5/bin/hivemind-core listen &
+WIGGINS_LIVE_HUB=ws://127.0.0.1:25678 WIGGINS_LIVE_KEY=<key> WIGGINS_LIVE_PASSWORD=<password> \
+  WIGGINS_LIVE_BUS=ws://127.0.0.1:28181/core WIGGINS_LIVE_EXPECT_VERSION=3 \
+  ./gradlew :app:testDebugUnitTest --tests '*LiveHubTest*' --rerun
+```
+
+For 4.15 pin `hivemind-core==4.15.0a1 hivemind-websocket-protocol==0.2.11a1
+hivemind-plugin-manager==0.9.0a7 hivemind-bus-client==1.2.11a1`; it uses the
+password handshake (`WIGGINS_LIVE_EXPECT_VERSION=2`) unless
+`WIGGINS_LIVE_FORCE_NOISE=true`, and then needs `WIGGINS_LIVE_SMALL_ONLY=true`
+(§16.1). Results on 2026-10-12: 5.3.3a1 over Noise, including a 300 KB message
+down and a reconnect with the pinned key; 4.15.0a1 over the password handshake;
+4.15.0a1 forced to Noise with small messages.

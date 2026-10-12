@@ -103,6 +103,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)
     implementation(libs.tink.android)
+    // Argon2id and X25519 for the Noise handshake (protocol v3), which the platform lacks.
+    implementation(libs.bouncycastle)
     implementation(libs.appauth)
     implementation(project(":vad"))
     implementation(libs.room.runtime)

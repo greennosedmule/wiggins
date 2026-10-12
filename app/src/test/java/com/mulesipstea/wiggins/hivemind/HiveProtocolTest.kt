@@ -34,7 +34,7 @@ class HiveProtocolTest {
             var connected = false
             for (frame in session.arr("frames").map { it.jsonObject }.filter { it.str("dir") == "hub->client" }) {
                 for (out in proto.onFrame(frame.str("wire"))) when (out) {
-                    is HiveProtocol.Output.Send -> sent += out.text
+                    is HiveProtocol.Output.Send -> sent += (out.frame as HiveProtocol.Frame.Text).text
                     is HiveProtocol.Output.Event -> events += out.event
                     is HiveProtocol.Output.Connected -> connected = true
                     is HiveProtocol.Output.Fail -> throw AssertionError("$name: ${out.reason}")
@@ -56,7 +56,7 @@ class HiveProtocolTest {
             assertEquals(proto.sessionId, sessionJson.str("session_id"))
 
             // Utterances are encrypted BUS messages the hub can read.
-            val utterance = hubCipher.open(checkNotNull(proto.utterance("what time is it", context))).json().jsonObject
+            val utterance = hubCipher.open(proto.utterance("what time is it", context).text()).json().jsonObject
             val payload = utterance.getValue("payload").jsonObject
             assertEquals("recognizer_loop:utterance", payload.str("type"))
             assertEquals("what time is it", payload.getValue("data").jsonObject.arr("utterances")[0].jsonPrimitive.content)
@@ -101,7 +101,7 @@ class HiveProtocolTest {
         // A session for someone else's session_id is ignored.
         proto.onFrame(hub.seal(speak.replace(proto.sessionId, "someone-else").replace("alerts", "other")))
 
-        val sent = hub.open(checkNotNull(proto.utterance("6:30", context))).json().jsonObject
+        val sent = hub.open(proto.utterance("6:30", context).text()).json().jsonObject
         val sentSession = sent.getValue("payload").jsonObject.getValue("context").jsonObject.getValue("session").jsonObject
         assertEquals("response", sentSession.getValue("utterance_states").jsonObject.str("ovos-skill-alerts.openvoiceos"))
         assertTrue("active_skills" in sentSession)
@@ -127,13 +127,13 @@ class HiveProtocolTest {
         val sent = session.arr("frames").map { it.jsonObject }.filter { it.str("dir") == "hub->client" && !it.bool("encrypted") }
             .flatMap { proto.onFrame(it.str("wire")) }.filterIsInstance<HiveProtocol.Output.Send>()
         val hub = FrameCipher(negotiated.hex("key_hex"), HiveCipher.CHACHA20_POLY1305, HiveEncoding.JSON_B64)
-        val hello = hub.open(sent.last().text).json().jsonObject.getValue("payload").jsonObject.getValue("session").jsonObject
+        val hello = hub.open((sent.last().frame as HiveProtocol.Frame.Text).text).json().jsonObject.getValue("payload").jsonObject.getValue("session").jsonObject
         assertTrue("no location before the hub's session", "location" !in hello)
 
         proto.onFrame(hub.seal("""{"msg_type":"bus","payload":{"type":"speak","data":{"utterance":"Hi"},
             "context":{"session":{"session_id":"${proto.sessionId}","location":{"city":{"name":"Johnson City"},
             "coordinate":{"latitude":36.3,"longitude":-82.4},"timezone":{"code":"America/Chicago","name":"Central"}}}}}}"""))
-        val utterance = hub.open(checkNotNull(proto.utterance("weather", context))).json().jsonObject
+        val utterance = hub.open(proto.utterance("weather", context).text()).json().jsonObject
         val location = utterance.getValue("payload").jsonObject.getValue("context").jsonObject
             .getValue("session").jsonObject.getValue("location").jsonObject
         assertEquals("36.3", location.getValue("coordinate").jsonObject.getValue("latitude").jsonPrimitive.content)
@@ -157,7 +157,7 @@ class HiveProtocolTest {
         val sent = session.arr("frames").map { it.jsonObject }.filter { it.str("dir") == "hub->client" && !it.bool("encrypted") }
             .flatMap { proto.onFrame(it.str("wire")) }.filterIsInstance<HiveProtocol.Output.Send>()
         val hub = FrameCipher(negotiated.hex("key_hex"), HiveCipher.CHACHA20_POLY1305, HiveEncoding.JSON_B64)
-        val hello = hub.open(sent.last().text).json().jsonObject.getValue("payload").jsonObject.getValue("session").jsonObject
+        val hello = hub.open((sent.last().frame as HiveProtocol.Frame.Text).text).json().jsonObject.getValue("payload").jsonObject.getValue("session").jsonObject
         assertEquals("response", hello.getValue("utterance_states").jsonObject.str("ovos-skill-alerts.openvoiceos"))
         assertEquals("en-US", hello.str("lang"))
         assertEquals(carried, proto.handedBackSession)
@@ -177,7 +177,7 @@ class HiveProtocolTest {
             .forEach { proto.onFrame(it.str("wire")) }
         val hub = FrameCipher(negotiated.hex("key_hex"), HiveCipher.CHACHA20_POLY1305, HiveEncoding.JSON_B64)
 
-        val transcribe = hub.open(checkNotNull(proto.transcribe("t1", byteArrayOf(1, 2, 3), context))).json().jsonObject.getValue("payload").jsonObject
+        val transcribe = hub.open(proto.transcribe("t1", byteArrayOf(1, 2, 3), context).text()).json().jsonObject.getValue("payload").jsonObject
         assertEquals("recognizer_loop:b64_transcribe", transcribe.str("type"))
         val tData = transcribe.getValue("data").jsonObject
         assertEquals("AQID", tData.str("audio"))
@@ -186,7 +186,7 @@ class HiveProtocolTest {
         assertEquals("2", tData.getValue("sample_width").jsonPrimitive.content)
         assertEquals("t1", transcribe.getValue("context").jsonObject.str("wiggins_id"))
 
-        val synthesize = hub.open(checkNotNull(proto.synthesize("s1", "Hello.", context))).json().jsonObject.getValue("payload").jsonObject
+        val synthesize = hub.open(proto.synthesize("s1", "Hello.", context).text()).json().jsonObject.getValue("payload").jsonObject
         assertEquals("speak:b64_audio", synthesize.str("type"))
         val sData = synthesize.getValue("data").jsonObject
         assertEquals("Hello.", sData.str("utterance"))
@@ -268,8 +268,116 @@ class HiveProtocolTest {
         }
     }
 
+    private val noise = Vectors.load("noise.json")
+    private fun noiseCase(name: String) = noise.arr("cases").map { it.jsonObject }.first { it.str("name") == name }
+
+    /** Keys from the vectors: the client's static key and its PSK, recording what's rejected. */
+    private class FixedKeys(override val staticKey: ByteArray, private val psk: ByteArray) : NoiseKeys {
+        val rejected = mutableListOf<String>()
+        override fun psk(nodeId: String) = psk
+        override fun rejected(nodeId: String) {
+            rejected += nodeId
+        }
+    }
+
+    private fun noiseProtocol(case: JsonObject, forceNoise: Boolean = false, keys: FixedKeys = FixedKeys(case.hex("client_static_hex"), case.hex("psk_hex"))) =
+        HiveProtocol(
+            useragent = "Wiggins",
+            password = case.str("password"),
+            noiseKeys = keys,
+            forceNoise = forceNoise,
+            noiseEphemeral = { case.hex("client_ephemeral_hex") },
+        ).also { it.setSession(context) }
+
+    private fun noiseShake(msgHex: String) = """{"msg_type":"shake","payload":{"noise":{"msg":"$msgHex"}}}"""
+
+    private fun List<HiveProtocol.Output>.sentText() = filterIsInstance<HiveProtocol.Output.Send>().map { (it.frame as HiveProtocol.Frame.Text).text }
+
+    /**
+     * A hivemind-core 5 hub offers only Noise: Wiggins' handshake messages match the
+     * Python client's byte for byte, HELLO is the first Noise transport message, and
+     * the session then runs over binary frames, chunked or not.
+     */
+    @Test fun noiseOnlyHubHandshakesWithNoise() {
+        val case = noiseCase("hub-5x")
+        val proto = noiseProtocol(case)
+        proto.onFrame(case.str("hello_wire"))
+        val msg1 = proto.onFrame(case.str("shake_wire")).sentText().single().json().jsonObject
+        val offer = msg1.getValue("payload").jsonObject.getValue("noise").jsonObject
+        assertEquals("XXpsk2", offer.str("pattern"))
+        assertEquals("25519_ChaChaPoly_SHA256", offer.str("suite"))
+        assertEquals(case.str("msg1_hex"), offer.str("msg"))
+        assertTrue(!proto.isReady)
+
+        val outs = proto.onFrame(noiseShake(case.str("msg2_hex")))
+        val msg3 = (outs[0] as HiveProtocol.Output.Send).frame as HiveProtocol.Frame.Text
+        assertEquals(case.str("msg3_hex"), msg3.text.json().jsonObject.getValue("payload").jsonObject.getValue("noise").jsonObject.str("msg"))
+        val helloFrames = outs.filterIsInstance<HiveProtocol.Output.Send>().drop(1).map { it.frame as HiveProtocol.Frame.Binary }
+        val connected = outs.filterIsInstance<HiveProtocol.Output.Connected>().single()
+        assertEquals(3, connected.protocolVersion)
+        assertEquals(case.str("node_id"), connected.noiseNodeId)
+        assertTrue(proto.isReady)
+
+        // The hub's side of the transport, from the vectors' split keys.
+        val hub = NoiseTransport(NoiseCipher(case.hex("s2c_key_hex")), NoiseCipher(case.hex("c2s_key_hex")))
+        val hello = hub.open(helloFrames.single().bytes)!!.json().jsonObject
+        assertEquals("hello", hello.str("msg_type"))
+        assertEquals(proto.sessionId, hello.getValue("payload").jsonObject.getValue("session").jsonObject.str("session_id"))
+
+        // The hub's frames, in the order it sent them: a speak, then chunked hub speech audio.
+        val events = case.arr("hub_to_client").map { it.jsonObject }.flatMap { m -> m.arr("frames") }
+            .flatMap { proto.onBinary(it.jsonPrimitive.content.hexToByteArray()) }
+            .filterIsInstance<HiveProtocol.Output.Event>().map { it.event }
+        assertEquals("It's 6:30 — café time.", events.filterIsInstance<HubEvent.Speak>().single().utterance)
+        assertEquals("s1", events.filterIsInstance<HubEvent.SpeechAudio>().single().id)
+
+        // Our messages go out as Noise frames the hub can read.
+        val utterance = proto.utterance("what time is it", context)!!.map { hub.open((it as HiveProtocol.Frame.Binary).bytes) }.last()!!
+        assertEquals("recognizer_loop:utterance", utterance.json().jsonObject.getValue("payload").jsonObject.str("type"))
+        // Text frames have no place on a Noise session.
+        assertEquals(emptyList<HiveProtocol.Output>(), proto.onFrame("""{"msg_type":"bus","payload":{"type":"speak"}}"""))
+    }
+
+    /** hivemind-core 4.7–4.15 offer both: the password handshake, unless Noise is forced. */
+    @Test fun hubOfferingBothUsesThePasswordUnlessNoiseIsForced() {
+        val case = noiseCase("hub-415")
+        val password = noiseProtocol(case)
+        password.onFrame(case.str("hello_wire"))
+        val shake = password.onFrame(case.str("shake_wire")).sentText().single().json().jsonObject.getValue("payload").jsonObject
+        assertTrue("envelope" in shake && "noise" !in shake)
+
+        val forced = noiseProtocol(case, forceNoise = true)
+        forced.onFrame(case.str("hello_wire"))
+        val offer = forced.onFrame(case.str("shake_wire")).sentText().single().json().jsonObject.getValue("payload").jsonObject
+        assertEquals(case.str("msg1_hex"), offer.getValue("noise").jsonObject.str("msg"))
+        val outs = forced.onFrame(noiseShake(case.str("msg2_hex")))
+        assertEquals(3, outs.filterIsInstance<HiveProtocol.Output.Connected>().single().protocolVersion)
+    }
+
+    @Test fun wrongPasswordOverNoiseFailsAndForgetsThePsk() {
+        val case = noise.getValue("wrong_password").jsonObject
+        val keys = FixedKeys(case.hex("client_static_hex"), Noise.derivePsk(case.str("password"), case.str("node_id")))
+        val proto = noiseProtocol(case, keys = keys)
+        proto.onFrame(case.str("hello_wire"))
+        proto.onFrame(case.str("shake_wire"))
+        val fail = proto.onFrame(noiseShake(case.str("msg2_hex"))).filterIsInstance<HiveProtocol.Output.Fail>().single()
+        assertTrue(fail.reason, fail.reason.startsWith("Wrong password"))
+        assertEquals(listOf(case.str("node_id")), keys.rejected)
+    }
+
+    @Test fun forcedNoiseFailsOnAHubWithoutIt() {
+        val session = Vectors.cases("full_session.json", "sessions")[0]
+        val proto = HiveProtocol("Wiggins", "pw", forceNoise = true).also { it.setSession(context) }
+        val outs = session.arr("frames").map { it.jsonObject }.filter { it.str("dir") == "hub->client" && !it.bool("encrypted") }
+            .flatMap { proto.onFrame(it.str("wire")) }
+        val fail = outs.filterIsInstance<HiveProtocol.Output.Fail>().single()
+        assertTrue(fail.reason, "Noise" in fail.reason)
+    }
+
     @Test fun envelopeHasOnlyKnownKeys() {
         val text = HiveProtocol.hiveMessage("bus", JsonObject(emptyMap()))
         assertEquals(setOf("msg_type", "payload"), text.json().jsonObject.keys)
     }
 }
+
+private fun List<HiveProtocol.Frame>?.text() = (checkNotNull(this).single() as HiveProtocol.Frame.Text).text

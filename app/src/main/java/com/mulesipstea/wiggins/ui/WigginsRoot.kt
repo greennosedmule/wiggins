@@ -35,6 +35,7 @@ fun WigginsRoot(viewModel: MainViewModel) {
         val transcript by assistant.transcript.collectAsStateWithLifecycle()
         val settings by assistant.settings.collectAsStateWithLifecycle()
         val log by assistant.log.collectAsStateWithLifecycle()
+        val forceNoise by assistant.forceNoise.collectAsStateWithLifecycle()
         val prerequisites by assistant.prerequisites.collectAsStateWithLifecycle()
         val problem by assistant.problem.collectAsStateWithLifecycle()
         val thinking by assistant.thinking.collectAsStateWithLifecycle()
@@ -132,6 +133,9 @@ fun WigginsRoot(viewModel: MainViewModel) {
                 )
                 Screen.MESSAGES -> MessagesScreen(
                     messages = log,
+                    connection = connection,
+                    forceNoise = forceNoise,
+                    onForceNoiseChange = assistant::setForceNoise,
                     onClear = assistant::clearLog,
                     onBack = { screen = Screen.CHAT },
                 )

@@ -6,7 +6,15 @@ sealed interface ConnectionState {
     data object Disconnected : ConnectionState
     data object Connecting : ConnectionState
     data object Handshaking : ConnectionState
-    data class Connected(val peer: String?) : ConnectionState
+    /**
+     * [protocolVersion] is 3 for a Noise session, 2 for the password handshake;
+     * [noiseNodeId] is the hub's node id if it offered Noise, which salts its PSK.
+     */
+    data class Connected(
+        val peer: String?,
+        val protocolVersion: Int = HiveProtocol.PASSWORD_PROTOCOL_VERSION,
+        val noiseNodeId: String? = null,
+    ) : ConnectionState
     /** [retryable] is false when retrying can't help, such as a wrong key or password. */
     data class Failed(val reason: String, val retryable: Boolean, val httpCode: Int? = null) : ConnectionState
 }

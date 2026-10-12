@@ -44,6 +44,7 @@ private val COMPONENTS = listOf(
     "Kotlin, kotlinx.coroutines, kotlinx.serialization" to "Apache-2.0",
     "OkHttp and Okio" to "Apache-2.0",
     "Tink" to "Apache-2.0",
+    "Bouncy Castle" to "MIT",
     "AppAuth for Android" to "Apache-2.0",
     "android-vad (Georgiy Konovalov)" to "MIT",
     "WebRTC voice activity detector (WebRTC project authors)" to "BSD-3-Clause",

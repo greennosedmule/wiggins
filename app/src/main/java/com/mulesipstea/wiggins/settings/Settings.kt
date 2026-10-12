@@ -7,12 +7,18 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
+import com.mulesipstea.wiggins.hivemind.Noise
 import com.mulesipstea.wiggins.waggle.Mode
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /** Who does speech-to-text or text-to-speech (SPEC "Speech modes"). */
 enum class SpeechMode { HUB, DEVICE }
@@ -76,6 +82,12 @@ data class HubSettings(
         }
 }
 
+/**
+ * The Noise handshake's key material (protocol v3): this phone's static key, and
+ * the PSKs already stretched from the password with argon2id, by hub node id.
+ */
+class NoiseSecrets(val staticKey: ByteArray, val psks: Map<String, ByteArray>)
+
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
 class SettingsRepository(private val context: Context) {
@@ -88,6 +100,9 @@ class SettingsRepository(private val context: Context) {
         val password = secrets.encrypt(PASSWORD.name, settings.password)
         val authState = settings.authState.takeIf { it.isNotEmpty() }?.let { secrets.encrypt(AUTH_STATE.name, it) }
         context.dataStore.edit {
+            // Stretched from the old password, so useless now.
+            val oldPassword = it[PASSWORD]?.let { v -> runCatching { secrets.decrypt(PASSWORD.name, v) }.getOrNull() }
+            if (oldPassword != settings.password) it.remove(NOISE_PSKS)
             it[HUB_URL] = settings.hubUrl.trim()
             it[AUTH_MODE] = settings.authMode.name
             it[ACCESS_KEY] = key
@@ -172,6 +187,52 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[AUTH_STATE] = encrypted }
     }
 
+    /** The Noise key material, making this phone's static key the first time. */
+    suspend fun noiseSecrets(): NoiseSecrets = withContext(Dispatchers.Default) {
+        lateinit var secretsNow: NoiseSecrets
+        context.dataStore.edit {
+            val staticKey = it[NOISE_STATIC_KEY]?.let { v -> secrets.decrypt(NOISE_STATIC_KEY.name, v).hexToByteArray() }
+                ?: Noise.newPrivateKey().also { k -> it[NOISE_STATIC_KEY] = secrets.encrypt(NOISE_STATIC_KEY.name, k.toHexString()) }
+            secretsNow = NoiseSecrets(staticKey, it.noisePsks())
+        }
+        secretsNow
+    }
+
+    /** Keeps a PSK stretched for the hub with [nodeId], so argon2id runs once per hub and password. */
+    suspend fun saveNoisePsk(nodeId: String, psk: ByteArray) = withContext(Dispatchers.Default) {
+        context.dataStore.edit {
+            // Newest last; a phone talks to one hub, so a few entries are plenty.
+            val psks = (it.noisePsks() - nodeId + (nodeId to psk)).entries.toList().takeLast(MAX_NOISE_PSKS)
+            val json = JsonObject(psks.associate { (id, key) -> id to JsonPrimitive(key.toHexString()) })
+            it[NOISE_PSKS] = secrets.encrypt(NOISE_PSKS.name, json.toString())
+        }
+    }
+
+    /** Forgets the PSK for [nodeId], which the hub didn't accept. */
+    suspend fun forgetNoisePsk(nodeId: String) = withContext(Dispatchers.Default) {
+        context.dataStore.edit {
+            val psks = it.noisePsks()
+            if (nodeId !in psks) return@edit
+            val json = JsonObject((psks - nodeId).mapValues { (_, key) -> JsonPrimitive(key.toHexString()) })
+            it[NOISE_PSKS] = secrets.encrypt(NOISE_PSKS.name, json.toString())
+        }
+    }
+
+    private fun Preferences.noisePsks(): Map<String, ByteArray> {
+        val stored = this[NOISE_PSKS] ?: return emptyMap()
+        return runCatching {
+            Json.parseToJsonElement(secrets.decrypt(NOISE_PSKS.name, stored)).jsonObject
+                .mapValues { (_, v) -> v.jsonPrimitive.content.hexToByteArray() }
+        }.getOrDefault(emptyMap())
+    }
+
+    /** Use the Noise handshake even when the hub also offers the password one (a testing switch in Hub messages). */
+    val forceNoise: Flow<Boolean> = context.dataStore.data.map { it[FORCE_NOISE] ?: false }
+
+    suspend fun setForceNoise(on: Boolean) {
+        context.dataStore.edit { it[FORCE_NOISE] = on }
+    }
+
     private fun Preferences.toSettings() = HubSettings(
         hubUrl = this[HUB_URL].orEmpty(),
         authMode = this[AUTH_MODE]?.let { runCatching { AuthMode.valueOf(it) }.getOrNull() } ?: AuthMode.NONE,
@@ -201,5 +262,9 @@ class SettingsRepository(private val context: Context) {
         val HUB_SPEECH_AVAILABLE = booleanPreferencesKey("hub_speech_available")
         val UNMATCHED = stringPreferencesKey("waggle_unmatched")
         val QUERIES = stringSetPreferencesKey("waggle_queries")
+        val NOISE_STATIC_KEY = stringPreferencesKey("noise_static_key_enc")
+        val NOISE_PSKS = stringPreferencesKey("noise_psks_enc")
+        val FORCE_NOISE = booleanPreferencesKey("force_noise")
+        const val MAX_NOISE_PSKS = 4
     }
 }

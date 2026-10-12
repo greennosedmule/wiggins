@@ -17,8 +17,14 @@ import java.util.UUID
 
 /**
  * The HiveMind client protocol for one connection, independent of the
- * transport: feed it each text frame, and it returns what to send and what
+ * transport: feed it each frame, and it returns what to send and what
  * happened. See docs/hivemind-protocol.md §4.
+ *
+ * It uses the password handshake whenever the hub offers it, and the Noise
+ * handshake (protocol v3, §16) when that's all the hub offers, as
+ * hivemind-core 5 does, or when [forceNoise] is set. hivemind-core 4.7–4.15
+ * offer both, but can't send a message over 64 KB over Noise (hub speech
+ * audio, say), so the password handshake stays the choice there.
  *
  * Not thread-safe; the caller serializes access.
  */
@@ -33,20 +39,37 @@ class HiveProtocol(
     initialSession: JsonObject? = null,
     /** Milliseconds on a monotonic clock. */
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val noiseKeys: NoiseKeys = EphemeralNoiseKeys(password),
+    /** Use the Noise handshake even when the hub also offers the password one (for testing). */
+    private val forceNoise: Boolean = false,
+    private val noiseEphemeral: () -> ByteArray = Noise::newPrivateKey,
 ) {
+    /** A websocket message: JSON text before and without Noise, binary on a Noise session. */
+    sealed interface Frame {
+        data class Text(val text: String) : Frame
+        class Binary(val bytes: ByteArray) : Frame
+    }
+
     sealed interface Output {
-        data class Send(val text: String) : Output
-        data class Connected(val peer: String?) : Output
+        data class Send(val frame: Frame) : Output
+        /** [noiseNodeId] is the hub's node id when it offered Noise: the salt for its PSK. */
+        data class Connected(val peer: String?, val protocolVersion: Int, val noiseNodeId: String?) : Output
         data class Event(val event: HubEvent) : Output
         data class Fail(val reason: String) : Output
     }
 
-    private enum class Stage { AWAIT_SHAKE, AWAIT_SHAKE_RESPONSE, READY, FAILED }
+    private enum class Stage { AWAIT_SHAKE, AWAIT_SHAKE_RESPONSE, AWAIT_NOISE_RESPONSE, READY, FAILED }
 
     private var stage = Stage.AWAIT_SHAKE
     private var cipher: FrameCipher? = null
     private var session: SessionContext? = null
     private var hubPeer: String? = null
+
+    /** The hub's cleartext HELLO payload, bound into the Noise prologue. */
+    private var hubHello: JsonObject? = null
+    private var noise: NoiseHandshake? = null
+    private var noiseOffered = false
+    private var transport: NoiseTransport? = null
 
     private class SpeechSeen(val busType: String, val fingerprint: JsonObject, val at: Long)
 
@@ -68,6 +91,8 @@ class HiveProtocol(
 
     fun onFrame(text: String): List<Output> {
         if (stage == Stage.FAILED) return emptyList()
+        // A Noise session is binary only; the Python client drops text too.
+        if (transport != null) return emptyList()
         val json = runCatching { Json.parseToJsonElement(text) as JsonObject }.getOrElse {
             return fail("Hub sent a frame that isn't a JSON object")
         }
@@ -87,8 +112,23 @@ class HiveProtocol(
         return onMessage(message)
     }
 
-    /** Builds an encrypted utterance frame, or null if the handshake isn't done. */
-    fun utterance(text: String, context: SessionContext): String? = bus(
+    /** A binary websocket message: a Noise transport message, or ignored before or without Noise (binarize is off). */
+    fun onBinary(bytes: ByteArray): List<Output> {
+        if (stage == Stage.FAILED) return emptyList()
+        val t = transport ?: return emptyList()
+        val text = try {
+            t.open(bytes) ?: return emptyList()
+        } catch (e: NoiseException) {
+            return fail(e.message ?: "Noise transport failed")
+        }
+        val message = runCatching { Json.parseToJsonElement(text) as JsonObject }.getOrElse {
+            return fail("Hub sent a Noise message that isn't a HiveMessage")
+        }
+        return onMessage(message)
+    }
+
+    /** Builds an encrypted utterance, or null if the handshake isn't done. */
+    fun utterance(text: String, context: SessionContext): List<Frame>? = bus(
         "recognizer_loop:utterance",
         buildJsonObject {
             putJsonArray("utterances") { add(JsonPrimitive(text)) }
@@ -101,7 +141,7 @@ class HiveProtocol(
      * Asks the hub to transcribe [wav] (16 kHz mono 16-bit), marking the request with
      * [id] in its context, which the hub's reply copies (SPEC "Hub speech-to-text").
      */
-    fun transcribe(id: String, wav: ByteArray, context: SessionContext): String? = bus(
+    fun transcribe(id: String, wav: ByteArray, context: SessionContext): List<Frame>? = bus(
         "recognizer_loop:b64_transcribe",
         buildJsonObject {
             put("audio", Base64.getEncoder().encodeToString(wav))
@@ -114,7 +154,7 @@ class HiveProtocol(
     )
 
     /** Asks the hub to synthesize [utterance]; the reply's data echoes [id] (SPEC "Hub text-to-speech"). */
-    fun synthesize(id: String, utterance: String, context: SessionContext): String? = bus(
+    fun synthesize(id: String, utterance: String, context: SessionContext): List<Frame>? = bus(
         "speak:b64_audio",
         buildJsonObject {
             put("utterance", utterance)
@@ -127,8 +167,9 @@ class HiveProtocol(
     /**
      * Builds an encrypted BUS message of [type] (e.g. `recognizer_loop:record_begin`),
      * or null if the handshake isn't done. The hub drops types the client isn't allowed to send.
+     * A Noise session sends a large message as several frames, in order.
      */
-    fun bus(type: String, data: JsonObject, context: SessionContext, extraContext: Map<String, String> = emptyMap()): String? {
+    fun bus(type: String, data: JsonObject, context: SessionContext, extraContext: Map<String, String> = emptyMap()): List<Frame>? {
         if (stage != Stage.READY) return null
         session = context
         val payload = buildJsonObject {
@@ -167,6 +208,7 @@ class HiveProtocol(
         return when (type) {
             "hello" -> {
                 hubPeer = payload["peer"]?.jsonPrimitive?.contentOrNull
+                if (hubHello == null) hubHello = payload
                 listOf(Output.Event(HubEvent.Downlink(type, null, message)))
             }
             "shake" -> onShake(payload)
@@ -176,24 +218,96 @@ class HiveProtocol(
     }
 
     private fun onShake(payload: JsonObject): List<Output> = when (stage) {
-        Stage.AWAIT_SHAKE -> {
-            // The hub's "handshake" flag is false for add-client records (they also carry a
-            // legacy key); handshake whenever it offers the password path (§4.2).
-            if (payload["password"]?.jsonPrimitive?.booleanOrNull != true) {
-                fail("Hub doesn't offer a password handshake for this client")
-            } else {
-                stage = Stage.AWAIT_SHAKE_RESPONSE
-                val shake = buildJsonObject {
-                    put("binarize", false)
-                    putJsonArray("encodings") { add(JsonPrimitive(OFFERED_ENCODING.wireName)) }
-                    putJsonArray("ciphers") { add(JsonPrimitive(OFFERED_CIPHER.wireName)) }
-                    put("envelope", handshake.envelope)
-                }
-                listOf(Output.Send(hiveMessage("shake", shake)))
+        Stage.AWAIT_SHAKE -> startHandshake(payload)
+        Stage.AWAIT_SHAKE_RESPONSE -> completeHandshake(payload)
+        // Only a handshake message carries noise.msg; a repeated offer is ignored, as the Python client does.
+        Stage.AWAIT_NOISE_RESPONSE -> if (noiseMessage(payload) != null) completeNoise(payload) else emptyList()
+        else -> emptyList()
+    }
+
+    private fun startHandshake(offer: JsonObject): List<Output> {
+        // The hub's "handshake" flag is false for add-client records (they also carry a
+        // legacy key); handshake whenever it offers the password path (§4.2).
+        val password = offer["password"]?.jsonPrimitive?.booleanOrNull == true
+        val noise = offersNoise(offer)
+        noiseOffered = noise
+        return when {
+            password && !forceNoise -> startPasswordHandshake()
+            noise -> startNoise(offer)
+            forceNoise -> fail("Hub doesn't offer the Noise handshake, which is forced on in Hub messages")
+            "noise" in offer -> fail("Hub's Noise handshake needs options Wiggins doesn't support (it uses ${Noise.PROTOCOL_NAME})")
+            else -> fail("Hub doesn't offer a password or Noise handshake for this client")
+        }
+    }
+
+    private fun startPasswordHandshake(): List<Output> {
+        stage = Stage.AWAIT_SHAKE_RESPONSE
+        val shake = buildJsonObject {
+            put("binarize", false)
+            putJsonArray("encodings") { add(JsonPrimitive(OFFERED_ENCODING.wireName)) }
+            putJsonArray("ciphers") { add(JsonPrimitive(OFFERED_CIPHER.wireName)) }
+            put("envelope", handshake.envelope)
+        }
+        return listOf(Output.Send(Frame.Text(hiveMessage("shake", shake))))
+    }
+
+    /** Protocol v3 with the one pattern and suite Wiggins speaks (§16.1). */
+    private fun offersNoise(offer: JsonObject): Boolean {
+        val version = offer["max_protocol_version"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 1
+        val noise = offer["noise"] as? JsonObject ?: return false
+        fun names(key: String) = (noise[key] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+        return version >= Noise.PROTOCOL_VERSION && Noise.PATTERN in names("patterns") && Noise.SUITE in names("suites")
+    }
+
+    private fun startNoise(offer: JsonObject): List<Output> {
+        val hello = hubHello ?: return fail("Hub offered the Noise handshake before saying HELLO")
+        val nodeId = hello["node_id"]?.jsonPrimitive?.contentOrNull ?: return fail("Hub's HELLO has no node id")
+        val psk = try {
+            noiseKeys.psk(nodeId)
+        } catch (e: Exception) {
+            return fail("Couldn't derive the Noise key from the password: ${e.message}")
+        }
+        val hs = NoiseHandshake(noiseKeys.staticKey, psk, Noise.prologue(hello, offer), noiseEphemeral())
+        noise = hs
+        stage = Stage.AWAIT_NOISE_RESPONSE
+        // The hub reads binarize and the first encoding; on v3 the encoding only names the framing (§16.2).
+        val nodePayload = buildJsonObject {
+            put("binarize", false)
+            putJsonArray("encodings") { add(JsonPrimitive(OFFERED_ENCODING.wireName)) }
+        }
+        val msg1 = hs.writeMessage1(Noise.canonicalJson(nodePayload).toByteArray(Charsets.UTF_8))
+        val shake = buildJsonObject {
+            putJsonObject("noise") {
+                put("pattern", Noise.PATTERN)
+                put("suite", Noise.SUITE)
+                put("msg", msg1.toHexString())
             }
         }
-        Stage.AWAIT_SHAKE_RESPONSE -> completeHandshake(payload)
-        else -> emptyList()
+        return listOf(Output.Send(Frame.Text(hiveMessage("shake", shake))))
+    }
+
+    private fun noiseMessage(payload: JsonObject): String? =
+        ((payload["noise"] as? JsonObject)?.get("msg") as? JsonPrimitive)?.contentOrNull
+
+    private fun completeNoise(payload: JsonObject): List<Output> {
+        val hs = checkNotNull(noise)
+        val msg2 = runCatching { noiseMessage(payload)!!.hexToByteArray() }.getOrElse {
+            return fail("Hub's Noise handshake message is malformed")
+        }
+        try {
+            hs.readMessage2(msg2)
+        } catch (e: NoiseException) {
+            // The PSK is one of the things message 2 authenticates: a cached one may be stale.
+            hubHello?.get("node_id")?.jsonPrimitive?.contentOrNull?.let(noiseKeys::rejected)
+            return fail("Wrong password (the hub's Noise handshake doesn't match it)")
+        }
+        val msg3 = hs.writeMessage3(ByteArray(0))
+        transport = hs.split()
+        noise = null
+        stage = Stage.READY
+        val shake = buildJsonObject { putJsonObject("noise") { put("msg", msg3.toHexString()) } }
+        // Message 3 goes in the clear like the rest of the handshake; HELLO is the first Noise transport message.
+        return listOf(Output.Send(Frame.Text(hiveMessage("shake", shake)))) + hello(Noise.PROTOCOL_VERSION)
     }
 
     private fun completeHandshake(payload: JsonObject): List<Output> {
@@ -207,7 +321,11 @@ class HiveProtocol(
         val key = handshake.deriveKey(envelope)
         cipher = if (nonces != null) FrameCipher(key, hiveCipher, encoding, nonces) else FrameCipher(key, hiveCipher, encoding)
         stage = Stage.READY
+        return hello(PASSWORD_PROTOCOL_VERSION)
+    }
 
+    /** Our encrypted HELLO, which registers the session with the hub. */
+    private fun hello(protocolVersion: Int): List<Output> {
         val context = session ?: return fail("No session context set")
         val hello = buildJsonObject {
             put("session", sessionJson(context))
@@ -215,7 +333,9 @@ class HiveProtocol(
         }
         // The hub's HELLO named us with a "default" session; ours replaces it (§11.2).
         val peer = hubPeer?.substringBeforeLast("::")?.let { "$it::$sessionId" }
-        return listOf(Output.Send(encrypted(hiveMessage("hello", hello))), Output.Connected(peer))
+        // Before 4.7 the node id is a shared default ("master:0.0.0.0"), and no use as a salt.
+        val nodeId = hubHello?.get("node_id")?.jsonPrimitive?.contentOrNull?.takeIf { noiseOffered }
+        return encrypted(hiveMessage("hello", hello)).map { Output.Send(it) } + Output.Connected(peer, protocolVersion, nodeId)
     }
 
     private fun onBus(message: JsonObject, payload: JsonObject): List<Output> {
@@ -276,7 +396,8 @@ class HiveProtocol(
         return (text as? JsonPrimitive)?.takeIf { it.isString }?.content
     }
 
-    private fun encrypted(plaintext: String) = checkNotNull(cipher).seal(plaintext)
+    private fun encrypted(plaintext: String): List<Frame> =
+        transport?.seal(plaintext)?.map { Frame.Binary(it) } ?: listOf(Frame.Text(checkNotNull(cipher).seal(plaintext)))
 
     private fun fail(reason: String): List<Output> {
         stage = Stage.FAILED
@@ -296,6 +417,8 @@ class HiveProtocol(
         private const val SPEECH_MIRROR_WINDOW_MS = 2_000L
         val OFFERED_CIPHER = HiveCipher.CHACHA20_POLY1305
         val OFFERED_ENCODING = HiveEncoding.JSON_B64
+        /** hivemind-core counts the password handshake as protocol v2 (v1 was the RSA one). */
+        const val PASSWORD_PROTOCOL_VERSION = 2
 
         /** Only msg_type and payload: the hub rejects unknown envelope keys (§3.3). */
         fun hiveMessage(type: String, payload: JsonElement): String =
