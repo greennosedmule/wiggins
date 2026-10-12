@@ -72,7 +72,8 @@ class Speaker(context: Context) {
                 Engine.UNAVAILABLE -> Unit
             }
             updateSpeaking()
-            engine == Engine.UNAVAILABLE
+            // No engine, or it refused the text with nothing else queued: no onDone is coming.
+            engine == Engine.UNAVAILABLE || (engine == Engine.READY && active == 0 && pending.isEmpty())
         }
         if (idleNow) onIdle?.invoke()
     }
