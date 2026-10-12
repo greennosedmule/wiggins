@@ -12,6 +12,8 @@ Wiggins runs no speech models of its own. Speech-to-text and text-to-speech are 
 
 Out of scope for v1: on-device wake word, on-device intent parsing, bundled STT or TTS models, streaming the microphone to the hub (for hub-side wake word), and reading or controlling the screen.
 
+Out of scope altogether: actions the phone didn't ask for, such as another satellite or a home automation sending the phone a command. Wiggins acts only on requests made through it (decided 2026-10-12, which dropped the push wake-up milestone).
+
 ## Prerequisites
 
 | Need | Why | Example on GrapheneOS |
@@ -22,7 +24,6 @@ Out of scope for v1: on-device wake word, on-device intent parsing, bundled STT 
 | For device speech: a system TTS engine | Speaking replies | RHVoice, Sherpa TTS |
 | Optional: ovos-skill-waggle on the hub | Phone actions (M5) | — |
 | A HiveMind client key for this phone | Bus access | — |
-| Optional: a UnifiedPush distributor | Hub-initiated actions (M6) | Nextcloud UnifiedPush |
 
 Text input works with no speech set up at all, and replies are always shown as text, so Wiggins is usable before speech is set up. The setup screen checks for each prerequisite the chosen speech modes need and links to what's missing.
 
@@ -67,7 +68,6 @@ With hub speech, the phone records an utterance and sends it through the auth ga
 - **Protocol:** the HiveMind handshake, payload encryption and message framing are implemented in Kotlin; there is no JVM HiveMind client to reuse. Target the current hivemind-core release and test against vectors generated with the Python client.
 - **Lifecycle:** connect when the assistant UI or main screen opens, stay connected while it's visible and while any Waggle request is pending, then disconnect after a short idle period. Ping on an interval to keep proxies from dropping the connection; reconnect on resume.
 - **Session context:** each utterance carries an OVOS session with the phone's language and timezone, so ordinary skills (time, date) answer for the phone's location. The timezone goes inside the location the hub hands back, since a sent location replaces the hub's whole one and the phone has no city or coordinates to offer (the weather skill needs them). Until the hub has handed a session back, Wiggins sends no location and the hub's applies, timezone included. Waggle timestamps are UTC on the wire.
-- **Push (M6, optional):** with a UnifiedPush distributor, the hub can wake Wiggins to connect and receive a request while the UI is closed. It adds hub-initiated actions (for example a home automation opening navigation, or "ring my phone"), and nothing else. Holding the assistant role through an `ACTION_ASSIST` activity does not by itself allow background activity launches, and neither does a `shortService` foreground service. The assistant role does grant the `SYSTEM_ALERT_WINDOW` app-op to an app that declares that permission, which exempts it; failing that, Wiggins posts a notification the user taps. Both paths, and a `shortService` foreground service to hold the connection, must be proven on a GrapheneOS device first (`docs/m2-assistant-spike.md` §5).
 
 ## Voice pipeline
 
@@ -183,7 +183,6 @@ M1–M3 make Wiggins a useful client for stock OVOS skills with no Waggle at all
 3. **M3 — Remote access:** mTLS and proxy-login modes. First release.
 4. **M4 — Hub speech:** Hub and Device settings for STT and TTS, recording with end-of-speech detection, hub transcription, hub TTS playback, the setup check and `RECORD_AUDIO`. Pairs with the hub enabling `hivemind-audio-binary-protocol` with its STT and TTS plugins.
 5. **M5 — Waggle:** allowlist and rule editor, ask card, action log, the three queries, capability announcement. Pairs with ovos-skill-waggle S2–S3.
-6. **M6 — Push (optional):** UnifiedPush wake-up for hub-initiated actions, if the background-launch spike succeeds.
 
 ## Backlog
 
@@ -199,13 +198,20 @@ Work found in testing that isn't tied to a milestone yet. Tick items off here wh
 - [ ] The alerts skill parses times in the hub's timezone (from its `mycroft.conf`), not the session's. It only matters when the phone is in a different timezone from the hub; check upstream.
 - [ ] Upstream cosmetic: with no duration the alerts skill starts a stopwatch and says "Timer for , starting now."
 - [ ] Hub-side: ovos-persona keeps each session's chat history in memory with no expiry, cap or pruning, and sends all of it with every prompt, so a long session's prompts keep growing and abandoned sessions stay until ovos-core restarts. Wiggins ends sessions after 30 minutes idle, which bounds each session but not the leftovers. Propose an idle TTL (matching Wiggins'), a cap on remembered exchanges, and pruning to ovos-persona, and run a patched build on the hub until it lands.
+- [ ] Say clearly when the hub needs the Noise handshake. hivemind-core 5.x's `shake` offer has `noise` and `max_protocol_version: 3` but no `password` field, so `onShake` fails with the misleading "Hub doesn't offer a password handshake for this client". When `noise` is present and `password` isn't, say the hub needs a newer Wiggins instead. Found reading hivemind-core 5.3.3a1 (2026-10-12).
+- [ ] Protocol v3: the Noise handshake, so Wiggins works with hivemind-core 5.x (Noise only) as well as today's hubs. Choose by what the hub's `shake` offers, not by its version: use Noise when it has a `noise` object, the password handshake otherwise. Hubs up to 4.6 never offer `noise`, 4.7–4.15 offer both, 5.x only Noise, so it can be built and tested against a 4.15 hub before the hub moves to 5. From reading hivemind-core 4.15 and 5.3.3a1, untested:
+  - XXpsk2 on first contact, with the PSK derived from the client's existing password, so hub client records and setup don't change. KKpsk0 is optional; the hub offers it only once it has pinned the phone's key, and XX keeps working.
+  - A Noise static key pair per hub, kept on the phone. The hub pins it at the first Noise handshake and then refuses any other key ("client Noise static key contradicts the pinned key"), so a reinstalled phone or one with cleared data is locked out until `hivemind-core reset-noise-pin <client id>`. Recognise that refusal and show the command, and decide whether Android backup carries the key.
+  - After the handshake, frames are encrypted with the Noise transport keys instead of the password-derived key; the encodings (JSON-B64) are negotiated as before.
+  - As with the password handshake, document it in `docs/hivemind-protocol.md` and check the Kotlin against vectors generated from the Python client (hivemind-bus-client 1.x `noise.py`) in `tools/vectors/`.
+- [ ] A Phone/Hub switch per request type on the Phone actions screen, for requests both the phone and the hub's OVOS skills can handle (timers, alarms and "show my alarms" today). It already works underneath: a Block rule for the action makes the hub's Waggle stage skip it, so the request goes to the hub's skills (the alerts skill). But Block reads as "never allow", and today only the rule editor sets it. The switch would write or remove that Block rule, which needs no hub or WAGGLE.md change. A new rule mode would need a protocol change, since v1 hubs reject an unknown mode in `waggle.capabilities`. Queries already have on/off switches. With Waggle's persona tools (S4), a request set to Hub isn't offered to Claude as a phone tool, because the tools come from the phone's capabilities. The hub-wide equivalent is Waggle's `enable_<request>` setting. Suggested 2026-10-12.
 
 ## Open questions
 
 - [x] How do satellites without their own STT and TTS get them? From the hub's `hivemind-audio-binary-protocol` plugin, as `hivemind-voice-relay` and `hivemind-mic-satellite` do. Wiggins uses its JSON messages (see "Speech modes"), not binary frames or continuous mic streaming. Researched 2026-10-05 against plugin 2.1.3 (in the hub image) and the 2.2 alphas.
 - [x] End-of-speech detection: the WebRTC voice detector from `gkonovalov/android-vad` (decided 2026-10-05). Its Silero model is more accurate but adds ONNX Runtime. The library is published only on JitPack, as a prebuilt native library, which F-Droid wouldn't accept. Its repo has the full source, though, so Wiggins vendors the `webrtc` module (the Kotlin wrapper, the JNI glue and the WebRTC C code, built with `Android.mk`) as the `vad` module and builds it with a pinned NDK, for `arm64-v8a` and `x86_64` only. The NDK is added to CI and the release workflow. The MIT and BSD-3-Clause notices stay with the source and go on the About screen. Clean builds produce the same native library, from any checkout path, once `-ffile-prefix-map` and `-fdebug-compilation-dir` keep the paths out of the build ID (checked 2026-10-06; `vad/README.md`).
 - [x] Which hivemind-core version, handshake and cipher should M1 target? hivemind-core 3.4.0 (hub image `stable-20260922`), password handshake, ChaCha20-Poly1305, JSON-B64, binarize off. Details and Python-generated test vectors: `docs/hivemind-protocol.md`, `tools/vectors/`.
-- [x] Trigger: an `ACTION_ASSIST` activity, as Dicio does. A `VoiceInteractionService` must declare a recognition service and can take over the system's default recognizer. Background launches for M6 need `SYSTEM_ALERT_WINDOW` (granted by the role) or a notification; still to verify on GrapheneOS. See `docs/m2-assistant-spike.md`.
+- [x] Trigger: an `ACTION_ASSIST` activity, as Dicio does. A `VoiceInteractionService` must declare a recognition service and can take over the system's default recognizer. See `docs/m2-assistant-spike.md`.
 - [x] How does Wiggins sign in through Pomerium? With an Entra access token checked by Pomerium (see Security requirements). Programmatic login redirects only to allowlisted http(s) hosts. With `allow_websockets`, Pomerium disables the route and idle timeouts. Still to confirm live: `docs/m3-pomerium-auth.md` "Open items".
 - [x] Distribution: GitHub releases, installed and updated with Obtainium, first (decided 2026-10-05). F-Droid or Accrescent may follow; the Stack's dependency rules keep F-Droid possible.
 - [x] License: Apache-2.0 (decided 2026-10-04). It matches OVOS and HiveMind, so they can take code upstream, and it doesn't lean on copyright the largely AI-generated code may not have. The README says the code is largely AI-generated. Copyleft (GPL-3.0) was considered and dropped for those reasons.
