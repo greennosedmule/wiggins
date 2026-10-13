@@ -1,6 +1,7 @@
 package com.mulesipstea.wiggins
 
 import android.Manifest
+import android.app.KeyguardManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.media.AudioManager
@@ -13,6 +14,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -20,20 +23,39 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.mulesipstea.wiggins.speech.Prerequisites
 import com.mulesipstea.wiggins.ui.AssistPanel
 import com.mulesipstea.wiggins.ui.Banner
+import com.mulesipstea.wiggins.ui.LockedHint
 import com.mulesipstea.wiggins.ui.Problem
 import com.mulesipstea.wiggins.ui.openAppSettings
 import com.mulesipstea.wiggins.ui.theme.WigginsTheme
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
  * The assist gesture's target: the assistant panel over the current app, in its
  * own task. Its conversation lives only while it's on screen, so leaving it
  * closes it, except while the user's recognizer or a permission request is in front of it.
+ *
+ * On a locked phone the panel would start hidden behind the lock screen, where it can't
+ * listen. So an invocation on a locked phone asks for the unlock first, and listens once
+ * the phone is unlocked (SPEC "Lock screen"). If the user backs out, a short hint shows
+ * over the lock screen, holding nothing from the conversation, then the panel closes and
+ * whatever it covered, such as a ringing alarm's screen, comes back.
  */
 class AssistActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
     private val assistant get() = viewModel.assistant
     private var awaitingResult = false
+
+    /** The unlock prompt is up; being hidden behind the lock screen meanwhile isn't leaving. */
+    private var awaitingUnlock = false
+
+    /** The user backed out of unlocking: the lock-screen hint is showing instead of the panel. */
+    private var lockedHint by mutableStateOf(false)
+    private var hintTimeout: Job? = null
+
+    /** Whether this screen counts as visible for [Assistant.onForeground]; the hint doesn't. */
+    private var counted = false
 
     private val recognize = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         awaitingResult = false
@@ -53,6 +75,10 @@ class AssistActivity : ComponentActivity() {
         assistant.openPanel()
         setContent {
             WigginsTheme {
+                if (lockedHint) {
+                    LockedHint(onUnlock = ::retryUnlock, onClose = ::finish)
+                    return@WigginsTheme
+                }
                 val connection by assistant.connection.collectAsStateWithLifecycle()
                 val panel by assistant.panelTranscript.collectAsStateWithLifecycle()
                 val transcript = panel?.collectAsStateWithLifecycle()?.value.orEmpty()
@@ -116,14 +142,14 @@ class AssistActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        assistant.onForeground()
+        enterForeground()
     }
 
     override fun onStop() {
-        assistant.onBackground()
+        leaveForeground()
         super.onStop()
         // The panel's conversation lasts only while it's on screen.
-        if (!awaitingResult && !isChangingConfigurations) finish()
+        if (!awaitingResult && !awaitingUnlock && !isChangingConfigurations) finish()
     }
 
     override fun onDestroy() {
@@ -133,9 +159,84 @@ class AssistActivity : ComponentActivity() {
 
     private fun handleLaunch(intent: Intent?) {
         when (intent?.action) {
-            Intent.ACTION_ASSIST, Intent.ACTION_VOICE_COMMAND ->
-                viewModel.onAssistInvoked(fromKeyboard = intent.getBooleanExtra(Intent.EXTRA_ASSIST_INPUT_HINT_KEYBOARD, false))
+            Intent.ACTION_ASSIST, Intent.ACTION_VOICE_COMMAND -> {
+                val fromKeyboard = intent.getBooleanExtra(Intent.EXTRA_ASSIST_INPUT_HINT_KEYBOARD, false)
+                val keyguard = getSystemService(KeyguardManager::class.java)
+                if (keyguard.isKeyguardLocked) {
+                    unlockThen { viewModel.onAssistInvoked(fromKeyboard) }
+                } else {
+                    viewModel.onAssistInvoked(fromKeyboard)
+                }
+            }
         }
+    }
+
+    private fun enterForeground() {
+        if (counted || lockedHint) return
+        counted = true
+        assistant.onForeground()
+    }
+
+    private fun leaveForeground() {
+        if (!counted) return
+        counted = false
+        assistant.onBackground()
+    }
+
+    /** What to do once the phone is unlocked: the invocation that found it locked. */
+    private var afterUnlock: (() -> Unit)? = null
+
+    /** Asks Android to show the unlock prompt (fingerprint, PIN) and runs [then] once the phone is unlocked. */
+    private fun unlockThen(then: () -> Unit) {
+        afterUnlock = then
+        requestUnlock()
+    }
+
+    private fun requestUnlock() {
+        if (awaitingUnlock) return
+        awaitingUnlock = true
+        getSystemService(KeyguardManager::class.java).requestDismissKeyguard(
+            this,
+            object : KeyguardManager.KeyguardDismissCallback() {
+                override fun onDismissSucceeded() = unlocked()
+
+                override fun onDismissCancelled() = unlockFailed()
+
+                override fun onDismissError() = unlockFailed()
+            },
+        )
+    }
+
+    private fun unlocked() {
+        awaitingUnlock = false
+        hintTimeout?.cancel()
+        if (lockedHint) {
+            lockedHint = false
+            setShowWhenLocked(false)
+        }
+        enterForeground()
+        afterUnlock?.invoke()
+        afterUnlock = null
+    }
+
+    /**
+     * Shows the hint over the lock screen, briefly. A toast can't do it: Android drops toasts
+     * from an app whose notifications are off, which Wiggins' are unless the user turned them on.
+     */
+    private fun unlockFailed() {
+        awaitingUnlock = false
+        lockedHint = true
+        setShowWhenLocked(true)
+        hintTimeout?.cancel()
+        hintTimeout = lifecycleScope.launch {
+            delay(LOCKED_HINT_MS)
+            finish()
+        }
+    }
+
+    private fun retryUnlock() {
+        hintTimeout?.cancel()
+        requestUnlock()
     }
 
     private fun startRecognizer() {
@@ -157,5 +258,8 @@ class AssistActivity : ComponentActivity() {
 
     private companion object {
         const val TAG = "AssistActivity"
+
+        /** How long the lock-screen hint stays before the panel closes by itself. */
+        const val LOCKED_HINT_MS = 5_000L
     }
 }
