@@ -93,8 +93,8 @@ class HiveMindClient(
     /** Sends an utterance; false if not connected. */
     fun sendUtterance(text: String, context: SessionContext): Boolean = send { it.utterance(text, context) }
 
-    /** Asks the hub to transcribe [wav], marked [id]; false if not connected. Builds a large frame: call off the main thread. */
-    fun sendTranscribe(id: String, wav: ByteArray, context: SessionContext): Boolean = send { it.transcribe(id, wav, context) }
+    /** Asks the hub to transcribe [pcm], marked [id]; false if not connected. Builds a large frame: call off the main thread. */
+    fun sendTranscribe(id: String, pcm: ByteArray, context: SessionContext): Boolean = send { it.transcribe(id, pcm, context) }
 
     /** Asks the hub to synthesize [utterance], marked [id]; false if not connected. */
     fun sendSynthesize(id: String, utterance: String, context: SessionContext): Boolean = send { it.synthesize(id, utterance, context) }

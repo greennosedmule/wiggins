@@ -18,7 +18,7 @@ class Transcription(
     private val scope: CoroutineScope,
     private val early: Boolean,
     /** Sends audio to the hub under an id; the caller reports a failed send with [onSendFailed]. */
-    private val send: (id: String, wav: ByteArray) -> Unit,
+    private val send: (id: String, pcm: ByteArray) -> Unit,
     private val onResult: (Result) -> Unit,
     private val newId: () -> String,
     private val timeoutMs: Long = 15_000,
@@ -48,13 +48,13 @@ class Transcription(
         private set
 
     /** Speech paused: with early transcription on, send what we have so far. Replaces any earlier pause's request. */
-    fun onPause(wav: () -> ByteArray) {
+    fun onPause(pcm: () -> ByteArray) {
         if (!early || finished || awaiting != null) return
         val id = newId()
         earlyId = id
         earlyAnswer = null
         earlyAnswered = false
-        send(id, wav())
+        send(id, pcm())
     }
 
     /** Speech resumed after a pause: that pause's request is stale. */
@@ -62,8 +62,8 @@ class Transcription(
         earlyId = null
     }
 
-    /** The utterance ended: the pending early request's answer is the result, else [wav] is sent now. */
-    fun onEnd(wav: () -> ByteArray) {
+    /** The utterance ended: the pending early request's answer is the result, else [pcm] is sent now. */
+    fun onEnd(pcm: () -> ByteArray) {
         if (finished || awaiting != null) return
         val pending = earlyId
         if (pending != null) {
@@ -72,7 +72,7 @@ class Transcription(
         } else {
             val id = newId()
             awaiting = id
-            send(id, wav())
+            send(id, pcm())
         }
         if (finished) return
         timeout = scope.launch {

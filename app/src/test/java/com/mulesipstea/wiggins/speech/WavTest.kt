@@ -100,4 +100,11 @@ class WavTest {
         b.put("data".toByteArray()).putInt(declaredData).put(data)
         return b.array()
     }
+
+    @Test fun pcmIsRawLittleEndianWithNoHeader() {
+        // What the hub's transcription takes: the samples' bytes and nothing else.
+        assertEquals(listOf(1, 0, -2, -1, 44, 1), Wav.pcm(shortArrayOf(1, -2, 300)).map { it.toInt() })
+        assertEquals(4, Wav.pcm(shortArrayOf(1, 2, 3), count = 2).size)
+        assertEquals(Wav.encode(shortArrayOf(5, 6), 16_000).drop(44), Wav.pcm(shortArrayOf(5, 6)).toList())
+    }
 }

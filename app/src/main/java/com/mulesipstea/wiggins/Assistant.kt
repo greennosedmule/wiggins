@@ -404,22 +404,22 @@ class Assistant(private val app: WigginsApp) {
         request = Transcription(
             scope,
             early = speech.value.earlyTranscription,
-            send = { id, wav -> sendAudio(request, id, wav) },
+            send = { id, pcm -> sendAudio(request, id, pcm) },
             onResult = { result -> onTranscribed(request, result) },
             newId = ::newRequestId,
         )
         recording = request
         client.sendBus("recognizer_loop:record_begin", sessionContext())
         recorder.start(object : Recorder.Listener {
-            override fun onPause(wav: () -> ByteArray) = request.onPause(wav)
+            override fun onPause(pcm: () -> ByteArray) = request.onPause(pcm)
             override fun onResume() = request.onResume()
-            override fun onEnd(wav: () -> ByteArray) {
+            override fun onEnd(pcm: () -> ByteArray) {
                 if (recording === request) recording = null
                 client.sendBus("recognizer_loop:record_end", sessionContext())
                 expireIfIdle()
                 // The bubble goes in the conversation on screen when the utterance ends.
                 transcribing[request] = conversation to conversation.add(Who.USER, "", Delivery.TRANSCRIBING)
-                request.onEnd(wav)
+                request.onEnd(pcm)
             }
 
             override fun onNothing(micFailed: Boolean) {
@@ -437,11 +437,11 @@ class Assistant(private val app: WigginsApp) {
     }
 
     /** Sends audio for transcription once connected (the panel may still be connecting). */
-    private fun sendAudio(request: Transcription, id: String, wav: ByteArray) {
+    private fun sendAudio(request: Transcription, id: String, pcm: ByteArray) {
         val context = sessionContext()
         scope.launch {
             val connected = withTimeoutOrNull(CONNECT_WAIT_MS) { connection.first { it is ConnectionState.Connected } } != null
-            val sent = connected && withContext(Dispatchers.Default) { client.sendTranscribe(id, wav, context) }
+            val sent = connected && withContext(Dispatchers.Default) { client.sendTranscribe(id, pcm, context) }
             if (!sent) request.onSendFailed(id)
         }
     }

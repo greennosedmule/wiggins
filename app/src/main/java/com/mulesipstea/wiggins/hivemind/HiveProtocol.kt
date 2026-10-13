@@ -148,13 +148,14 @@ class HiveProtocol(
     )
 
     /**
-     * Asks the hub to transcribe [wav] (16 kHz mono 16-bit), marking the request with
-     * [id] in its context, which the hub's reply copies (SPEC "Hub speech-to-text").
+     * Asks the hub to transcribe [pcm] (raw 16 kHz mono 16-bit little-endian samples, no
+     * WAV header), marking the request with [id] in its context, which the hub's reply
+     * copies (SPEC "Hub speech-to-text").
      */
-    fun transcribe(id: String, wav: ByteArray, context: SessionContext): List<Frame>? = bus(
+    fun transcribe(id: String, pcm: ByteArray, context: SessionContext): List<Frame>? = bus(
         "recognizer_loop:b64_transcribe",
         buildJsonObject {
-            put("audio", Base64.getEncoder().encodeToString(wav))
+            put("audio", Base64.getEncoder().encodeToString(pcm))
             put("lang", context.lang)
             put("sample_rate", 16_000)
             put("sample_width", 2)

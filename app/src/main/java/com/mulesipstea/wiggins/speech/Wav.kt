@@ -26,6 +26,16 @@ object Wav {
     private const val FORMAT_EXTENSIBLE = 0xFFFE
 
     /** A canonical 44-byte-header WAV file of 16-bit mono [samples] at [sampleRate]. */
+    /**
+     * 16-bit samples as raw little-endian PCM with no header: what the hub's transcription
+     * takes (SPEC "Hub speech-to-text").
+     */
+    fun pcm(samples: ShortArray, count: Int = samples.size): ByteArray {
+        val buffer = ByteBuffer.allocate(count * 2).order(ByteOrder.LITTLE_ENDIAN)
+        for (i in 0 until count) buffer.putShort(samples[i])
+        return buffer.array()
+    }
+
     fun encode(samples: ShortArray, sampleRate: Int, count: Int = samples.size): ByteArray {
         val dataBytes = count * 2
         val buffer = ByteBuffer.allocate(HEADER_BYTES + dataBytes).order(ByteOrder.LITTLE_ENDIAN)

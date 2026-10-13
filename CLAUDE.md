@@ -183,8 +183,9 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
   stored PSK, `HiveProtocol` returns `Output.DerivePsk`, the client derives the key on
   a background thread, then calls `onPsk` under the lock.
 - **Hub speech.**
-  - STT audio is 16 kHz mono s16 WAV, header included, with `sample_rate` and
-    `sample_width`.
+  - STT audio is raw 16 kHz mono s16 PCM with no WAV header, plus `sample_rate` and
+    `sample_width` (hivemind-audio-binary-protocol 2.2). A header would reach the STT
+    engine as noise; plugin 2.1.x, which wanted it, is no longer supported.
   - Never send `lang: "auto"`: the hub's STT client would then send the audio to a
     public language-detection server.
 - **Uplink types the hub must grant.** hivemind-core 4.15 grants none by default:

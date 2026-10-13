@@ -40,12 +40,12 @@ class Recorder(
 ) {
     /** What happened to the utterance; delivered on [scope]'s thread. */
     interface Listener {
-        /** A pause: [wav] gives the audio so far. */
-        fun onPause(wav: () -> ByteArray)
+        /** A pause: [pcm] gives the audio so far. */
+        fun onPause(pcm: () -> ByteArray)
         fun onResume()
 
-        /** The utterance is over; [wav] gives all of it. */
-        fun onEnd(wav: () -> ByteArray)
+        /** The utterance is over; [pcm] gives all of it. */
+        fun onEnd(pcm: () -> ByteArray)
 
         /** Nothing worth sending: no speech, or the microphone failed. */
         fun onNothing(micFailed: Boolean)
@@ -113,10 +113,10 @@ class Recorder(
         val samples = SampleBuffer(SAMPLE_RATE * (MAX_UTTERANCE_MS + NO_SPEECH_MS) / 1000)
         val endpointer = Endpointer(frameMs = FRAME_MS, noSpeechMs = NO_SPEECH_MS, maxUtteranceMs = MAX_UTTERANCE_MS)
         var startSample = 0
-        fun wav(): () -> ByteArray {
+        fun pcm(): () -> ByteArray {
             val end = samples.size
             val from = startSample
-            return { samples.wav(from, end) }
+            return { samples.pcm(from, end) }
         }
         withContext(Dispatchers.IO) {
             val record = try {
@@ -149,16 +149,16 @@ class Recorder(
                     _level.value = level(frame)
                     if (stopRequested) {
                         val heard = endpointer.heardSpeech
-                        withContext(scope.coroutineContext) { if (heard) listener.onEnd(wav()) else listener.onNothing(micFailed = false) }
+                        withContext(scope.coroutineContext) { if (heard) listener.onEnd(pcm()) else listener.onNothing(micFailed = false) }
                         return@withContext
                     }
                     when (endpointer.onFrame(vad.isSpeech(frame))) {
                         Endpointer.Event.STARTED ->
                             startSample = maxOf(0, (endpointer.speechStartMs - Endpointer.LEAD_IN_MS) * SAMPLE_RATE / 1000)
-                        Endpointer.Event.PAUSED -> withContext(scope.coroutineContext) { listener.onPause(wav()) }
+                        Endpointer.Event.PAUSED -> withContext(scope.coroutineContext) { listener.onPause(pcm()) }
                         Endpointer.Event.RESUMED -> withContext(scope.coroutineContext) { listener.onResume() }
                         Endpointer.Event.ENDED, Endpointer.Event.CAPPED -> {
-                            withContext(scope.coroutineContext) { listener.onEnd(wav()) }
+                            withContext(scope.coroutineContext) { listener.onEnd(pcm()) }
                             return@withContext
                         }
                         Endpointer.Event.NO_SPEECH -> {
@@ -215,7 +215,7 @@ class Recorder(
         }
 
         /** Copying is safe while recording continues: samples before [end] never change. */
-        fun wav(from: Int, end: Int): ByteArray = Wav.encode(data.copyOfRange(from, end), SAMPLE_RATE)
+        fun pcm(from: Int, end: Int): ByteArray = Wav.pcm(data.copyOfRange(from, end))
     }
 
     companion object {
