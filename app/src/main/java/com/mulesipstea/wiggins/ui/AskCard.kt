@@ -19,15 +19,19 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.mulesipstea.wiggins.actions.PhoneActions
+import com.mulesipstea.wiggins.waggle.ClockRequests
 import kotlinx.coroutines.delay
+import java.util.Calendar
 
 /**
  * The hub asks to launch something (SPEC "Asking"): the hub's own description, and beneath
- * it what would actually run, so a hub can't disguise a request. "Allow always" (for an
+ * it what would actually run, so a hub can't disguise a request. For Clock requests that
+ * includes a sentence read from the extras ([ClockRequests]). "Allow always" (for an
  * intent no rule covers) adds a rule, so it isn't asked again.
  */
 @Composable
@@ -42,6 +46,13 @@ internal fun AskCard(ask: PhoneActions.Ask, onAnswer: (allow: Boolean, always: B
     }
     val secondsLeft = ((ask.deadlineMillis - now + 999) / 1000).coerceAtLeast(0)
     val request = ask.request
+    val context = LocalContext.current
+    val summary = remember(request) {
+        val format = android.text.format.DateFormat.getTimeFormat(context)
+        ClockRequests.summary(request) { hour, minute ->
+            format.format(Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, hour); set(Calendar.MINUTE, minute) }.time)
+        }
+    }
     Surface(
         color = colors.tertiaryContainer,
         contentColor = colors.onTertiaryContainer,
@@ -51,6 +62,7 @@ internal fun AskCard(ask: PhoneActions.Ask, onAnswer: (allow: Boolean, always: B
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("The hub asks to", style = MaterialTheme.typography.labelLarge)
             Text(request.description?.takeIf { it.isNotBlank() } ?: shortAction(request.action), style = MaterialTheme.typography.titleMedium)
+            summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Detail("Action", request.action)
                 request.data?.let { Detail("Data", it) }

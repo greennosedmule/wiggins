@@ -133,12 +133,16 @@ The full protocol, including message formats, error codes and query schemas, is 
 | Rule | Mode |
 | --- | --- |
 | `SET_ALARM`, `SET_TIMER`, `SHOW_ALARMS` | run |
+| `SHOW_TIMERS`, `DISMISS_TIMER`, `SNOOZE_ALARM` | run |
+| `DISMISS_ALARM` | ask |
 | `MAIN` + `LAUNCHER` (opening apps) | run |
 | `DIAL` with `tel:` | ask |
 | `SENDTO` with `smsto:` / `sms:` | ask |
 | Anything unmatched | block, or ask if the user enables it |
 
 The ask card for an unmatched intent offers "Allow always", which creates a rule from it, so a drifted action needs confirming once rather than forever. The launch rules below apply whatever the mode.
+
+Defaults reach existing installs through the rules database's migrations: each version's new defaults are added only for actions the user has no rule for, so their own rules are never overridden. Database version 2 (the release after 0.4.0-rc2) added the four Clock actions above. Stopping ringing timers, showing timers and snoozing touch only what's ringing or open the Clock, so they run. Dismissing an alarm can cost a wake-up, so it asks. On the stock Clock (AOSP DeskClock) these intents report nothing back, so a successful response means only that the Clock accepted the launch. `DISMISS_TIMER` affects only ringing timers (there's no intent that cancels a running one), and the Clock only dismisses alarms due within 24 hours. Its intent handler is single-instance: a second Clock intent that arrives while the first is still starting (seen with a cold Clock and two requests 0.2 s apart) never runs, though Wiggins still answers `ok`, so a hub should leave about a second between consecutive Clock requests.
 
 **Launching.**
 
@@ -149,7 +153,7 @@ The ask card for an unmatched intent offers "Allow always", which creates a rule
 - Android only lets Wiggins see apps its manifest's `<queries>` names, so the targets of the default rules are listed there. An intent for anything else can still launch, but Wiggins can't tell in advance whether an app handles it, and may answer `no_handler`.
 - Opening an app by package (`MAIN` + `LAUNCHER` + `package`) targets that app's launcher activity directly, since launcher activities usually don't accept implicit intents.
 
-**Asking.** For an "ask" rule, Wiggins shows a confirmation card with the hub's `description` and, beneath it, the raw action, URI and target, so a hub can't disguise what it asks for. If the user doesn't answer within `ask_timeout_s` (default 15 s, announced in capabilities), it answers `timeout`. Wiggins stays connected until the card is resolved.
+**Asking.** For an "ask" rule, Wiggins shows a confirmation card with the hub's `description` and, beneath it, the raw action, URI and target, so a hub can't disguise what it asks for. For the Clock's show, dismiss and snooze intents the card also says in words what the extras ask for (for example "Dismisses the alarm at 6:30 AM", or "Dismisses ALL your alarms"), read the way the stock Clock reads them. If the user doesn't answer within `ask_timeout_s` (default 15 s, announced in capabilities), it answers `timeout`. Wiggins stays connected until the card is resolved.
 
 **Queries.** `calendar.next`, `contacts.lookup` and `apps.list` are implemented in the client. Each is off until the user enables it, which is also when Wiggins requests the matching permission. `apps.list` uses a `<queries>` entry for launcher activities, so no `QUERY_ALL_PACKAGES` permission is needed.
 

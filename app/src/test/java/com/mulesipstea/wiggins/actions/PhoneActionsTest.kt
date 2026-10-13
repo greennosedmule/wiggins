@@ -48,6 +48,8 @@ class PhoneActionsTest {
         // An alarm clock and a dialer the intents can resolve to.
         handle("android.intent.action.SET_ALARM", "com.example.clock", "Alarm")
         handle("android.intent.action.SET_TIMER", "com.example.clock", "Timer")
+        handle("android.intent.action.DISMISS_TIMER", "com.example.clock", "DismissTimer")
+        handle("android.intent.action.DISMISS_ALARM", "com.example.clock", "DismissAlarm")
         handle("android.intent.action.DIAL", "com.example.dialer", "Dial", scheme = "tel")
         handle("org.example.NO_RULE", "com.example.other", "Other")
         runBlocking { settings.setUnmatched(Mode.BLOCK); Queries().forEach { settings.setQueryEnabled(it, false) } }
@@ -133,6 +135,21 @@ class PhoneActionsTest {
         assertEquals("run", added.mode)
         // Next time it just runs.
         assertEquals(true, actions.onIntent(intent("7", "org.example.NO_RULE"))?.ok)
+    }
+
+    @Test fun clockDefaultsRunTimersAndAskBeforeDismissingAnAlarm() = runBlocking {
+        assertEquals(true, actions.onIntent(intent("10", "android.intent.action.DISMISS_TIMER"))?.ok)
+        assertEquals("android.intent.action.DISMISS_TIMER", nextStarted()?.action)
+
+        val extras = ""","extras":{"android.intent.extra.alarm.SEARCH_MODE":{"type":"string","value":"android.next"}}"""
+        val pending = async { actions.onIntent(intent("11", "android.intent.action.DISMISS_ALARM", extras)) }
+        val ask = withTimeout(2_000) { actions.asks.first { it.isNotEmpty() } }.single()
+        assertEquals("ask", ask.rule?.mode?.wire)
+        actions.answer(ask.key, allow = true)
+        assertEquals(true, pending.await()?.ok)
+        val started = nextStarted()
+        assertEquals("android.intent.action.DISMISS_ALARM", started?.action)
+        assertEquals("android.next", started?.getStringExtra("android.intent.extra.alarm.SEARCH_MODE"))
     }
 
     @Test fun malformedRequestsAreAnsweredAndLogged() = runBlocking {
