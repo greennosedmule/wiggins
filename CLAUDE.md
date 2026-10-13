@@ -118,6 +118,11 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
     or Clear data, run `hivemind-core reset-noise-pin <client id>` on the hub.
   - Started with `-no-snapshot-save`, the AVD boots from its quickboot snapshot, so
     installs, data and settings roll back at every boot.
+  - Lock-screen tests: `locksettings set-pin 1234` (and `clear --old 1234` after),
+    `svc power stayon true`. Screenshots of the PIN prompt come out black (a secure
+    window), so check `dumpsys window` and SystemUI's log ("Keyguard Bouncer is
+    showing") instead, and type the PIN promptly: the prompt times out and the screen
+    sleeps. Android drops toasts from apps whose notifications are off, Wiggins included.
   - Its clock can jump after boot, and a Clock alarm set then may never ring. Set test
     alarms a minute or two ahead once the emulator has been up a while.
 - End to end without the real hub: a throwaway hivemind-core 4.15 and `ovos-messagebus`
@@ -147,8 +152,10 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
     opens a picker that crashes on Android 16.
   - `SNOOZE_ALARM` ignores `SNOOZE_DURATION`.
 - **Launches need a visible Wiggins screen.** `PhoneActions` answers `launch_failed`
-  otherwise. Over the lock screen the assist panel starts but stays hidden behind the
-  keyguard, so Wiggins doesn't listen at all.
+  otherwise. The assist panel doesn't show over the lock screen. Invoked on a locked
+  phone, `AssistActivity` asks for the unlock (`requestDismissKeyguard`) and listens
+  afterwards; while it waits, being stopped behind the keyguard mustn't finish it. The
+  Clock's invisible trampolines (`SNOOZE_ALARM`, `DISMISS_TIMER`) work under the keyguard.
 
 ## Contracts the hub relies on
 
