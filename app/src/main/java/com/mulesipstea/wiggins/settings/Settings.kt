@@ -34,9 +34,26 @@ data class SpeechSettings(
     val earlyTranscription: Boolean = true,
     /** What the last hub speech check found: true if the hub synthesized, false if not, null if it hasn't run. */
     val hubSpeechAvailable: Boolean? = null,
+    /** When a short tone says Wiggins has started listening (SPEC "Voice pipeline"). */
+    val listeningTone: ListeningTone = ListeningTone.BLUETOOTH,
 ) {
     val sttMode get() = stt ?: SpeechMode.DEVICE
     val ttsMode get() = tts ?: SpeechMode.DEVICE
+}
+
+/**
+ * When the listening tone plays. Bluetooth is the default: in a car or with earbuds the
+ * screen isn't in view, while on the phone itself the panel shows that it's listening.
+ */
+enum class ListeningTone {
+    NEVER,
+    ALWAYS,
+
+    /** Only when speech would play on a Bluetooth device. */
+    BLUETOOTH,
+    ;
+
+    fun shouldPlay(onBluetooth: Boolean) = this == ALWAYS || (this == BLUETOOTH && onBluetooth)
 }
 
 /** Waggle settings besides the rules (SPEC "Phone actions (Waggle)"). */
@@ -128,6 +145,7 @@ class SettingsRepository(private val context: Context) {
             tts = it[TTS_MODE]?.let { m -> runCatching { SpeechMode.valueOf(m) }.getOrNull() },
             earlyTranscription = it[EARLY_TRANSCRIPTION] ?: true,
             hubSpeechAvailable = it[HUB_SPEECH_AVAILABLE],
+            listeningTone = it[LISTENING_TONE]?.let { t -> runCatching { ListeningTone.valueOf(t) }.getOrNull() } ?: ListeningTone.BLUETOOTH,
         )
     }
 
@@ -137,6 +155,7 @@ class SettingsRepository(private val context: Context) {
             it.putOrRemove(TTS_MODE, speech.tts?.name)
             it[EARLY_TRANSCRIPTION] = speech.earlyTranscription
             it.putOrRemove(HUB_SPEECH_AVAILABLE, speech.hubSpeechAvailable)
+            it[LISTENING_TONE] = speech.listeningTone.name
         }
     }
 
@@ -260,6 +279,7 @@ class SettingsRepository(private val context: Context) {
         val TTS_MODE = stringPreferencesKey("tts_mode")
         val EARLY_TRANSCRIPTION = booleanPreferencesKey("early_transcription")
         val HUB_SPEECH_AVAILABLE = booleanPreferencesKey("hub_speech_available")
+        val LISTENING_TONE = stringPreferencesKey("listening_tone")
         val UNMATCHED = stringPreferencesKey("waggle_unmatched")
         val QUERIES = stringSetPreferencesKey("waggle_queries")
         val NOISE_STATIC_KEY = stringPreferencesKey("noise_static_key_enc")

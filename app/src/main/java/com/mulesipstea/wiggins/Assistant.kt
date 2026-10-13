@@ -26,6 +26,7 @@ import com.mulesipstea.wiggins.settings.SpeechMode
 import com.mulesipstea.wiggins.settings.SpeechSettings
 import com.mulesipstea.wiggins.speech.AudioOutput
 import com.mulesipstea.wiggins.speech.HubSpeaker
+import com.mulesipstea.wiggins.speech.ListeningCue
 import com.mulesipstea.wiggins.speech.PcmPlayer
 import com.mulesipstea.wiggins.speech.Prerequisites
 import com.mulesipstea.wiggins.speech.Recorder
@@ -216,6 +217,8 @@ class Assistant(private val app: WigginsApp) {
     /** Questions asked while (re)connecting, sent once connected. */
     private val pending = mutableListOf<Pair<ConversationStore, Long>>()
 
+    private val cue = ListeningCue(app.getSystemService(AudioManager::class.java))
+
     private val playbackFocus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
         .setAudioAttributes(
             AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build(),
@@ -324,14 +327,23 @@ class Assistant(private val app: WigginsApp) {
         scope.launch { startListening() }
     }
 
-    /** Listens in the chosen mode: records for the hub, or starts the user's recognizer. */
+    /**
+     * Listens in the chosen mode: records for the hub, or starts the user's recognizer. The
+     * listening tone, if wanted, plays first and is over before anything listens.
+     */
     private suspend fun startListening() {
-        val mode = app.settings.speech.first().sttMode
+        val speech = app.settings.speech.first()
         when {
-            mode == SpeechMode.DEVICE -> if (_prerequisites.value.recognizer != null) _listen.trySend(Unit)
+            speech.sttMode == SpeechMode.DEVICE -> if (_prerequisites.value.recognizer != null) {
+                cue.playIfWanted(speech.listeningTone)
+                _listen.trySend(Unit)
+            }
             !recorder.hasPermission() -> _micRequests.trySend(Unit)
             // An assist invocation asks before its screen has started; record only once it has.
-            withTimeoutOrNull(FOREGROUND_WAIT_MS) { inForeground.first { it } } != null -> recordUtterance()
+            withTimeoutOrNull(FOREGROUND_WAIT_MS) { inForeground.first { it } } != null -> {
+                cue.playIfWanted(speech.listeningTone)
+                recordUtterance()
+            }
         }
     }
 

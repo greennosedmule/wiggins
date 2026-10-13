@@ -51,6 +51,7 @@ import com.mulesipstea.wiggins.net.EntraSignIn
 import com.mulesipstea.wiggins.settings.AuthMode
 import com.mulesipstea.wiggins.settings.HubSettings
 import com.mulesipstea.wiggins.settings.HubUrl
+import com.mulesipstea.wiggins.settings.ListeningTone
 import com.mulesipstea.wiggins.settings.SpeechMode
 import com.mulesipstea.wiggins.settings.SpeechSettings
 
@@ -178,6 +179,7 @@ fun SettingsScreen(
                 SpeechModeChoice("Spoken replies", speech.ttsMode, "Hub's voice", "Phone's TTS engine") {
                     speech = speech.copy(tts = it)
                 }
+                ListeningToneChoice(speech.listeningTone) { speech = speech.copy(listeningTone = it) }
             }
             SettingsSection("Reaching the hub", "How the connection gets past the hub's reverse proxy, if it has one.") {
                 AuthModeOption(AuthMode.NONE, mode, "LAN or VPN", "No proxy sign-in. ws:// or wss://.") { mode = it }
@@ -264,6 +266,32 @@ private fun SpeechModeChoice(title: String, selected: SpeechMode, hubDetail: Str
             }
         }
         Text(if (selected == SpeechMode.HUB) hubDetail else deviceDetail, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** When the short tone before listening plays. */
+@Composable
+private fun ListeningToneChoice(selected: ListeningTone, onSelect: (ListeningTone) -> Unit) {
+    val choices = listOf(ListeningTone.NEVER to "Never", ListeningTone.BLUETOOTH to "Bluetooth", ListeningTone.ALWAYS to "Always")
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Listening tone", style = MaterialTheme.typography.bodyLarge)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            choices.forEachIndexed { i, (value, label) ->
+                SegmentedButton(
+                    selected = value == selected,
+                    onClick = { onSelect(value) },
+                    shape = SegmentedButtonDefaults.itemShape(i, choices.size),
+                ) { Text(label) }
+            }
+        }
+        Text(
+            when (selected) {
+                ListeningTone.NEVER -> "No tone; the screen shows when Wiggins is listening"
+                ListeningTone.BLUETOOTH -> "A short tone before listening, when speech plays on a car, headset or earbuds"
+                ListeningTone.ALWAYS -> "A short tone every time Wiggins starts listening"
+            },
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
