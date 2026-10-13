@@ -14,14 +14,15 @@ import kotlin.math.sin
 /**
  * The listening tone (SPEC "Voice pipeline"): a short rising two-note chime played just
  * before Wiggins starts listening, so the user knows when to speak without looking. It
- * plays on the route Wiggins' speech uses, which is also where the user is listening.
+ * plays on the route Wiggins' speech uses, which is also where the user is listening: in a
+ * car with the hands-free link up, the link, so it comes once the car is ready to hear.
  */
 class ListeningCue(private val audio: AudioManager) {
-    /** Plays the tone if [setting] calls for it on the current route; returns once it's heard. */
-    suspend fun playIfWanted(setting: ListeningTone) {
-        if (!setting.shouldPlay(onBluetooth())) return
+    /** Plays the tone on [route] if [setting] calls for it there; returns once it's heard. */
+    suspend fun playIfWanted(setting: ListeningTone, route: SpeechRoute = SpeechRoute.DEFAULT) {
+        if (!setting.shouldPlay(route.handsFree || onBluetooth())) return
         try {
-            PcmPlayer.play(TONE)
+            PcmPlayer.play(TONE, route)
         } catch (e: Exception) {
             // A missing tone mustn't stop the listening it announces.
             Log.w(TAG, "listening tone failed", e)

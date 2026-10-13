@@ -36,6 +36,12 @@ data class SpeechSettings(
     val hubSpeechAvailable: Boolean? = null,
     /** When a short tone says Wiggins has started listening (SPEC "Voice pipeline"). */
     val listeningTone: ListeningTone = ListeningTone.BLUETOOTH,
+    /**
+     * Use a connected car's or headset's hands-free link for listening and speech (SPEC "In
+     * the car"). Off until the user turns it on, which is when Android asks for the
+     * Bluetooth permission.
+     */
+    val handsFree: Boolean = false,
 ) {
     val sttMode get() = stt ?: SpeechMode.DEVICE
     val ttsMode get() = tts ?: SpeechMode.DEVICE
@@ -145,6 +151,7 @@ class SettingsRepository(private val context: Context) {
             tts = it[TTS_MODE]?.let { m -> runCatching { SpeechMode.valueOf(m) }.getOrNull() },
             earlyTranscription = it[EARLY_TRANSCRIPTION] ?: true,
             hubSpeechAvailable = it[HUB_SPEECH_AVAILABLE],
+            handsFree = it[HANDS_FREE] ?: false,
             listeningTone = it[LISTENING_TONE]?.let { t -> runCatching { ListeningTone.valueOf(t) }.getOrNull() } ?: ListeningTone.BLUETOOTH,
         )
     }
@@ -156,6 +163,7 @@ class SettingsRepository(private val context: Context) {
             it[EARLY_TRANSCRIPTION] = speech.earlyTranscription
             it.putOrRemove(HUB_SPEECH_AVAILABLE, speech.hubSpeechAvailable)
             it[LISTENING_TONE] = speech.listeningTone.name
+            it[HANDS_FREE] = speech.handsFree
         }
     }
 
@@ -280,6 +288,7 @@ class SettingsRepository(private val context: Context) {
         val EARLY_TRANSCRIPTION = booleanPreferencesKey("early_transcription")
         val HUB_SPEECH_AVAILABLE = booleanPreferencesKey("hub_speech_available")
         val LISTENING_TONE = stringPreferencesKey("listening_tone")
+        val HANDS_FREE = booleanPreferencesKey("hands_free")
         val UNMATCHED = stringPreferencesKey("waggle_unmatched")
         val QUERIES = stringSetPreferencesKey("waggle_queries")
         val NOISE_STATIC_KEY = stringPreferencesKey("noise_static_key_enc")

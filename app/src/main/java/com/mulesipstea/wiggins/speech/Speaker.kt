@@ -1,6 +1,7 @@
 package com.mulesipstea.wiggins.speech
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
@@ -16,7 +17,11 @@ import java.util.UUID
  * dropped. [onIdle] fires when the last queued utterance finishes, which is
  * when a follow-up question can start listening.
  */
-class Speaker(context: Context) {
+class Speaker(
+    context: Context,
+    /** The attributes to speak with now; they change while the Bluetooth hands-free link is up. */
+    private val attributes: () -> AudioAttributes = { DEFAULT_ATTRIBUTES },
+) {
     private enum class Engine { STARTING, READY, UNAVAILABLE }
 
     private val lock = Any()
@@ -97,9 +102,16 @@ class Speaker(context: Context) {
 
     fun shutdown() = tts.shutdown()
 
+    private var applied: AudioAttributes? = null
+
     private fun enqueue(text: String) {
         if (engine != Engine.READY) return
         tts.language = Locale.getDefault()
+        val wanted = attributes()
+        if (wanted != applied) {
+            tts.setAudioAttributes(wanted)
+            applied = wanted
+        }
         active++
         if (tts.speak(text, TextToSpeech.QUEUE_ADD, null, UUID.randomUUID().toString()) != TextToSpeech.SUCCESS) active--
     }
@@ -114,7 +126,13 @@ class Speaker(context: Context) {
         if (nowIdle) onIdle?.invoke()
     }
 
-    private companion object {
-        const val TAG = "Speaker"
+    companion object {
+        /** What the engine uses unless told otherwise: media usage, for speech. */
+        val DEFAULT_ATTRIBUTES: AudioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+
+        private const val TAG = "Speaker"
     }
 }

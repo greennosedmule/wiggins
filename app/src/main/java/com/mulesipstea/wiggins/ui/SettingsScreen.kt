@@ -1,5 +1,10 @@
 package com.mulesipstea.wiggins.ui
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.content.pm.PackageManager
+import android.Manifest
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -180,6 +185,7 @@ fun SettingsScreen(
                     speech = speech.copy(tts = it)
                 }
                 ListeningToneChoice(speech.listeningTone) { speech = speech.copy(listeningTone = it) }
+                HandsFreeSwitch(speech.handsFree) { speech = speech.copy(handsFree = it) }
             }
             SettingsSection("Reaching the hub", "How the connection gets past the hub's reverse proxy, if it has one.") {
                 AuthModeOption(AuthMode.NONE, mode, "LAN or VPN", "No proxy sign-in. ws:// or wss://.") { mode = it }
@@ -266,6 +272,38 @@ private fun SpeechModeChoice(title: String, selected: SpeechMode, hubDetail: Str
             }
         }
         Text(if (selected == SpeechMode.HUB) hubDetail else deviceDetail, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/**
+ * Use the car's or headset's own mic and speaker (SPEC "In the car"). Turning it on asks
+ * for Android's "Nearby devices" (Bluetooth) permission; it stays off if that's refused.
+ */
+@Composable
+private fun HandsFreeSwitch(on: Boolean, onChange: (Boolean) -> Unit) {
+    val context = LocalContext.current
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) onChange(true)
+    }
+    val toggle = { wanted: Boolean ->
+        if (wanted && context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            permission.launch(Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            onChange(wanted)
+        }
+    }
+    Row(
+        Modifier.fillMaxWidth().toggleable(value = on, role = Role.Switch, onValueChange = toggle),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text("Car and headset", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Listen and speak through a connected car or Bluetooth headset, like a phone call, instead of the phone's mic and media audio.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Switch(checked = on, onCheckedChange = null)
     }
 }
 

@@ -1,6 +1,5 @@
 package com.mulesipstea.wiggins.speech
 
-import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import kotlinx.coroutines.Dispatchers
@@ -11,23 +10,19 @@ import java.nio.ByteBuffer
 import java.util.Base64
 
 /**
- * Plays the hub's speech: a WAV file's PCM through an [AudioTrack] with assistant
- * usage, at whatever rate and format the hub's engine produced.
+ * Plays the hub's speech: a WAV file's PCM through an [AudioTrack], at whatever rate and
+ * format the hub's engine produced, on the [SpeechRoute] in use (assistant usage, or the
+ * Bluetooth hands-free link).
  */
 object PcmPlayer {
-    private val attributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ASSISTANT)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-        .build()
-
     /** Decodes and plays a base64 WAV file; returns when it has been heard, or throws if it can't be played. */
-    suspend fun play(wavBase64: String) {
+    suspend fun play(wavBase64: String, route: SpeechRoute = SpeechRoute.DEFAULT) {
         val pcm = withContext(Dispatchers.Default) { Wav.parse(Base64.getMimeDecoder().decode(wavBase64)) }
         if (pcm.frames == 0) return
-        play(pcm)
+        play(pcm, route)
     }
 
-    suspend fun play(pcm: Pcm) = withContext(Dispatchers.IO) {
+    suspend fun play(pcm: Pcm, route: SpeechRoute = SpeechRoute.DEFAULT) = withContext(Dispatchers.IO) {
         val encoding = when {
             pcm.float -> AudioFormat.ENCODING_PCM_FLOAT
             pcm.bitsPerSample == 8 -> AudioFormat.ENCODING_PCM_8BIT
@@ -40,11 +35,12 @@ object PcmPlayer {
         val minBuffer = AudioTrack.getMinBufferSize(pcm.sampleRate, channelMask, encoding)
         require(minBuffer > 0) { "AudioTrack can't play ${pcm.sampleRate} Hz, ${pcm.bitsPerSample}-bit, ${pcm.channels} channels" }
         val track = AudioTrack.Builder()
-            .setAudioAttributes(attributes)
+            .setAudioAttributes(route.playback)
             .setAudioFormat(format)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setBufferSizeInBytes(maxOf(minBuffer, pcm.sampleRate * pcm.frameBytes / 5))
             .build()
+        route.output?.let(track::setPreferredDevice)
         try {
             track.play()
             var offset = 0

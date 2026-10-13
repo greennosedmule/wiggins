@@ -4,6 +4,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Hub speech-to-text records the utterance; asked for the first time it listens. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- The car's or headset's hands-free link for listening and speech (BluetoothHeadset
+         voice recognition). Asked for when the user turns the setting on. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- Waggle queries calendar.next and contacts.lookup; asked for when the user
          enables the query, never before. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />

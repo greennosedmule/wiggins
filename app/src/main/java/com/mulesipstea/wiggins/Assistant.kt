@@ -2,6 +2,7 @@ package com.mulesipstea.wiggins
 
 import android.icu.util.LocaleData
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.icu.util.ULocale
@@ -25,12 +26,15 @@ import com.mulesipstea.wiggins.settings.HubUrl
 import com.mulesipstea.wiggins.settings.SpeechMode
 import com.mulesipstea.wiggins.settings.SpeechSettings
 import com.mulesipstea.wiggins.speech.AudioOutput
+import com.mulesipstea.wiggins.speech.HandsFree
 import com.mulesipstea.wiggins.speech.HubSpeaker
+import com.mulesipstea.wiggins.speech.LinkKeeper
 import com.mulesipstea.wiggins.speech.ListeningCue
 import com.mulesipstea.wiggins.speech.PcmPlayer
 import com.mulesipstea.wiggins.speech.Prerequisites
 import com.mulesipstea.wiggins.speech.Recorder
 import com.mulesipstea.wiggins.speech.Speaker
+import com.mulesipstea.wiggins.speech.SpeechRoute
 import com.mulesipstea.wiggins.speech.Transcription
 import com.mulesipstea.wiggins.speech.WebRtcDetector
 import com.mulesipstea.wiggins.ui.Delivery
@@ -52,6 +56,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -79,7 +84,13 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class Assistant(private val app: WigginsApp) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val speaker = Speaker(app)
+    /** The Bluetooth hands-free link to a car or headset, while a turn is going on (SPEC "In the car"). */
+    private val handsFree = HandsFree(app)
+    private val linkKeeper = LinkKeeper(scope, LINK_GRACE_MS) { handsFree.close() }
+
+    /** The user's recognizer is listening (device speech-to-text). */
+    private val recognizing = MutableStateFlow(false)
+    private val speaker = Speaker(app) { handsFree.route().playback.takeIf { handsFree.isOpen } ?: Speaker.DEFAULT_ATTRIBUTES }
     private val client = HiveMindClient(app.http, scope)
     private val recorder = Recorder(app, scope, ::WebRtcDetector)
     /** Waggle: the hub's requests to launch intents and run queries, within the user's rules. */
@@ -87,7 +98,7 @@ class Assistant(private val app: WigginsApp) {
     private val hubSpeaker = HubSpeaker(
         scope,
         request = { id, text -> client.sendSynthesize(id, text, sessionContext()) },
-        play = PcmPlayer::play,
+        play = { wav -> PcmPlayer.play(wav, handsFree.route()) },
         fallback = { text -> speaker.speakAndWait(text) },
         onHubAnswered = ::onHubSpeechAnswered,
         newId = ::newRequestId,
@@ -227,6 +238,12 @@ class Assistant(private val app: WigginsApp) {
 
     init {
         scope.launch { client.events.collect(::onHubEvent) }
+        scope.launch {
+            // The hands-free link stays while the turn goes on: listening, waiting, speaking.
+            combine(listening, recognizing, thinking, speaking) { a, b, c, d -> a || b || c || d }
+                .distinctUntilChanged()
+                .collect(linkKeeper::busy)
+        }
         scope.launch { client.state.collect(::onConnectionState) }
         scope.launch {
             // Setting up the hub is a problem until it's done.
@@ -335,14 +352,16 @@ class Assistant(private val app: WigginsApp) {
         val speech = app.settings.speech.first()
         when {
             speech.sttMode == SpeechMode.DEVICE -> if (_prerequisites.value.recognizer != null) {
-                cue.playIfWanted(speech.listeningTone)
+                val route = openHandsFree(speech.handsFree)
+                cue.playIfWanted(speech.listeningTone, route)
                 _listen.trySend(Unit)
             }
             !recorder.hasPermission() -> _micRequests.trySend(Unit)
             // An assist invocation asks before its screen has started; record only once it has.
             withTimeoutOrNull(FOREGROUND_WAIT_MS) { inForeground.first { it } } != null -> {
-                cue.playIfWanted(speech.listeningTone)
-                recordUtterance()
+                val route = openHandsFree(speech.handsFree)
+                cue.playIfWanted(speech.listeningTone, route)
+                recordUtterance(route.input)
             }
         }
     }
@@ -370,7 +389,16 @@ class Assistant(private val app: WigginsApp) {
     }
 
     /** Records an utterance and has the hub transcribe it (SPEC "Hub speech-to-text"). */
-    private fun recordUtterance() {
+    /**
+     * Opens the hands-free link if it's wanted and a car or headset is connected, so the tone,
+     * the listening and the reply all use it; returns the route to use either way.
+     */
+    private suspend fun openHandsFree(wanted: Boolean): SpeechRoute {
+        if (wanted && handsFree.open()) linkKeeper.opened()
+        return handsFree.route()
+    }
+
+    private fun recordUtterance(input: AudioDeviceInfo? = handsFree.route().input) {
         cancelListening()
         lateinit var request: Transcription
         request = Transcription(
@@ -400,7 +428,7 @@ class Assistant(private val app: WigginsApp) {
                 request.cancel()
                 if (micFailed) showHint("Couldn't use the microphone")
             }
-        })
+        }, input)
     }
 
     /** Drops transcriptions whose bubble is in [store] (the panel closed): their words won't be sent. */
@@ -508,11 +536,13 @@ class Assistant(private val app: WigginsApp) {
      * a waiting skill's get_response timeout while the user speaks.
      */
     fun onRecognizerStarted() {
+        recognizing.value = true
         client.sendBus("recognizer_loop:record_begin", sessionContext())
     }
 
     /** The recognizer returned; null if the user cancelled or nothing was heard. */
     fun onRecognized(text: String?) {
+        recognizing.value = false
         client.sendBus("recognizer_loop:record_end", sessionContext())
         if (!text.isNullOrBlank()) send(text)
     }
@@ -897,6 +927,9 @@ class Assistant(private val app: WigginsApp) {
         const val IDLE_SESSION_MS = 30 * 60 * 1000L
         const val CONNECT_WAIT_MS = 10_000L
         const val FOREGROUND_WAIT_MS = 2_000L
+
+        /** How long the hands-free link outlasts the turn, so a follow-up keeps it. */
+        const val LINK_GRACE_MS = 3_000L
         const val RESEND_PAUSE_MS = 500L
         const val HINT_MS = 3_000L
         const val SPEECH_CHECK_TIMEOUT_MS = 10_000L

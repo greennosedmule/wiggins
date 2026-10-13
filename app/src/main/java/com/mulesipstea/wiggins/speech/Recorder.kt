@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioFormat
 import android.media.AudioManager
@@ -74,8 +75,12 @@ class Recorder(
         )
         .build()
 
-    /** Starts recording an utterance, replacing any in progress (which is discarded). */
-    fun start(listener: Listener) {
+    /** The microphone to prefer for the next recording, or null for Android's choice. */
+    private var input: AudioDeviceInfo? = null
+
+    /** Starts recording an utterance, replacing any in progress (which is discarded), from [input] if given. */
+    fun start(listener: Listener, input: AudioDeviceInfo? = null) {
+        this.input = input
         cancel()
         stopRequested = false
         _recording.value = true
@@ -126,6 +131,7 @@ class Recorder(
                 Log.w(TAG, "can't open the microphone", e)
                 null
             }
+            input?.let { record?.setPreferredDevice(it) }
             if (record == null || record.state != AudioRecord.STATE_INITIALIZED) {
                 record?.release()
                 withContext(scope.coroutineContext) { listener.onNothing(micFailed = true) }
