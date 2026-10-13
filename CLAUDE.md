@@ -179,6 +179,9 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
   arrives within 2 s.
 - **Handshake.** Use the password handshake whenever the hub offers it, and Noise only
   when that's all it offers: hivemind-core 4.7–4.15 can't send over 64 KB over Noise.
+  Never run argon2id under `HiveMindClient`'s lock, which every send takes: without a
+  stored PSK, `HiveProtocol` returns `Output.DerivePsk`, the client derives the key on
+  a background thread, then calls `onPsk` under the lock.
 - **Hub speech.**
   - STT audio is 16 kHz mono s16 WAV, header included, with `sample_rate` and
     `sample_width`.

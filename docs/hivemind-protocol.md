@@ -999,8 +999,10 @@ are never chosen; XX keeps working after pinning.
   result, encrypted like the password, keyed by node id (`noise_psks_enc`). It
   is stretched in the background after a password-handshake connection to a hub
   that offers Noise too (4.7–4.15), so moving it to 5.x needs no wait as long as
-  it keeps its identity file, and inline only the first time
-  Wiggins meets a Noise-only hub. Saving a new password clears the stored PSKs;
+  it keeps its identity file. The first time Wiggins meets a Noise-only hub
+  it's stretched during the handshake, on a background thread and off the
+  client's lock, so the app stays responsive and the hub simply waits a little
+  longer for message 1. Saving a new password clears the stored PSKs;
   a message 2 that fails to authenticate forgets that hub's PSK.
 - **Static key:** one X25519 key pair for the phone, made on first use and
   stored encrypted (`noise_static_key_enc`). The hub pins its public half to the

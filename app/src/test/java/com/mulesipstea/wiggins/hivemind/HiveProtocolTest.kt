@@ -5,6 +5,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -38,6 +39,8 @@ class HiveProtocolTest {
                     is HiveProtocol.Output.Event -> events += out.event
                     is HiveProtocol.Output.Connected -> connected = true
                     is HiveProtocol.Output.Fail -> throw AssertionError("$name: ${out.reason}")
+                    // The recorded sessions use the password handshake, which needs no PSK.
+                    is HiveProtocol.Output.DerivePsk -> throw AssertionError("$name: asked for a PSK")
                 }
             }
             assertTrue(name, connected)
@@ -271,10 +274,15 @@ class HiveProtocolTest {
     private val noise = Vectors.load("noise.json")
     private fun noiseCase(name: String) = noise.arr("cases").map { it.jsonObject }.first { it.str("name") == name }
 
-    /** Keys from the vectors: the client's static key and its PSK, recording what's rejected. */
-    private class FixedKeys(override val staticKey: ByteArray, private val psk: ByteArray) : NoiseKeys {
+    /**
+     * Keys from the vectors: the client's static key and its PSK, recording what's rejected.
+     * With [cached] false the PSK isn't stored yet, so the protocol asks for it to be derived.
+     */
+    private class FixedKeys(override val staticKey: ByteArray, private val psk: ByteArray, private val cached: Boolean = true) : NoiseKeys {
         val rejected = mutableListOf<String>()
-        override fun psk(nodeId: String) = psk
+        val derived = mutableListOf<String>()
+        override fun cachedPsk(nodeId: String) = psk.takeIf { cached }
+        override fun derivePsk(nodeId: String) = psk.also { derived += nodeId }
         override fun rejected(nodeId: String) {
             rejected += nodeId
         }
@@ -339,6 +347,56 @@ class HiveProtocolTest {
     }
 
     /** hivemind-core 4.7–4.15 offer both: the password handshake, unless Noise is forced. */
+    /**
+     * With no stored PSK the protocol doesn't stretch the password itself (argon2id would
+     * run under the client's lock): it asks for the PSK, sends nothing until it has it, and
+     * then sends the same message 1 as with a stored key.
+     */
+    @Test fun anUnstoredPskIsAskedForThenTheHandshakeContinues() {
+        val case = noiseCase("hub-5x")
+        val keys = FixedKeys(case.hex("client_static_hex"), case.hex("psk_hex"), cached = false)
+        val proto = noiseProtocol(case, keys = keys)
+        proto.onFrame(case.str("hello_wire"))
+        val outs = proto.onFrame(case.str("shake_wire"))
+        assertEquals(listOf(HiveProtocol.Output.DerivePsk(case.str("node_id"))), outs)
+        assertTrue(keys.derived.isEmpty()) // Deriving is the client's job, off its lock.
+        // Sends during the stretch find the handshake unfinished, as at any other point of it.
+        assertNull(proto.utterance("hello", context))
+        assertTrue(!proto.isReady)
+
+        val psk = proto.derivePsk(case.str("node_id"))
+        assertEquals(listOf(case.str("node_id")), keys.derived)
+        // A PSK for another hub, or one arriving twice, is ignored.
+        assertTrue(proto.onPsk("someone-else", psk).isEmpty())
+        val msg1 = proto.onPsk(case.str("node_id"), psk).sentText().single().json().jsonObject
+        assertEquals(case.str("msg1_hex"), msg1.getValue("payload").jsonObject.getValue("noise").jsonObject.str("msg"))
+        assertTrue(proto.onPsk(case.str("node_id"), psk).isEmpty())
+
+        proto.onFrame(noiseShake(case.str("msg2_hex")))
+        assertTrue(proto.isReady)
+    }
+
+    /** A stored PSK is used at once: no request to derive one. */
+    @Test fun aStoredPskSkipsTheStretch() {
+        val case = noiseCase("hub-5x")
+        val keys = FixedKeys(case.hex("client_static_hex"), case.hex("psk_hex"), cached = true)
+        val proto = noiseProtocol(case, keys = keys)
+        proto.onFrame(case.str("hello_wire"))
+        val outs = proto.onFrame(case.str("shake_wire"))
+        assertTrue(outs.none { it is HiveProtocol.Output.DerivePsk })
+        assertEquals(case.str("msg1_hex"), outs.sentText().single().json().jsonObject.getValue("payload").jsonObject.getValue("noise").jsonObject.str("msg"))
+        assertTrue(keys.derived.isEmpty())
+    }
+
+    @Test fun aFailedStretchFailsTheHandshake() {
+        val case = noiseCase("hub-5x")
+        val proto = noiseProtocol(case, keys = FixedKeys(case.hex("client_static_hex"), case.hex("psk_hex"), cached = false))
+        proto.onFrame(case.str("hello_wire"))
+        proto.onFrame(case.str("shake_wire"))
+        val outs = proto.onPsk(case.str("node_id"), null)
+        assertTrue(outs.single() is HiveProtocol.Output.Fail)
+    }
+
     @Test fun hubOfferingBothUsesThePasswordUnlessNoiseIsForced() {
         val case = noiseCase("hub-415")
         val password = noiseProtocol(case)

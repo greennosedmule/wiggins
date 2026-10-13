@@ -56,9 +56,16 @@ class HiveProtocol(
         data class Connected(val peer: String?, val protocolVersion: Int, val noiseNodeId: String?) : Output
         data class Event(val event: HubEvent) : Output
         data class Fail(val reason: String) : Output
+
+        /**
+         * The Noise handshake needs the PSK for [nodeId] and none is stored. The client derives
+         * it with [derivePsk], which is slow, off its lock, then passes it to [onPsk]. Nothing
+         * is sent meanwhile: the hub waits for our first handshake message.
+         */
+        data class DerivePsk(val nodeId: String) : Output
     }
 
-    private enum class Stage { AWAIT_SHAKE, AWAIT_SHAKE_RESPONSE, AWAIT_NOISE_RESPONSE, READY, FAILED }
+    private enum class Stage { AWAIT_SHAKE, AWAIT_SHAKE_RESPONSE, AWAIT_PSK, AWAIT_NOISE_RESPONSE, READY, FAILED }
 
     private var stage = Stage.AWAIT_SHAKE
     private var cipher: FrameCipher? = null
@@ -68,6 +75,9 @@ class HiveProtocol(
     /** The hub's cleartext HELLO payload, bound into the Noise prologue. */
     private var hubHello: JsonObject? = null
     private var noise: NoiseHandshake? = null
+
+    /** The hub's Noise offer, kept while the client derives the PSK ([Output.DerivePsk]). */
+    private var pendingOffer: Pair<String, JsonObject>? = null
     private var noiseOffered = false
     private var transport: NoiseTransport? = null
 
@@ -262,11 +272,36 @@ class HiveProtocol(
     private fun startNoise(offer: JsonObject): List<Output> {
         val hello = hubHello ?: return fail("Hub offered the Noise handshake before saying HELLO")
         val nodeId = hello["node_id"]?.jsonPrimitive?.contentOrNull ?: return fail("Hub's HELLO has no node id")
-        val psk = try {
-            noiseKeys.psk(nodeId)
-        } catch (e: Exception) {
-            return fail("Couldn't derive the Noise key from the password: ${e.message}")
+        val psk = noiseKeys.cachedPsk(nodeId)
+        if (psk == null) {
+            // Stretching takes a second or more: the client does it off its lock, then calls onPsk.
+            pendingOffer = nodeId to offer
+            stage = Stage.AWAIT_PSK
+            return listOf(Output.DerivePsk(nodeId))
         }
+        return sendNoiseMessage1(hello, offer, psk)
+    }
+
+    /**
+     * Derives the PSK for [nodeId] ([Output.DerivePsk]): argon2id, a second or more. It
+     * touches no protocol state, so the client calls it without holding its lock.
+     */
+    fun derivePsk(nodeId: String): ByteArray = noiseKeys.derivePsk(nodeId)
+
+    /**
+     * The PSK the client derived for [nodeId], or null if deriving failed. Continues the Noise
+     * handshake; returns nothing if the protocol has moved on (closed, failed) meanwhile.
+     */
+    fun onPsk(nodeId: String, psk: ByteArray?): List<Output> {
+        val (pendingNode, offer) = pendingOffer ?: return emptyList()
+        if (stage != Stage.AWAIT_PSK || pendingNode != nodeId) return emptyList()
+        pendingOffer = null
+        val hello = hubHello ?: return fail("Hub offered the Noise handshake before saying HELLO")
+        if (psk == null) return fail("Couldn't derive the Noise key from the password")
+        return sendNoiseMessage1(hello, offer, psk)
+    }
+
+    private fun sendNoiseMessage1(hello: JsonObject, offer: JsonObject, psk: ByteArray): List<Output> {
         val hs = NoiseHandshake(noiseKeys.staticKey, psk, Noise.prologue(hello, offer), noiseEphemeral())
         noise = hs
         stage = Stage.AWAIT_NOISE_RESPONSE

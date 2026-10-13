@@ -1,7 +1,9 @@
 package com.mulesipstea.wiggins.hivemind
 
 import android.util.Log
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -25,7 +27,12 @@ import java.util.Base64
  * itself is in [HiveProtocol]; this class owns the socket and publishes state
  * and events.
  */
-class HiveMindClient(private val http: OkHttpClient, private val scope: CoroutineScope) {
+class HiveMindClient(
+    private val http: OkHttpClient,
+    private val scope: CoroutineScope,
+    /** Where the Noise PSK is stretched: off the main thread and off the client's lock. */
+    private val pskDispatcher: CoroutineDispatcher = Dispatchers.Default,
+) {
     private val _state = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
 
@@ -141,6 +148,7 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
                         _state.value = ConnectionState.Connected(out.peer, out.protocolVersion, out.noiseNodeId)
                     }
                     is HiveProtocol.Output.Event -> emit(out.event)
+                    is HiveProtocol.Output.DerivePsk -> derivePsk(webSocket, out.nodeId)
                     is HiveProtocol.Output.Fail -> {
                         Log.w(TAG, "protocol failure: ${out.reason}")
                         webSocket.close(NORMAL_CLOSURE, null)
@@ -148,6 +156,20 @@ class HiveMindClient(private val http: OkHttpClient, private val scope: Coroutin
                         _state.value = ConnectionState.Failed(out.reason, retryable = false)
                     }
                 }
+            }
+        }
+
+        /**
+         * Stretches the Noise PSK on a background thread, without the lock, so the app's sends
+         * (which take the lock) never wait out argon2id; they just find the handshake
+         * unfinished. Then continues the handshake, if this connection is still the current one.
+         */
+        private fun derivePsk(webSocket: WebSocket, nodeId: String) {
+            scope.launch(pskDispatcher) {
+                val psk = runCatching { proto.derivePsk(nodeId) }
+                    .onFailure { Log.w(TAG, "couldn't derive the Noise key", it) }
+                    .getOrNull()
+                synchronized(lock) { if (current()) handle(webSocket, proto.onPsk(nodeId, psk)) }
             }
         }
 

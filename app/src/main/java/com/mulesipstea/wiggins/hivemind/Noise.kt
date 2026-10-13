@@ -27,22 +27,31 @@ import javax.crypto.spec.SecretKeySpec
 
 class NoiseException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-/** What the Noise handshake needs from the phone. */
+/**
+ * What the Noise handshake needs from the phone. The PSK comes in two steps so the slow one
+ * never runs under the client's lock (SPEC backlog, the argon2id stall): the protocol asks
+ * [cachedPsk], and only if that's null does the client call [derivePsk] on a background
+ * thread. Implementations must be safe to call from both.
+ */
 interface NoiseKeys {
     /** This phone's static X25519 private key; the hub pins its public half at the first handshake. */
     val staticKey: ByteArray
 
-    /** The pre-shared key for the hub whose HELLO named [nodeId]. Can run argon2id: slow the first time. */
-    fun psk(nodeId: String): ByteArray
+    /** The stored pre-shared key for the hub whose HELLO named [nodeId], or null if it has to be derived. Fast. */
+    fun cachedPsk(nodeId: String): ByteArray?
 
-    /** The hub's handshake didn't authenticate with the key [psk] returned, so forget any stored copy. */
+    /** Derives (argon2id: a second or more) and remembers the pre-shared key for [nodeId]. Call it off any lock. */
+    fun derivePsk(nodeId: String): ByteArray
+
+    /** The hub's handshake didn't authenticate with the key given, so forget any stored copy. */
     fun rejected(nodeId: String) {}
 }
 
 /** Keys that last one connection: a new static key, and the PSK derived on every handshake. */
 class EphemeralNoiseKeys(private val password: String) : NoiseKeys {
     override val staticKey: ByteArray = Noise.newPrivateKey()
-    override fun psk(nodeId: String) = Noise.derivePsk(password, nodeId)
+    override fun cachedPsk(nodeId: String): ByteArray? = null
+    override fun derivePsk(nodeId: String) = Noise.derivePsk(password, nodeId)
 }
 
 /**
@@ -56,10 +65,12 @@ class StoredNoiseKeys(
     private val onDerived: (nodeId: String, psk: ByteArray) -> Unit,
     private val onRejected: (nodeId: String) -> Unit,
 ) : NoiseKeys {
-    private val psks = stored.toMutableMap()
+    private val psks = java.util.concurrent.ConcurrentHashMap(stored)
 
-    override fun psk(nodeId: String): ByteArray =
-        psks[nodeId] ?: Noise.derivePsk(password, nodeId).also {
+    override fun cachedPsk(nodeId: String): ByteArray? = psks[nodeId]
+
+    override fun derivePsk(nodeId: String): ByteArray =
+        Noise.derivePsk(password, nodeId).also {
             psks[nodeId] = it
             onDerived(nodeId, it)
         }

@@ -47,7 +47,10 @@ class LiveHubTest {
         val staticKey = MessageDigest.getInstance("SHA-256").digest("wiggins-live-${System.getenv("WIGGINS_LIVE_KEY")}".toByteArray())
         val keys = object : NoiseKeys {
             override val staticKey = staticKey
-            override fun psk(nodeId: String) = Noise.derivePsk(password, nodeId)
+            // This test drives HiveProtocol without HiveMindClient, so it derives up front
+            // rather than handling Output.DerivePsk.
+            override fun cachedPsk(nodeId: String) = Noise.derivePsk(password, nodeId)
+            override fun derivePsk(nodeId: String) = Noise.derivePsk(password, nodeId)
         }
         val proto = HiveProtocol("Wiggins", password, noiseKeys = keys, forceNoise = forceNoise).also { it.setSession(context) }
         val http = OkHttpClient()
