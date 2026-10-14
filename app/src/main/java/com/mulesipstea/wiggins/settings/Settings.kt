@@ -46,6 +46,11 @@ data class SpeechSettings(
     val whenLocked: WhenLocked = WhenLocked.ASK_UNLOCK,
     /** Bluetooth addresses of the hands-free devices trusted for [WhenLocked.TRUSTED_CAR]. */
     val trustedDevices: Set<String> = emptySet(),
+    /**
+     * Ask the hub to give a persona the user's exact words rather than the normalized text
+     * skills match on (`persona_raw_utterance`, `docs/hivemind-protocol.md` §11.1). On by default.
+     */
+    val personaRawUtterance: Boolean = true,
 ) {
     val sttMode get() = stt ?: SpeechMode.DEVICE
     val ttsMode get() = tts ?: SpeechMode.DEVICE
@@ -178,6 +183,7 @@ class SettingsRepository(private val context: Context) {
             listeningTone = it[LISTENING_TONE]?.let { t -> runCatching { ListeningTone.valueOf(t) }.getOrNull() } ?: ListeningTone.BLUETOOTH,
             whenLocked = it[WHEN_LOCKED]?.let { w -> runCatching { WhenLocked.valueOf(w) }.getOrNull() } ?: WhenLocked.ASK_UNLOCK,
             trustedDevices = it[TRUSTED_DEVICES] ?: emptySet(),
+            personaRawUtterance = it[PERSONA_RAW_UTTERANCE] ?: true,
         )
     }
 
@@ -191,6 +197,7 @@ class SettingsRepository(private val context: Context) {
             it[HANDS_FREE] = speech.handsFree
             it[WHEN_LOCKED] = speech.whenLocked.name
             it[TRUSTED_DEVICES] = speech.trustedDevices
+            it[PERSONA_RAW_UTTERANCE] = speech.personaRawUtterance
         }
     }
 
@@ -313,6 +320,7 @@ class SettingsRepository(private val context: Context) {
         val STT_MODE = stringPreferencesKey("stt_mode")
         val TTS_MODE = stringPreferencesKey("tts_mode")
         val EARLY_TRANSCRIPTION = booleanPreferencesKey("early_transcription")
+        val PERSONA_RAW_UTTERANCE = booleanPreferencesKey("persona_raw_utterance")
         val HUB_SPEECH_AVAILABLE = booleanPreferencesKey("hub_speech_available")
         val LISTENING_TONE = stringPreferencesKey("listening_tone")
         val HANDS_FREE = booleanPreferencesKey("hands_free")

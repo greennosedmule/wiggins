@@ -200,6 +200,18 @@ fun SettingsScreen(
                     )
                 }
             }
+            SettingsSection(
+                "Persona",
+                "Some hubs have a persona: an AI model that answers what none of the hub's skills handle.",
+            ) {
+                SwitchRow(
+                    "Send my exact words",
+                    "On: the persona gets your question exactly as you said or typed it. " +
+                        "Off: it gets the hub's tidied-up version, the one skills match on, with contractions spelled out and the question mark removed. " +
+                        "Skills see the tidied version either way. A hub without a persona ignores this.",
+                    speech.personaRawUtterance,
+                ) { speech = speech.copy(personaRawUtterance = it) }
+            }
             SettingsSection("Reaching the hub", "How the connection gets past the hub's reverse proxy, if it has one.") {
                 AuthModeOption(AuthMode.NONE, mode, "LAN or VPN", "No proxy sign-in. ws:// or wss://.") { mode = it }
                 AuthModeOption(AuthMode.CLIENT_CERT, mode, "Client certificate", "The proxy checks a certificate on this phone. wss:// only.") { mode = it }
@@ -292,6 +304,21 @@ private fun SpeechModeChoice(title: String, selected: SpeechMode, hubDetail: Str
  * Use the car's or headset's own mic and speaker (SPEC "In the car"). Turning it on asks
  * for Android's "Nearby devices" (Bluetooth) permission; it stays off if that's refused.
  */
+/** A setting that's on or off, with what it does underneath its name. */
+@Composable
+private fun SwitchRow(title: String, detail: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().toggleable(value = on, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(detail, style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(checked = on, onCheckedChange = null)
+    }
+}
+
 @Composable
 private fun HandsFreeSwitch(on: Boolean, onChange: (Boolean) -> Unit) {
     val context = LocalContext.current

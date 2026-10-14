@@ -232,8 +232,9 @@ class HiveProtocolTest {
             hub.open(frames.text()).json().jsonObject.getValue("payload").jsonObject.getValue("context").jsonObject
         val locked = context.copy(locked = true)
         val watching = context.copy(watching = true)
+        val normalized = context.copy(rawUtterance = false)
 
-        for (ctx in listOf(context, locked, watching)) {
+        for (ctx in listOf(context, locked, watching, normalized)) {
             for (frames in listOf(
                 proto.utterance("what's next", ctx),
                 proto.transcribe("t1", byteArrayOf(1), ctx),
@@ -243,9 +244,11 @@ class HiveProtocolTest {
                 val sent = contextOf(frames)
                 assertEquals(ctx.locked.toString(), sent.getValue("device_locked").jsonPrimitive.content)
                 assertEquals(ctx.watching.toString(), sent.getValue("user_watching").jsonPrimitive.content)
+                assertEquals(ctx.rawUtterance.toString(), sent.getValue("persona_raw_utterance").jsonPrimitive.content)
                 val session = sent.getValue("session").jsonObject
                 assertNull(session["device_locked"])
                 assertNull(session["user_watching"])
+                assertNull(session["persona_raw_utterance"])
             }
         }
     }

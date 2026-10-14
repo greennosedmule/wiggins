@@ -1061,6 +1061,7 @@ class Assistant(private val app: WigginsApp) {
             locked = _locked.value,
             watching = foreground && !_locked.value && !handsFree.isOpen &&
                 !app.getSystemService(KeyguardManager::class.java).isKeyguardLocked,
+            rawUtterance = speech.value.personaRawUtterance,
         )
     }
 

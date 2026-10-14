@@ -31,6 +31,11 @@ data class SessionContext(
      * confirmation whose result is on screen (WAGGLE.md "Watching").
      */
     val watching: Boolean = false,
+    /**
+     * A persona on the hub gets the user's words exactly as sent, not the normalized text
+     * skills match on. Sent as [RAW_UTTERANCE_KEY], true or false, on every uplink.
+     */
+    val rawUtterance: Boolean = true,
 ) {
     /**
      * The phone's settings as OVOS session fields. No `location`: the hub replaces a
@@ -64,5 +69,8 @@ data class SessionContext(
 
         /** The message-context key for [watching]; see docs/hivemind-protocol.md §11.1. */
         const val WATCHING_KEY = "user_watching"
+
+        /** The message-context key for [rawUtterance]; see docs/hivemind-protocol.md §11.1. */
+        const val RAW_UTTERANCE_KEY = "persona_raw_utterance"
     }
 }

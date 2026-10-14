@@ -668,6 +668,11 @@ hub can treat a Wiggins message without it as locked. Likewise `user_watching`
 (true or false): true when the question comes from a Wiggins screen the user is
 looking at (an unlocked phone, not a hands-free car or headset), so the hub
 can leave unsaid what the screen already shows (WAGGLE.md "Watching").
+And `persona_raw_utterance` (true or false, the user's setting, on by
+default): true asks the hub to give a persona the utterance exactly as sent,
+before OVOS's normalizer expands contractions and drops the final "?"; false
+gives it the normalized text, as skills always get. A hub without the feature
+ignores it; one with it treats a missing or non-boolean value as true.
 Both were seen arriving through a real hub on 2026-10-14:
 - `device_locked` through 4.15.0a1, in ovos-core's persona log (`False` from
   the phone, `None` from a client that doesn't send it);
