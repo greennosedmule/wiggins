@@ -50,7 +50,8 @@ This repo is public: use the placeholders the docs already use (`hub.example.com
   NDK. Upstream sources stay unchanged; `vad/README.md` lists what differs.
 - `design/`: `wiggins.svg` is the source; `make_drawables.py` generates the launcher
   icon and drawables.
-- `tools/`: `release.sh`, `vectors/`, `mtls/client-cert.sh`.
+- `tools/`: `release.sh`, `vectors/`, `mtls/client-cert.sh`, and `car/` (a virtual
+  Bluetooth car for the emulator, `fake_car.py`, and `ui.sh` to tap the screen by text).
 
 ## Build and test
 
@@ -125,6 +126,9 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
     sleeps. Android drops toasts from apps whose notifications are off, Wiggins included.
   - Its clock can jump after boot, and a Clock alarm set then may never ring. Set test
     alarms a minute or two ahead once the emulator has been up a while.
+- The car path without a car: `tools/car/README.md`. `fake_car.py` pairs with the
+  emulator over its virtual Bluetooth and presses the voice button; the SCO link it gets
+  carries only silence, so audio still needs a real headset or car.
 - End to end without the real hub: a throwaway hivemind-core 4.15 and `ovos-messagebus`
   (as in `docs/hivemind-protocol.md` §16.6, with every `XDG_*_HOME` set), a client
   granted the uplink types below, Wiggins pointed at `ws://10.0.2.2:<port>`, and Waggle's
