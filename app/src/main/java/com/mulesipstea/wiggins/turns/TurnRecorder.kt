@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 
 /**
@@ -246,6 +247,7 @@ class TurnRecorder(private val clock: () -> Long = System::currentTimeMillis) {
                     cacheWriteTokens = o.long("cache_write_tokens"),
                     outputTokens = o.long("output_tokens"),
                     thinkingTokens = o.long("thinking_tokens"),
+                    cost = o.number("cost_usd") ?: o.number("cost"),
                 )
             }
             val tools = (data["tools"] as? JsonArray).orEmpty().mapNotNull { t ->
@@ -268,11 +270,16 @@ class TurnRecorder(private val clock: () -> Long = System::currentTimeMillis) {
                 tools = tools.take(MAX_TOOLS),
                 truncated = (data["truncated"] as? JsonPrimitive)?.booleanOrNull == true ||
                     requests.size > MAX_REQUESTS || tools.size > MAX_TOOLS,
+                // Either `cost_usd`, or `cost` with `cost_currency`.
+                cost = data.number("cost_usd") ?: data.number("cost"),
+                currency = if (data.number("cost_usd") != null) "USD" else data.string("cost_currency"),
+                pricing = data.string("pricing"),
             )
         }
 
         private fun JsonObject.string(key: String) = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
         private fun JsonObject.long(key: String) = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull
+        private fun JsonObject.number(key: String) = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
 
         /** Values as text: strings as they are, anything else as JSON. */
         private fun JsonObject.flatten(): Map<String, String> = mapValues { (_, v) -> v.text() }

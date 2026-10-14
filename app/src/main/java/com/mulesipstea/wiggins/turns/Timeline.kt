@@ -56,7 +56,7 @@ object Timeline {
                 val end = hub.anchorMs + (r.endMs ?: r.firstMs ?: r.startMs)
                 val first = r.firstMs?.let { hub.anchorMs + it }?.coerceIn(start, end)
                 val bars = if (first != null && first > start) listOf(Bar(start, first, light = true), Bar(first, end)) else listOf(Bar(start, end))
-                timed += Row("$persona ${i + 1}", Component.PERSONA, bars, approximate = true, detail = requestDetail(r, first?.minus(start)))
+                timed += Row("$persona ${i + 1}", Component.PERSONA, bars, approximate = true, detail = requestDetail(r, first?.minus(start), hub.currency))
             }
             hub.tools.forEach { t ->
                 val start = hub.anchorMs + t.startMs
@@ -115,13 +115,44 @@ object Timeline {
         return Row(label, Component.SPEECH, bars, detail = listOfNotNull(said, audio, "played for ${duration(end - s.playStartMs)}").joinToString(" · "))
     }
 
-    private fun requestDetail(r: TurnDetails.ModelRequest, firstAfter: Long?): String = listOfNotNull(
+    /** A turn's token counts summed over its requests, by kind, with only the kinds the hub reported. */
+    data class Usage(val tokens: List<Pair<String, Long>>, val cost: Double?, val currency: String?, val pricing: String?)
+
+    fun usage(hub: TurnDetails.HubReport): Usage? {
+        val kinds = listOf<Pair<String, (TurnDetails.ModelRequest) -> Long?>>(
+            "input" to { it.inputTokens },
+            "cache read" to { it.cacheReadTokens },
+            "cache write" to { it.cacheWriteTokens },
+            "output" to { it.outputTokens },
+            "thinking" to { it.thinkingTokens },
+        )
+        val tokens = kinds.mapNotNull { (name, of) -> hub.requests.mapNotNull(of).takeIf { it.isNotEmpty() }?.let { name to it.sum() } }
+        val cost = hub.cost ?: hub.requests.mapNotNull { it.cost }.takeIf { it.isNotEmpty() }?.sum()
+        if (tokens.isEmpty() && cost == null) return null
+        return Usage(tokens, cost, hub.currency, hub.pricing)
+    }
+
+    /** An estimated cost: "$0.0123", or "0.0123 EUR" for another currency. */
+    fun cost(amount: Double, currency: String?): String {
+        val digits = if (amount >= 1) 2 else if (amount >= 0.1) 3 else 4
+        val number = String.format(Locale.ROOT, "%.${digits}f", amount)
+        return when (currency?.uppercase()) {
+            null, "USD" -> "$$number"
+            else -> "$number ${currency.uppercase()}"
+        }
+    }
+
+    /** 12345 → "12,345". */
+    fun count(n: Long): String = String.format(Locale.US, "%,d", n)
+
+    private fun requestDetail(r: TurnDetails.ModelRequest, firstAfter: Long?, currency: String?): String = listOfNotNull(
         firstAfter?.let { "first text after ${duration(it)}" },
         r.stop?.let { "stop: $it" },
         r.inputTokens?.let { "$it in" + (r.cacheReadTokens?.let { c -> " ($c cached)" } ?: "") },
         r.cacheWriteTokens?.let { "$it cache written" },
         r.outputTokens?.let { "$it out" },
         r.thinkingTokens?.let { "$it thinking" },
+        r.cost?.let { "about ${cost(it, currency)}" },
     ).joinToString(" · ")
 
     /** `android.intent.action.SET_ALARM` → `SET_ALARM`; a query name stays as it is. */
@@ -197,7 +228,13 @@ object Timeline {
             appendLine("Intent: ${m.intentName ?: "?"}")
             if (m.slots.isNotEmpty()) appendLine("Slots: " + m.slots.entries.joinToString { "${it.key}=${it.value}" })
         }
-        d.hub?.let { h -> appendLine(listOfNotNull(personaName(d), h.model, h.effort?.let { "effort $it" }).joinToString(" · ")) }
+        d.hub?.let { h ->
+            appendLine(listOfNotNull(personaName(d), h.model, h.effort?.let { "effort $it" }).joinToString(" · "))
+            usage(h)?.let { u ->
+                if (u.tokens.isNotEmpty()) appendLine("Tokens: " + u.tokens.joinToString(", ") { (k, n) -> "${count(n)} $k" })
+                u.cost?.let { appendLine("Estimated cost: ${cost(it, u.currency)}" + (u.pricing?.let { p -> " ($p)" } ?: "")) }
+            }
+        }
         rows.forEach { r ->
             val time = r.durationMs?.let { "${tickTime(r.startMs!!)} +${duration(it)}" } ?: r.marker?.let { "at ${tickTime(it)}" } ?: r.missing.orEmpty()
             appendLine("${r.label}: $time${if (r.approximate) " (hub clock)" else ""}${if (r.detail.isNotEmpty()) " · ${r.detail}" else ""}")

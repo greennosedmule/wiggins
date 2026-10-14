@@ -106,6 +106,11 @@ data class TurnDetails(
         val requests: List<ModelRequest> = emptyList(),
         val tools: List<ToolCall> = emptyList(),
         val truncated: Boolean = false,
+        /** The hub's estimate of the turn's cost, in [currency]; null if it didn't give one. */
+        val cost: Double? = null,
+        val currency: String? = null,
+        /** What the estimate assumes, in the hub's words ("list price"). */
+        val pricing: String? = null,
     )
 
     @Serializable
@@ -120,6 +125,8 @@ data class TurnDetails(
         val cacheWriteTokens: Long? = null,
         val outputTokens: Long? = null,
         val thinkingTokens: Long? = null,
+        /** The hub's estimate of this request's cost, in the report's currency. */
+        val cost: Double? = null,
     )
 
     @Serializable

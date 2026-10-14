@@ -52,8 +52,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -112,8 +114,9 @@ internal fun ConversationList(
         }
     }
     detailsOf?.let { id ->
-        val sent = transcript.firstOrNull { it.id == id }?.delivery.let { it == null || it == Delivery.SENT }
-        ReplyDetailsSheet(transcript.detailsFor(id), sent, onDismiss = { detailsOf = null })
+        val entry = transcript.firstOrNull { it.id == id }
+        val sent = entry?.delivery.let { it == null || it == Delivery.SENT }
+        ReplyDetailsSheet(transcript.detailsFor(id), entry?.text.orEmpty(), sent, onDismiss = { detailsOf = null })
     }
 }
 
@@ -126,20 +129,39 @@ private fun Transcript(
     contentPadding: PaddingValues,
     onDetails: (Long) -> Unit,
 ) {
+    // Laid out from the bottom, newest first, as chat apps are: when the keyboard opens and
+    // the list gets shorter, or a reply grows a sentence at a time, the newest message stays
+    // in view next to the text box.
     val listState = rememberLazyListState()
-    val count = transcript.size + if (thinking) 1 else 0
-    LaunchedEffect(count) { listState.animateScrollToItem(count - 1) }
+    // Whether to follow new messages: the user is at the newest one. Decided when a scroll
+    // ends, so a new message arriving (which moves the newest item's index) doesn't change it.
+    var following by remember { mutableStateOf(true) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
+            if (!scrolling) following = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < FOLLOW_SLOP_PX
+        }
+    }
+    val newest = if (thinking) "thinking" else transcript.lastOrNull()?.id
+    LaunchedEffect(newest) {
+        // A new message keeps the list at the bottom only if the user was there; someone
+        // scrolled up to read isn't pulled away.
+        if (following) listState.scrollToItem(0)
+    }
     LazyColumn(
         state = listState,
         modifier = modifier,
         contentPadding = contentPadding,
+        reverseLayout = true,
         // A short conversation sits at the bottom, next to the text box, as in a chat app.
         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
     ) {
-        items(transcript, key = { it.id }) { Bubble(it, onResend, onDetails) }
         if (thinking) item(key = "thinking") { ThinkingBubble() }
+        items(transcript.asReversed(), key = { it.id }) { Bubble(it, onResend, onDetails) }
     }
 }
+
+/** How far from the newest message still counts as at it. */
+private const val FOLLOW_SLOP_PX = 48
 
 @Composable
 internal fun Bubble(entry: TranscriptEntry, onResend: (Long) -> Unit, onDetails: (Long) -> Unit = {}) {

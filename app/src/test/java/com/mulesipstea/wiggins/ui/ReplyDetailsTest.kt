@@ -1,18 +1,25 @@
 package com.mulesipstea.wiggins.ui
 
+import android.app.Application
+import android.content.ClipboardManager
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mulesipstea.wiggins.hivemind.ConnectionState
 import com.mulesipstea.wiggins.turns.SampleTurns
 import com.mulesipstea.wiggins.turns.TurnDetails
 import com.mulesipstea.wiggins.ui.theme.WigginsTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,6 +53,24 @@ class ReplyDetailsTest {
         compose.onNodeWithText("Reply details").assertExists()
         compose.onNodeWithText("date time").assertExists()
         compose.onNodeWithText("Intent (Padatious)").assertExists()
+    }
+
+    @Test fun copyTextCopiesThePressedBubble() {
+        chat(listOf(
+            TranscriptEntry(1, Who.USER, "what time is it", details = SampleTurns.skill),
+            TranscriptEntry(2, Who.HUB, "It's nine forty six.", turn = 1),
+        ))
+        compose.onNodeWithTag("bubble-2", useUnmergedTree = true).performTouchInput { longClick() }
+        compose.onNodeWithText("Copy text").performSemanticsAction(SemanticsActions.OnClick)
+        val clip = ApplicationProvider.getApplicationContext<Application>().getSystemService(ClipboardManager::class.java).primaryClip
+        assertEquals("It's nine forty six.", clip?.getItemAt(0)?.text?.toString())
+    }
+
+    @Test fun anOldBubbleCanStillBeCopied() {
+        chat(listOf(TranscriptEntry(1, Who.HUB, "Hello.")))
+        compose.onNodeWithTag("bubble-1", useUnmergedTree = true).performTouchInput { longClick() }
+        compose.onNodeWithText("Copy text").assertIsEnabled()
+        compose.onAllNodesWithText("Copy details").assertCountEquals(0)
     }
 
     @Test fun aBubbleFromBeforeSaysNothingWasKept() {

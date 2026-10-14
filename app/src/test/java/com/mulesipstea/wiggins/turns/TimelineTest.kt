@@ -91,4 +91,22 @@ class TimelineTest {
         assertTrue(text.contains("Ada 1: 2.75 s +1.5 s (hub clock)"))
         assertTrue(text.lines().last().startsWith("Done: at 7.90 s"))
     }
+
+    @Test fun usageSumsWhatTheHubReportedAndNothingElse() {
+        val u = Timeline.usage(SampleTurns.persona.hub!!)!!
+        assertEquals(listOf("input" to 18_500L, "cache read" to 17_900L, "output" to 98L, "thinking" to 34L), u.tokens)
+        assertEquals(null, u.cost)
+        val bare = SampleTurns.persona.hub!!.copy(requests = listOf(TurnDetails.ModelRequest(0, endMs = 10)))
+        assertEquals(null, Timeline.usage(bare))
+    }
+
+    @Test fun theCostIsTheHubsTotalOrTheSumOfItsRequests() {
+        val hub = SampleTurns.persona.hub!!
+        val perRequest = hub.copy(requests = hub.requests.mapIndexed { i, r -> r.copy(cost = 0.01 * (i + 1)) })
+        assertEquals(0.03, Timeline.usage(perRequest)!!.cost!!, 1e-9)
+        assertEquals(0.5, Timeline.usage(perRequest.copy(cost = 0.5, currency = "EUR"))!!.cost!!, 1e-9)
+        assertEquals(listOf("$0.0123", "$0.123", "$1.50", "0.0123 EUR"),
+            listOf(Timeline.cost(0.0123, "USD"), Timeline.cost(0.123, null), Timeline.cost(1.5, "usd"), Timeline.cost(0.0123, "eur")))
+        assertEquals("12,345", Timeline.count(12_345))
+    }
 }

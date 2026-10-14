@@ -38,6 +38,8 @@ class ReplyDetailsScreenshotTest {
 
     @Test fun personaLight() = shoot("persona", false, SampleTurns.persona)
     @Test fun personaDark() = shoot("persona", true, SampleTurns.persona)
+    @Test fun personaCostLight() = shoot("persona-cost", false,
+        SampleTurns.persona.copy(hub = SampleTurns.persona.hub!!.copy(cost = 0.0213, currency = "USD", pricing = "list price")))
     @Test fun skillLight() = shoot("skill", false, SampleTurns.skill)
     @Test fun skillDark() = shoot("skill", true, SampleTurns.skill)
     @Test fun quietWaggleLight() = shoot("quiet-waggle", false, SampleTurns.quietWaggle)

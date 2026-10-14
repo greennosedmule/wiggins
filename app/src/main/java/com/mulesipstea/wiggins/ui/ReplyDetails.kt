@@ -59,19 +59,31 @@ import com.mulesipstea.wiggins.turns.TurnDetails
 /** The reply details sheet (SPEC "Reply details"), opened by long-pressing a bubble. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ReplyDetailsSheet(details: TurnDetails?, sent: Boolean, onDismiss: () -> Unit) {
+internal fun ReplyDetailsSheet(details: TurnDetails?, text: String, sent: Boolean, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding()) {
-            ReplyDetails(details, sent)
+            ReplyDetails(details, sent, text)
         }
     }
 }
 
-/** What's known about a turn: what answered it, then its timeline. [sent]: false for a question that hasn't reached the hub. */
+/**
+ * What's known about a turn: what answered it, then its timeline. [text] is the pressed
+ * bubble's, for copying. [sent]: false for a question that hasn't reached the hub.
+ */
 @Composable
-internal fun ReplyDetails(details: TurnDetails?, sent: Boolean = true) {
+internal fun ReplyDetails(details: TurnDetails?, sent: Boolean = true, text: String = "") {
+    val context = LocalContext.current
+    val copy = { label: String, value: String ->
+        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(label, value))
+    }
+    val rows = remember(details) { details?.let(Timeline::rows).orEmpty() }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Reply details", style = MaterialTheme.typography.titleLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { copy("Message", text) }, enabled = text.isNotBlank()) { Text("Copy text") }
+            if (details != null) OutlinedButton(onClick = { copy("Reply details", Timeline.describe(details, rows)) }) { Text("Copy details") }
+        }
         if (details == null) {
             Text(
                 if (sent) {
@@ -87,7 +99,6 @@ internal fun ReplyDetails(details: TurnDetails?, sent: Boolean = true) {
         Summary(details)
         HorizontalDivider()
         Text("Timeline", style = MaterialTheme.typography.titleMedium)
-        val rows = remember(details) { Timeline.rows(details) }
         Legend(rows, details)
         Waterfall(rows)
         val zero = when {
@@ -105,11 +116,6 @@ internal fun ReplyDetails(details: TurnDetails?, sent: Boolean = true) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        val context = LocalContext.current
-        OutlinedButton(onClick = {
-            context.getSystemService(ClipboardManager::class.java)
-                .setPrimaryClip(ClipData.newPlainText("Reply details", Timeline.describe(details, rows)))
-        }) { Text("Copy details") }
     }
 }
 
@@ -143,7 +149,13 @@ private fun Summary(d: TurnDetails) {
             Fact("Tools", hub.tools.takeIf { it.isNotEmpty() }?.joinToString("\n") { t ->
                 listOfNotNull(t.server, t.name).joinToString(" · ") + when (t.ok) { false -> " (failed)"; else -> "" }
             } ?: "None")
-            hub.requests.mapNotNull { it.thinkingTokens }.takeIf { it.isNotEmpty() }?.let { Fact("Thinking", "${it.sum()} tokens") }
+            Timeline.usage(hub)?.let { u ->
+                val requests = hub.requests.size.let { n -> if (n == 1) "1 request" else "$n requests" }
+                if (u.tokens.isNotEmpty()) {
+                    Fact("Tokens", u.tokens.joinToString("\n") { (kind, n) -> "${Timeline.count(n)} $kind" }, id = "over $requests")
+                }
+                u.cost?.let { Fact("Cost", "about ${Timeline.cost(it, u.currency)}", id = listOfNotNull("an estimate from the hub", u.pricing).joinToString(", ")) }
+            }
         }
         persona && d.handledMs != null -> Fact("Tools", null, missing = Timeline.NOT_REPORTED)
     }

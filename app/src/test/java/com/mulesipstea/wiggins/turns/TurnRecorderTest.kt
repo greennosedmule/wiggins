@@ -165,6 +165,17 @@ class TurnRecorderTest {
         assertEquals(TurnDetails.ToolCall("waggle", "show_alarms", 47, 59, true), report.tools.single())
     }
 
+    @Test fun costsAreReadInEitherSpelling() {
+        val usd = TurnRecorder.report(json("""{"v":1,"sent_ms":10,"cost_usd":0.042,"pricing":"list price","requests":[{"start_ms":0,"cost_usd":0.04}]}"""), 10)!!
+        assertEquals(0.042, usd.cost!!, 1e-9)
+        assertEquals("USD", usd.currency)
+        assertEquals("list price", usd.pricing)
+        assertEquals(0.04, usd.requests.single().cost!!, 1e-9)
+        val eur = TurnRecorder.report(json("""{"v":1,"sent_ms":10,"cost":0.03,"cost_currency":"EUR"}"""), 10)!!
+        assertEquals("EUR", eur.currency)
+        assertNull(TurnRecorder.report(json("""{"v":1,"sent_ms":10,"cost":"lots"}"""), 10)!!.cost)
+    }
+
     @Test fun anUnknownReportVersionIsIgnored() {
         assertNull(TurnRecorder.report(json("""{"v":2,"sent_ms":1}"""), 10))
         assertNull(TurnRecorder.report(json("""{"sent_ms":1}"""), 10))
