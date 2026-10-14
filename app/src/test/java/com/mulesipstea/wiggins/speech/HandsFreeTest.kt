@@ -34,6 +34,13 @@ class HandsFreeTest {
 
     @Before fun setUp() {
         shadowOf(adapter).setProfileProxy(BluetoothProfile.HEADSET, headset)
+        shadowOf(adapter).setEnabled(true)
+    }
+
+    /** The car connects: the headset profile lists it, and the adapter reports the profile connected. */
+    private fun connect() {
+        shadowHeadset.addConnectedDevice(car)
+        shadowOf(adapter).setProfileConnectionState(BluetoothProfile.HEADSET, BluetoothProfile.STATE_CONNECTED)
     }
 
     private fun grant() = shadowOf(app).grantPermissions(Manifest.permission.BLUETOOTH_CONNECT)
@@ -41,7 +48,7 @@ class HandsFreeTest {
     private val shadowHeadset: ShadowBluetoothHeadset get() = Shadow.extract(headset)
 
     @Test fun withoutThePermissionItStaysOff() = runBlocking {
-        shadowHeadset.addConnectedDevice(car)
+        connect()
         val handsFree = HandsFree(app)
         assertFalse(handsFree.open())
         assertFalse(headset.isAudioConnected(car))
@@ -57,7 +64,7 @@ class HandsFreeTest {
 
     @Test fun opensTheVoiceRecognitionSessionAndClosesIt() = runBlocking {
         grant()
-        shadowHeadset.addConnectedDevice(car)
+        connect()
         val handsFree = HandsFree(app)
         assertTrue(handsFree.open())
         assertTrue(handsFree.isOpen)
@@ -66,5 +73,33 @@ class HandsFreeTest {
         handsFree.close()
         assertFalse(handsFree.isOpen)
         assertFalse(headset.isAudioConnected(car))
+    }
+
+    /**
+     * With Bluetooth off, or no headset connection reported by the adapter, it stays off
+     * without asking the headset profile, whose binding never completes with Bluetooth off.
+     */
+    @Test fun withBluetoothOffItDoesntWaitForTheProfile() = runBlocking {
+        grant()
+        connect()
+        shadowOf(adapter).setEnabled(false)
+        val handsFree = HandsFree(app)
+        assertFalse(handsFree.open())
+        assertEquals(emptyList<String>(), handsFree.connectedAddresses())
+        assertFalse(headset.isAudioConnected(car))
+    }
+
+    @Test fun aListedDeviceTheAdapterDoesntReportConnectedIsIgnored() = runBlocking {
+        grant()
+        shadowHeadset.addConnectedDevice(car)
+        val handsFree = HandsFree(app)
+        assertFalse(handsFree.open())
+        assertEquals(emptyList<String>(), handsFree.connectedAddresses())
+    }
+
+    @Test fun reportsTheConnectedDevice() = runBlocking {
+        grant()
+        connect()
+        assertEquals(listOf(car.address), HandsFree(app).connectedAddresses())
     }
 }

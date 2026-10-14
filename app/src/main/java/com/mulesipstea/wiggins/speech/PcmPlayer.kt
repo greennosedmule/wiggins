@@ -41,6 +41,10 @@ object PcmPlayer {
             .setBufferSizeInBytes(maxOf(minBuffer, pcm.sampleRate * pcm.frameBytes / 5))
             .build()
         route.output?.let(track::setPreferredDevice)
+        // A streaming track starts only once its start threshold (by default the whole buffer)
+        // is written, so a clip shorter than the buffer, such as the listening tone, never
+        // played: the wait below then ran its 2 s to the deadline, and the clip was flushed.
+        track.setStartThresholdInFrames(minOf(pcm.frames, track.bufferSizeInFrames).coerceAtLeast(1))
         try {
             track.play()
             var offset = 0

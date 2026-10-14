@@ -78,10 +78,21 @@ class HandsFree(private val context: Context) {
         return withTimeoutOrNull(BIND_TIMEOUT_MS) { pending.await() }
     }
 
+    /**
+     * Whether any hands-free device is connected, asked of the adapter without binding the
+     * headset profile: with Bluetooth off the binding never completes, so every listen
+     * waited out the binding's timeout.
+     */
+    @SuppressLint("MissingPermission")
+    private fun headsetConnected(): Boolean {
+        val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter ?: return false
+        return adapter.isEnabled && adapter.getProfileConnectionState(BluetoothProfile.HEADSET) == BluetoothProfile.STATE_CONNECTED
+    }
+
     /** Addresses of the connected hands-free devices; empty without the permission or Bluetooth. */
     @SuppressLint("MissingPermission")
     suspend fun connectedAddresses(): List<String> {
-        if (!permitted()) return emptyList()
+        if (!permitted() || !headsetConnected()) return emptyList()
         return headset()?.connectedDevices?.map { it.address }.orEmpty()
     }
 
@@ -94,7 +105,7 @@ class HandsFree(private val context: Context) {
      */
     @SuppressLint("MissingPermission")
     suspend fun open(): Boolean {
-        if (!permitted()) return false
+        if (!permitted() || !headsetConnected()) return false.also { isOpen = false }
         val headset = headset() ?: return false
         val target = headset.connectedDevices.firstOrNull() ?: return false.also { isOpen = false }
         if (isOpen && device == target && headset.isAudioConnected(target)) return true
