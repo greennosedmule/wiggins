@@ -747,7 +747,7 @@ in `onBus`.
 
 ```json
 {"type": "recognizer_loop:b64_transcribe",
- "data": {"audio": "<base64 WAV>", "lang": "en-US", "sample_rate": 16000, "sample_width": 2},
+ "data": {"audio": "<base64 PCM>", "lang": "en-US", "sample_rate": 16000, "sample_width": 2},
  "context": {"…": "…", "session": {"…": "…"}, "wiggins_id": "<random id>"}}
 ```
 
@@ -756,10 +756,12 @@ Hub → client: `recognizer_loop:b64_transcribe.response` with
 `[[null, 1.0]]`. The data doesn't echo the request, but `reply` copies the
 request's context, so `context.wiggins_id` matches it.
 
-- Send 16 kHz mono 16-bit **WAV**. Plugin 2.1.x reads the base64 as an audio
-  file (and the hub image has no ffmpeg, so only WAV works); the 2.2 alphas read
-  raw 16 kHz s16 PCM and check `sample_rate`/`sample_width`, for which the
-  44-byte header is about 1 ms of noise.
+- Send raw 16 kHz mono 16-bit little-endian **PCM**, with no WAV header. The 2.2
+  plugins read the data as raw PCM and check `sample_rate`/`sample_width`; a WAV
+  header would reach the STT engine as about 1 ms of noise (checked 2026-10-12
+  against plugin 2.2.2a1). Plugin 2.1.x read the base64 as an audio file and
+  needed the header (the hub image has no ffmpeg, so only WAV worked). Wiggins
+  sent WAV for both until 0.5.0, and now supports only 2.2 and later.
 - Never send `lang: "auto"`: the hub's STT client then asks a public language
   detection server, and the audio leaves the hub.
 
