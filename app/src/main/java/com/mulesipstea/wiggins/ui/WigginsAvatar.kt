@@ -2,6 +2,7 @@ package com.mulesipstea.wiggins.ui
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -12,17 +13,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import com.mulesipstea.wiggins.R
 import kotlin.math.PI
 import kotlin.math.cos
@@ -127,13 +134,88 @@ private fun DrawScope.bubble(center: Offset, radius: Float, alpha: Float) {
 }
 
 private fun DrawScope.hexagon(center: Offset, radius: Float, alpha: Float) {
-    val path = Path().apply {
-        for (k in 0 until 6) {
-            val angle = (PI / 3 * k - PI / 2).toFloat()
-            val point = Offset(center.x + radius * cos(angle), center.y + radius * sin(angle))
-            if (k == 0) moveTo(point.x, point.y) else lineTo(point.x, point.y)
-        }
-        close()
-    }
-    drawPath(path, Amber.copy(alpha = alpha), style = Stroke(width = radius * 0.32f))
+    drawPath(hexagonPath(center, radius), Amber.copy(alpha = alpha), style = Stroke(width = radius * 0.32f))
 }
+
+/** A regular pointy-top hexagon around [center], [radius] to each corner, starting at the top. */
+private fun hexagonPath(center: Offset, radius: Float) = Path().apply {
+    for (k in 0 until 6) {
+        val angle = (PI / 3 * k - PI / 2).toFloat()
+        val point = Offset(center.x + radius * cos(angle), center.y + radius * sin(angle))
+        if (k == 0) moveTo(point.x, point.y) else lineTo(point.x, point.y)
+    }
+    close()
+}
+
+/**
+ * Wiggins as the panel's listening indicator (SPEC "Assistant panel"), the mic button's
+ * treatment moved onto the mark: while [listening], a honeycomb ring breathes out from
+ * him every [BREATH_MS] even in silence, and a honeycomb halo grows with the input
+ * [level] (0 to 1). While [starting], a stroke runs round his frame, as the spinner does
+ * round the mic. While [connecting], he blows bubbles, as in the header. The box is
+ * [HALO_ROOM] times his size, so the ring and halo have room to grow.
+ */
+@Composable
+fun ListeningWiggins(
+    listening: Boolean,
+    starting: Boolean,
+    connecting: Boolean,
+    level: Float,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
+        if (listening) ListeningRings(level)
+        if (starting && !listening) GettingReadyStroke()
+        WigginsAvatar(Modifier.fillMaxSize(1f / HALO_ROOM), blowing = connecting && !listening && !starting)
+    }
+}
+
+@Composable
+private fun ListeningRings(level: Float) {
+    val halo by animateFloatAsState(level, tween(durationMillis = 90), label = "level")
+    val breath by rememberInfiniteTransition(label = "breathing").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(BREATH_MS, easing = LinearEasing)),
+        label = "breath",
+    )
+    Canvas(Modifier.fillMaxSize().testTag("listening-wiggins")) {
+        // His frame's corners sit just inside the avatar's box, half of it from the centre.
+        val frame = size.minDimension / HALO_ROOM * 0.49f
+        drawPath(hexagonPath(center, frame * (1.08f + 0.25f * halo)), Amber.copy(alpha = 0.18f + 0.3f * halo))
+        drawPath(
+            hexagonPath(center, frame * (1f + 0.32f * breath)),
+            Amber.copy(alpha = 0.8f * (1f - breath)),
+            style = Stroke(width = 2.5.dp.toPx(), join = StrokeJoin.Round),
+        )
+    }
+}
+
+@Composable
+private fun GettingReadyStroke() {
+    val t by rememberInfiniteTransition(label = "ready").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(READY_MS, easing = LinearEasing)),
+        label = "t",
+    )
+    val color = MaterialTheme.colorScheme.primary
+    Canvas(Modifier.fillMaxSize()) {
+        val measure = PathMeasure().apply { setPath(hexagonPath(center, size.minDimension / HALO_ROOM * 0.49f * 1.1f), true) }
+        val length = measure.length
+        val start = t * length
+        val end = start + length * 0.3f
+        val stroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        // A third of the way round, wrapping past the top corner.
+        val segment = Path().apply {
+            measure.getSegment(start, minOf(end, length), this, true)
+            if (end > length) measure.getSegment(0f, end - length, this, true)
+        }
+        drawPath(segment, color, style = stroke)
+    }
+}
+
+/** How much bigger than Wiggins the listening indicator's box is. */
+private const val HALO_ROOM = 1.4f
+private const val BREATH_MS = 1_200
+private const val READY_MS = 1_400

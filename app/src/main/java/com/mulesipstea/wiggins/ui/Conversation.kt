@@ -1,6 +1,7 @@
 package com.mulesipstea.wiggins.ui
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -83,12 +84,29 @@ internal fun ConversationList(
     onResend: (Long) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(16.dp),
+    /** A short conversation sits at the bottom, next to the text box, rather than the top. */
+    anchorBottom: Boolean = false,
     empty: @Composable () -> Unit,
 ) {
-    if (transcript.isEmpty() && !thinking) {
-        Box(modifier, contentAlignment = Alignment.Center) { empty() }
-        return
+    // The first bubble fades in as the empty state fades out.
+    Crossfade(transcript.isEmpty() && !thinking, label = "empty") { isEmpty ->
+        if (isEmpty) {
+            Box(modifier, contentAlignment = Alignment.Center) { empty() }
+        } else {
+            Transcript(transcript, thinking, onResend, modifier, contentPadding, anchorBottom)
+        }
     }
+}
+
+@Composable
+private fun Transcript(
+    transcript: List<TranscriptEntry>,
+    thinking: Boolean,
+    onResend: (Long) -> Unit,
+    modifier: Modifier,
+    contentPadding: PaddingValues,
+    anchorBottom: Boolean,
+) {
     val listState = rememberLazyListState()
     val count = transcript.size + if (thinking) 1 else 0
     LaunchedEffect(count) { listState.animateScrollToItem(count - 1) }
@@ -96,7 +114,7 @@ internal fun ConversationList(
         state = listState,
         modifier = modifier,
         contentPadding = contentPadding,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp, if (anchorBottom) Alignment.Bottom else Alignment.Top),
     ) {
         items(transcript, key = { it.id }) { Bubble(it, onResend) }
         if (thinking) item(key = "thinking") { ThinkingBubble() }
@@ -174,30 +192,67 @@ internal fun ThinkingBubble() {
     WigginsAvatar(Modifier.size(48.dp), blowing = true)
 }
 
-/** What an empty conversation shows: the mark, a prompt, and questions to try. */
+/** What the app's empty conversation shows: the mark, a prompt, and questions to try. */
 @Composable
-internal fun EmptyConversation(canListen: Boolean, onAsk: (String) -> Unit, compact: Boolean = false) {
+internal fun EmptyConversation(canListen: Boolean, onAsk: (String) -> Unit) {
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = if (compact) 8.dp else 24.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (!compact) {
-            // Slow bubbles: he's waiting, not working.
-            WigginsAvatar(Modifier.size(132.dp), blowing = true, periodMillis = 3600)
-            Text("Ask Wiggins", style = MaterialTheme.typography.headlineSmall)
-        }
-        Text(
-            if (canListen) "Tap the mic and speak, or type a question." else "Type a question below.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
+        // Slow bubbles: he's waiting, not working.
+        WigginsAvatar(Modifier.size(132.dp), blowing = true, periodMillis = 3600)
+        Text("Ask Wiggins", style = MaterialTheme.typography.headlineSmall)
+        Prompt(canListen)
         @Suppress("OPT_IN_USAGE")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
             SUGGESTIONS.forEach { SuggestionChip(onClick = { onAsk(it) }, label = { Text(it) }) }
         }
     }
+}
+
+/**
+ * What the assistant panel shows until its conversation has a bubble: Wiggins as a big
+ * listening indicator (SPEC "Assistant panel"), since an invocation listens straight
+ * away, and under him what he's doing or how to ask.
+ */
+@Composable
+internal fun PanelGreeting(canListen: Boolean, listening: Boolean, starting: Boolean, connecting: Boolean, level: Float) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        ListeningWiggins(listening, starting, connecting, level, Modifier.size(PANEL_WIGGINS))
+        when {
+            listening -> Text(
+                "Listening…",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            starting -> Text(
+                "Getting ready…",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            else -> Prompt(canListen)
+        }
+    }
+}
+
+/** The empty panel's height: Wiggins with room for his halo, and a line of text. */
+internal val PANEL_GREETING_HEIGHT = 200.dp
+private val PANEL_WIGGINS = 154.dp
+
+@Composable
+private fun Prompt(canListen: Boolean) {
+    Text(
+        if (canListen) "Tap the mic and speak, or type a question." else "Type a question below.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
 }
 
 /**

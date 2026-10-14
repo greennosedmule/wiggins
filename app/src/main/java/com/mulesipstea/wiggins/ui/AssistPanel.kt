@@ -122,10 +122,13 @@ fun AssistPanel(
                         transcript = transcript,
                         thinking = thinking,
                         onResend = onResend,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = maxListHeight),
+                        // Never shorter than the greeting, so the panel doesn't drop under the
+                        // user's thumb when their first bubble replaces it.
+                        modifier = Modifier.fillMaxWidth().heightIn(min = minOf(PANEL_GREETING_HEIGHT, maxListHeight), max = maxListHeight),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        anchorBottom = true,
                     ) {
-                        EmptyConversation(canListen, onAsk = onSend, compact = true)
+                        PanelGreeting(canListen, listening, startingToListen, connection.isConnecting(), level)
                     }
                     ask?.let { a -> AskCard(a, onAnswer = { allow, always -> onAnswerAsk(a.key, allow, always) }) }
                     InputRow(onSend, canListen, onListen, speaking, onStopSpeaking, listening, level, onStopListening, hint, startingToListen)

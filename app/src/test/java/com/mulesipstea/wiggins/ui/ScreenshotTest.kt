@@ -97,13 +97,22 @@ class ScreenshotTest {
 
     @Test fun setupBannerDark() = chat("setup-banner", true, conversation.take(2), banner = Banner("Setup isn't complete.", "See what's missing", isProblem = false) {})
 
-    private fun panel(dark: Boolean, transcript: List<TranscriptEntry>, thinking: Boolean) = shoot("panel${if (transcript.isEmpty()) "-empty" else ""}", dark) {
+    private fun panel(
+        dark: Boolean,
+        transcript: List<TranscriptEntry>,
+        thinking: Boolean,
+        name: String = "panel${if (transcript.isEmpty()) "-empty" else ""}",
+        listening: Boolean = false,
+        level: Float = 0f,
+        starting: Boolean = false,
+    ) = shoot(name, dark) {
         // A stand-in for the app underneath.
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF3A6EA5), Color(0xFF9BC4E2))))) {
             AssistPanel(
                 connection = ConnectionState.Connected("hub"), transcript = transcript, thinking = thinking, banner = null,
                 speaking = !thinking && transcript.isNotEmpty(), speakReplies = !thinking, onStopSpeaking = {}, onSpeakRepliesChange = {},
                 canListen = true, onSend = {}, onResend = {}, onListen = {}, onOpenApp = {}, onClosed = {}, startVisible = true,
+                listening = listening, level = level, startingToListen = starting,
             )
         }
     }
@@ -111,6 +120,16 @@ class ScreenshotTest {
     @Test fun panelLight() = panel(false, conversation.take(4), thinking = false)
     @Test fun panelDark() = panel(true, conversation.take(3), thinking = true)
     @Test fun panelEmptyLight() = panel(false, emptyList(), thinking = false)
+    @Test fun panelEmptyDark() = panel(true, emptyList(), thinking = false)
+
+    /** The empty panel as the listening indicator (SPEC "Assistant panel"). */
+    @Test fun panelGettingReadyLight() = panel(false, emptyList(), thinking = false, name = "panel-getting-ready", starting = true)
+    @Test fun panelListeningQuietLight() = panel(false, emptyList(), thinking = false, name = "panel-listening-quiet", listening = true)
+    @Test fun panelListeningLoudLight() = panel(false, emptyList(), thinking = false, name = "panel-listening-loud", listening = true, level = 0.8f)
+    @Test fun panelListeningLoudDark() = panel(true, emptyList(), thinking = false, name = "panel-listening-loud", listening = true, level = 0.8f)
+    @Test fun panelFirstBubbleLight() = panel(
+        false, listOf(TranscriptEntry(1, Who.USER, "", Delivery.TRANSCRIBING)), thinking = false, name = "panel-first-bubble",
+    )
 
     /** The launcher icon as a circular mask shows it: the 72dp middle of the 108dp layers. */
     @Test fun launcherIcon() = shoot("launcher-icon", false) {

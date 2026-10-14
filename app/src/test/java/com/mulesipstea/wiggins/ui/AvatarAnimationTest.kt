@@ -1,6 +1,9 @@
 package com.mulesipstea.wiggins.ui
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
@@ -14,6 +17,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.math.PI
+import kotlin.math.sin
 
 /**
  * Frames of Wiggins blowing bubbles, for reviewing the animation:
@@ -35,6 +40,19 @@ class AvatarAnimationTest {
         repeat(144) { frame ->
             compose.mainClock.advanceTimeBy(66)
             compose.onRoot().captureRoboImage("build/outputs/roborazzi/avatar-frames/%03d.png".format(frame))
+        }
+    }
+
+    @Test fun listeningFrames() {
+        assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        compose.mainClock.autoAdvance = false
+        var level by mutableFloatStateOf(0f)
+        compose.setContent { WigginsTheme { ListeningWiggins(listening = true, starting = false, connecting = false, level = level, modifier = Modifier.size(220.dp)) } }
+        // Two breaths (2 x 1200 ms) at 15 frames per second: silence, then a voice rising and falling.
+        repeat(36) { frame ->
+            level = if (frame < 12) 0f else (0.9f * sin((frame - 12) / 24.0 * PI)).toFloat()
+            compose.mainClock.advanceTimeBy(66)
+            compose.onRoot().captureRoboImage("build/outputs/roborazzi/listening-frames/%03d.png".format(frame))
         }
     }
 }
