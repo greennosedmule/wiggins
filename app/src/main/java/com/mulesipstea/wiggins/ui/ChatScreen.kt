@@ -59,6 +59,7 @@ fun ChatScreen(
     ask: PhoneActions.Ask? = null,
     onAnswerAsk: (Long, Boolean, Boolean) -> Unit = { _, _, _ -> },
     onOpenActions: () -> Unit = {},
+    onOpenPermissions: () -> Unit = {},
 ) {
     // Back discards an utterance being recorded.
     BackHandler(enabled = listening, onBack = onCancelListening)
@@ -86,6 +87,7 @@ fun ChatScreen(
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text("Setup") }, onClick = { menu = false; onOpenSetup() })
                         DropdownMenuItem(text = { Text("Phone actions") }, onClick = { menu = false; onOpenActions() })
+                        DropdownMenuItem(text = { Text("Permissions") }, onClick = { menu = false; onOpenPermissions() })
                         DropdownMenuItem(
                             text = { Text("Clear conversation") },
                             enabled = transcript.isNotEmpty(),

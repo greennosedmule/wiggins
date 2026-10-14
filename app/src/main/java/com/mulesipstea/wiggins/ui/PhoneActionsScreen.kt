@@ -76,6 +76,7 @@ fun PhoneActionsScreen(
     onOpenLog: () -> Unit,
     onBack: () -> Unit,
     onContextChange: (PhoneContext, Boolean) -> Unit = { _, _ -> },
+    onOpenPermissions: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var editing by remember { mutableStateOf<RuleEntity?>(null) }
@@ -114,6 +115,7 @@ fun PhoneActionsScreen(
                         Switch(checked = on, onCheckedChange = null)
                     }
                 }
+                TextButton(onClick = onOpenPermissions) { Text("The persona's tools in each: Permissions") }
             }
             Section("Rules", "What the hub may launch. Allow starts it, Ask me shows you first, Never refuses. The most specific matching rule wins.") {
                 rules.forEach { rule -> RuleRow(rule) { editing = rule } }

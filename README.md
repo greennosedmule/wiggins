@@ -40,6 +40,8 @@ hivemind-core allow-msg speak:b64_audio <id>
 hivemind-core allow-msg waggle.capabilities <id>
 hivemind-core allow-msg waggle.intent.response <id>
 hivemind-core allow-msg waggle.query.response <id>
+# For the persona's tools on the Permissions screen:
+hivemind-core allow-msg ovos.persona.list <id>
 ```
 
 For hub speech, the hub needs `hivemind-audio-binary-protocol` 2.2 or later. Since 0.5.0 Wiggins sends transcription audio as raw 16 kHz PCM, which plugin 2.1.x can't read; on such a hub, set speech-to-text to the phone.

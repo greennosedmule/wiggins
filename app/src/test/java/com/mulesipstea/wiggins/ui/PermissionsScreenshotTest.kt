@@ -2,7 +2,9 @@ package com.mulesipstea.wiggins.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.mulesipstea.wiggins.actions.ActionDatabase
@@ -10,9 +12,14 @@ import com.mulesipstea.wiggins.actions.RuleEntity
 import com.mulesipstea.wiggins.settings.ActionSettings
 import com.mulesipstea.wiggins.settings.HubSettings
 import com.mulesipstea.wiggins.settings.OtherHeadsets
+import com.mulesipstea.wiggins.settings.PersonaPermissions
+import com.mulesipstea.wiggins.settings.PhoneContext
+import com.mulesipstea.wiggins.settings.SampleCatalog
 import com.mulesipstea.wiggins.settings.SpeechMode
 import com.mulesipstea.wiggins.settings.SpeechSettings
 import com.mulesipstea.wiggins.ui.theme.WigginsTheme
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,4 +69,28 @@ class PermissionsScreenshotTest {
             onQueryEnabledChange = { _, _ -> }, onOpenLog = {}, onBack = {},
         )
     }
+
+    private fun permissions(name: String, dark: Boolean, tab: PhoneContext, persona: PersonaPermissions, open: String? = null) {
+        compose.setContent {
+            WigginsTheme(darkTheme = dark) {
+                PermissionsScreen(
+                    persona = persona, actionContexts = ActionSettings.DEFAULT_CONTEXTS,
+                    onActionsChange = { _, _ -> }, onTrustedHistoryChange = {}, onToolsChange = { _, _ -> },
+                    onOpenActions = {}, onBack = {}, startAt = tab,
+                )
+            }
+        }
+        open?.let { compose.onNodeWithText(it).performClick() }
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name-${if (dark) "dark" else "light"}.png")
+    }
+
+    private val chosen = PersonaPermissions(
+        catalog = SampleCatalog.catalog,
+        tools = mapOf(PhoneContext.TRUSTED_DEVICE to Json.parseToJsonElement("""{"notes":["search_notes"]}""").jsonObject),
+    )
+
+    @Test fun permissionsTrustedLight() = permissions("permissions-trusted", false, PhoneContext.TRUSTED_DEVICE, chosen, open = "Calendar")
+    @Test fun permissionsTrustedDark() = permissions("permissions-trusted", true, PhoneContext.TRUSTED_DEVICE, chosen, open = "Notes")
+    @Test fun permissionsLockedLight() = permissions("permissions-locked", false, PhoneContext.LOCKED, chosen, open = "Calendar")
+    @Test fun permissionsNoCatalogLight() = permissions("permissions-no-catalog", false, PhoneContext.UNLOCKED, PersonaPermissions())
 }

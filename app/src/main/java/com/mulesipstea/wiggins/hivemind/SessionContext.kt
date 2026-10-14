@@ -47,6 +47,8 @@ data class SessionContext(
     val phoneActions: Boolean = true,
     /** How much of the conversation the persona sees: `full` or `since_lock`, sent as [HISTORY_KEY]. */
     val personaHistory: String = "full",
+    /** The persona tools the user allows here, per server (`"none"` or tool names), sent as [TOOLS_KEY]. */
+    val personaTools: JsonObject = JsonObject(emptyMap()),
 ) {
     /**
      * The phone's settings as OVOS session fields. No `location`: the hub replaces a
@@ -90,10 +92,7 @@ data class SessionContext(
         const val PHONE_ACTIONS_KEY = "phone_actions"
         const val HISTORY_KEY = "persona_history"
 
-        /**
-         * The persona's tools the user allows here, per server. Until the hub's catalog is
-         * read (0.7.x), empty: the hub's own default for the context applies to every tool.
-         */
+        /** The message-context key for [personaTools]: servers left out follow the hub's defaults. */
         const val TOOLS_KEY = "persona_tools"
     }
 }

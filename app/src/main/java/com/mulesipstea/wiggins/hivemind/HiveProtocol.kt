@@ -198,7 +198,7 @@ class HiveProtocol(
                 put(SessionContext.CAN_ASK_KEY, context.canAsk)
                 put(SessionContext.PHONE_ACTIONS_KEY, context.phoneActions)
                 put(SessionContext.HISTORY_KEY, context.personaHistory)
-                putJsonObject(SessionContext.TOOLS_KEY) {}
+                put(SessionContext.TOOLS_KEY, context.personaTools)
                 extraContext.forEach { (key, value) -> put(key, value) }
             }
         }

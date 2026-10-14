@@ -217,7 +217,9 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
   - `recognizer_loop:utterance`, `record_begin`, `record_end`, `audio_output_start`,
     `audio_output_end`, `b64_transcribe`;
   - `speak:b64_audio`;
-  - `waggle.capabilities`, `waggle.intent.response`, `waggle.query.response`.
+  - `waggle.capabilities`, `waggle.intent.response`, `waggle.query.response`;
+  - `ovos.persona.list` (the persona's tool catalog, for the permissions screen; a hub
+    that drops it just leaves the tools to its own defaults).
 
   A new type means updating the README's `allow-msg` list and SPEC's "Hub-side
   permissions", and telling the hub's owner.

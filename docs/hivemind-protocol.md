@@ -885,6 +885,30 @@ message of a turn reaches the client, since core dispatches with
   requests and 50 tools. A version other than 1 is ignored. As a downlink, it
   needs no grant (§11.4).
 
+### 12.2 The persona's tool catalog
+
+Not part of OVOS's persona list as published: a hub may add `tools` to each
+persona in `ovos.persona.list.response`, which answers `ovos.persona.list`
+(an uplink, so the client needs the grant) with `message.reply`, so only the
+asking client gets it. Built per client:
+
+```json
+{"pipeline_id": "persona.openvoiceos",
+ "personas": [{"persona_id": "Ada", "name": "Ada",
+   "tools": {"version": "0123456789abcdef", "servers": [
+     {"server": "calendar", "label": "Calendar", "tools": [
+       {"name": "delete_event", "label": "Delete event", "description": "One sentence.",
+        "destructive": true,
+        "max": {"unlocked": "allow", "trusted_device": "allow", "locked": "never"},
+        "default": {"unlocked": false, "trusted_device": false, "locked": false}}]}]}}]}
+```
+
+`max` is the most the hub allows the client per context; `default` applies to a
+tool whose server the client's `persona_tools` doesn't name. A tool never
+allowed anywhere isn't listed. `name` is the server's own tool name, the one a
+`persona_tools` list uses. Wiggins reads the first persona with `tools`, skips
+malformed entries, and treats a response without tools as "the hub decides".
+
 Messages are only routed to peers registered in `hm.clients`, which requires
 HELLO with a real `session_id` first (§4.5). The Python client's internal
 processing also renames `context.destination` to `source` before emitting

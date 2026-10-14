@@ -22,13 +22,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mulesipstea.wiggins.MainViewModel
 import com.mulesipstea.wiggins.ui.theme.WigginsTheme
 
-enum class Screen { CHAT, SETTINGS, MESSAGES, SETUP, ABOUT, ACTIONS, ACTION_LOG }
+enum class Screen { CHAT, SETTINGS, MESSAGES, SETUP, ABOUT, ACTIONS, ACTION_LOG, PERMISSIONS }
 
 @Composable
 fun WigginsRoot(viewModel: MainViewModel) {
     WigginsTheme {
         var screen by rememberSaveable { mutableStateOf(Screen.CHAT) }
-        BackHandler(enabled = screen != Screen.CHAT) { screen = if (screen == Screen.ACTION_LOG) Screen.ACTIONS else Screen.CHAT }
+        // Permissions opens from the chat or from Phone actions, and goes back to it.
+        var permissionsFrom by rememberSaveable { mutableStateOf(Screen.CHAT) }
+        BackHandler(enabled = screen != Screen.CHAT) {
+            screen = when (screen) {
+                Screen.ACTION_LOG -> Screen.ACTIONS
+                Screen.PERMISSIONS -> permissionsFrom
+                else -> Screen.CHAT
+            }
+        }
 
         val assistant = viewModel.assistant
         val connection by assistant.connection.collectAsStateWithLifecycle()
@@ -53,6 +61,7 @@ fun WigginsRoot(viewModel: MainViewModel) {
         val rules by actions.rules.collectAsStateWithLifecycle()
         val actionSettings by actions.actionSettings.collectAsStateWithLifecycle()
         val actionLog by actions.log.collectAsStateWithLifecycle()
+        val persona by assistant.persona.collectAsStateWithLifecycle()
         val context = LocalContext.current
         val hubConfigured = settings?.isComplete == true
 
@@ -95,6 +104,7 @@ fun WigginsRoot(viewModel: MainViewModel) {
                     ask = asks.firstOrNull(),
                     onAnswerAsk = actions::answer,
                     onOpenActions = { screen = Screen.ACTIONS },
+                    onOpenPermissions = { permissionsFrom = Screen.CHAT; screen = Screen.PERMISSIONS },
                     onOpenSetup = { screen = Screen.SETUP },
                     onOpenSettings = { screen = Screen.SETTINGS },
                     onOpenMessages = { screen = Screen.MESSAGES },
@@ -126,8 +136,18 @@ fun WigginsRoot(viewModel: MainViewModel) {
                     onUnmatchedChange = { actions.setUnmatched(it) },
                     onQueryEnabledChange = { name, on -> actions.setQueryEnabled(name, on) },
                     onContextChange = { where, on -> actions.setActionsIn(where, on) },
+                    onOpenPermissions = { permissionsFrom = Screen.ACTIONS; screen = Screen.PERMISSIONS },
                     onOpenLog = { screen = Screen.ACTION_LOG },
                     onBack = { screen = Screen.CHAT },
+                )
+                Screen.PERMISSIONS -> PermissionsScreen(
+                    persona = persona,
+                    actionContexts = actionSettings.contexts,
+                    onActionsChange = { where, on -> actions.setActionsIn(where, on) },
+                    onTrustedHistoryChange = { assistant.setTrustedHistory(it) },
+                    onToolsChange = { where, choices -> assistant.setTools(where, choices) },
+                    onOpenActions = { screen = Screen.ACTIONS },
+                    onBack = { screen = permissionsFrom },
                 )
                 Screen.ACTION_LOG -> ActionLogScreen(
                     entries = actionLog,

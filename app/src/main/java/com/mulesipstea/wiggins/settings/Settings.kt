@@ -76,6 +76,23 @@ enum class ListeningTone {
     fun shouldPlay(onBluetooth: Boolean) = this == ALWAYS || (this == BLUETOOTH && onBluetooth)
 }
 
+/**
+ * What the user allows the hub's persona per context (SPEC "Permissions"): the hub's tool
+ * catalog, the user's choices from it, and how much history it sees on a trusted device.
+ */
+data class PersonaPermissions(
+    /** Null until the hub has listed its persona's tools, or if it lists none. */
+    val catalog: ToolCatalog? = null,
+    /** Per context, `persona_tools` as sent: servers the user hasn't changed are left out. */
+    val tools: Map<PhoneContext, JsonObject> = emptyMap(),
+    /** `full` or `since_lock`, for a trusted device. Unlocked is always full; locked always since the lock. */
+    val trustedHistory: String = "full",
+) {
+    fun toolsIn(where: PhoneContext) = tools[where] ?: JsonObject(emptyMap())
+
+    fun historyIn(where: PhoneContext) = if (where == PhoneContext.TRUSTED_DEVICE) trustedHistory else where.history
+}
+
 /** Waggle settings besides the rules (SPEC "Phone actions (Waggle)"). */
 data class ActionSettings(
     /** What happens to an intent no rule matches: block (the default) or ask. */
@@ -233,6 +250,30 @@ class SettingsRepository(private val context: Context) {
         )
     }
 
+    val persona: Flow<PersonaPermissions> = context.dataStore.data.map { prefs ->
+        PersonaPermissions(
+            catalog = prefs[TOOL_CATALOG]?.let { raw -> runCatching { ToolCatalog.parse(Json.parseToJsonElement(raw).jsonObject) }.getOrNull() },
+            tools = PhoneContext.entries.mapNotNull { c ->
+                prefs[toolsKey(c)]?.let { raw -> runCatching { c to Json.parseToJsonElement(raw).jsonObject }.getOrNull() }
+            }.toMap(),
+            trustedHistory = prefs[TRUSTED_HISTORY]?.takeIf { it == "since_lock" } ?: "full",
+        )
+    }
+
+    /** Keeps the hub's latest persona list response ([data]), or forgets it (null). */
+    suspend fun saveToolCatalog(data: JsonObject?) {
+        context.dataStore.edit { it.putOrRemove(TOOL_CATALOG, data?.toString()) }
+    }
+
+    /** The user's tool choices in [where], or null to go back to the hub's defaults there. */
+    suspend fun setTools(where: PhoneContext, choices: JsonObject?) {
+        context.dataStore.edit { it.putOrRemove(toolsKey(where), choices?.toString()) }
+    }
+
+    suspend fun setTrustedHistory(history: String) {
+        context.dataStore.edit { it[TRUSTED_HISTORY] = history }
+    }
+
     /** Whether phone actions run in [where] (SPEC "Permissions"). */
     suspend fun setActionsIn(where: PhoneContext, on: Boolean) {
         context.dataStore.edit {
@@ -344,6 +385,9 @@ class SettingsRepository(private val context: Context) {
         val UNLOCK_PER_DRIVE = booleanPreferencesKey("hands_free_unlock_per_drive")
         val OTHER_HEADSETS = stringPreferencesKey("hands_free_other_headsets")
         val ACTION_CONTEXTS = stringSetPreferencesKey("waggle_contexts")
+        val TOOL_CATALOG = stringPreferencesKey("persona_tool_catalog")
+        val TRUSTED_HISTORY = stringPreferencesKey("persona_history_trusted")
+        fun toolsKey(where: PhoneContext) = stringPreferencesKey("persona_tools_${where.wire}")
         val TRUSTED_DEVICES = stringSetPreferencesKey("hands_free_trusted")
         val UNMATCHED = stringPreferencesKey("waggle_unmatched")
         val QUERIES = stringSetPreferencesKey("waggle_queries")

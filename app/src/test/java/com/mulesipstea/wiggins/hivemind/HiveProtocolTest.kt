@@ -1,6 +1,7 @@
 package com.mulesipstea.wiggins.hivemind
 
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -235,8 +236,9 @@ class HiveProtocolTest {
         val normalized = context.copy(rawUtterance = false)
         val trusted = context.copy(locked = true, phoneContext = "trusted_device", canAsk = false, phoneActions = true)
         val nightstand = context.copy(locked = true, phoneContext = "locked", canAsk = false, phoneActions = false, personaHistory = "since_lock")
+        val narrowed = context.copy(personaTools = JsonObject(mapOf("notes" to JsonPrimitive("none"))))
 
-        for (ctx in listOf(context, locked, watching, normalized, trusted, nightstand)) {
+        for (ctx in listOf(context, locked, watching, normalized, trusted, nightstand, narrowed)) {
             for (frames in listOf(
                 proto.utterance("what's next", ctx),
                 proto.transcribe("t1", byteArrayOf(1), ctx),
@@ -251,8 +253,8 @@ class HiveProtocolTest {
                 assertEquals(ctx.canAsk.toString(), sent.getValue("can_ask").jsonPrimitive.content)
                 assertEquals(ctx.phoneActions.toString(), sent.getValue("phone_actions").jsonPrimitive.content)
                 assertEquals(ctx.personaHistory, sent.getValue("persona_history").jsonPrimitive.content)
-                // Until the hub's tool catalog is read: always a dict, so a hub applies its own defaults.
-                assertEquals(JsonObject(emptyMap()), sent.getValue("persona_tools"))
+                // Always a dict: servers left out follow the hub's defaults.
+                assertEquals(ctx.personaTools, sent.getValue("persona_tools"))
                 val session = sent.getValue("session").jsonObject
                 assertNull(session["device_locked"])
                 assertNull(session["user_watching"])

@@ -25,7 +25,9 @@ import com.mulesipstea.wiggins.settings.ActionSettings
 import com.mulesipstea.wiggins.settings.AuthMode
 import com.mulesipstea.wiggins.settings.HubSettings
 import com.mulesipstea.wiggins.settings.HubUrl
+import com.mulesipstea.wiggins.settings.PersonaPermissions
 import com.mulesipstea.wiggins.settings.PhoneContext
+import com.mulesipstea.wiggins.settings.ToolCatalog
 import com.mulesipstea.wiggins.settings.SpeechMode
 import com.mulesipstea.wiggins.settings.SpeechSettings
 import com.mulesipstea.wiggins.speech.AudioOutput
@@ -141,6 +143,12 @@ class Assistant(private val app: WigginsApp) {
 
     /** Where phone actions run, for the flags every message carries. */
     private val actionSettings = app.settings.actions.stateIn(scope, SharingStarted.Eagerly, ActionSettings())
+
+    /** The hub's persona tools and what the user allows per context (SPEC "Permissions"). */
+    val persona: StateFlow<PersonaPermissions> = app.settings.persona.stateIn(scope, SharingStarted.Eagerly, PersonaPermissions())
+
+    fun setTools(where: PhoneContext, choices: JsonObject?) = scope.launch { app.settings.setTools(where, choices) }
+    fun setTrustedHistory(history: String) = scope.launch { app.settings.setTrustedHistory(history) }
 
     /** The assistant panel's conversation while it's open; it lives only in memory. */
     private var panel: ConversationStore? = null
@@ -854,6 +862,8 @@ class Assistant(private val app: WigginsApp) {
                 forceTokenRefresh = false
                 _problem.value = null
                 announceCapabilities()
+                // The persona's tools, for the permissions screen; a hub without them doesn't answer.
+                client.sendBus(PERSONA_LIST, sessionContext())
                 // Once per hub (and once after upgrading from before hub speech).
                 scope.launch { if (app.settings.speech.first().hubSpeechAvailable == null) checkHubSpeech() }
                 val queued = pending.toList()
@@ -936,7 +946,13 @@ class Assistant(private val app: WigginsApp) {
             }
             is HubEvent.Downlink -> {
                 Log.i(TAG, "downlink ${event.hiveType} ${event.busType}")
-                (event.raw["payload"] as? JsonObject)?.let { turns.onDownlink(event.busType, it) }
+                (event.raw["payload"] as? JsonObject)?.let { payload ->
+                    turns.onDownlink(event.busType, payload)
+                    if (event.busType == PERSONA_LIST_RESPONSE) {
+                        val data = payload["data"] as? JsonObject ?: JsonObject(emptyMap())
+                        scope.launch { app.settings.saveToolCatalog(data.takeIf { ToolCatalog.parse(it) != null }) }
+                    }
+                }
                 if (event.busType == "ovos.utterance.handled") {
                     setThinking(false)
                     endTurn()
@@ -1105,12 +1121,17 @@ class Assistant(private val app: WigginsApp) {
             phoneContext = where.wire,
             canAsk = where == PhoneContext.UNLOCKED,
             phoneActions = where in actionSettings.value.contexts,
-            personaHistory = where.history,
+            personaHistory = persona.value.historyIn(where),
+            personaTools = persona.value.toolsIn(where),
         )
     }
 
     private companion object {
         const val TAG = "Wiggins"
+
+        /** OVOS-PERSONA-1's list query, and its answer with the hub's tool catalog. */
+        const val PERSONA_LIST = "ovos.persona.list"
+        const val PERSONA_LIST_RESPONSE = "ovos.persona.list.response"
         const val IDLE_DISCONNECT_MS = 60_000L
         const val LOG_LIMIT = 500
         const val MAX_RETRIES = 5
