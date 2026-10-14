@@ -832,6 +832,43 @@ this client's peer id is wrapped and sent:
 - **End of turn:** `ovos.utterance.handled` marks the end of handling for an
   utterance.
 
+### 12.1 What a turn's messages say about it
+
+Wiggins keeps these for its reply details (SPEC "Reply details"). Checked against
+ovos-core 3.7.4a1 and ovos-workshop 9.8.16a1 behind hivemind-core 5.3.3a1: every
+message of a turn reaches the client, since core dispatches with
+`message.reply(...)` and forwards from there.
+
+- **`context.utterance_id`** is on every message of a turn, so they can be tied
+  together. `context.skill_id` and `context.pipeline_id` are on most.
+- **`ovos.intent.matched`** (data): `skill_id`, `intent_name` (e.g.
+  `ovos-skill-date-time.openvoiceos:what_time_is_it`, or `persona:query`),
+  `pipeline_id` (the stage without its tier: `ovos-padatious-pipeline-plugin`),
+  `slots`, `utterance`, `lang`. The persona's slots include `persona`, its name.
+- **Speech `data.meta`**: `skill`, and for a dialog `dialog` and `data` (its
+  values). A persona's sentences carry only `skill`.
+- **`ovos.utterance.handled`**: empty data; the end of the turn.
+- **`persona.turn.debug`** is not part of OVOS: a hub's persona may send it,
+  forwarded from its own message so it reaches only the asking client, once per
+  turn before `ovos.utterance.handled`. Everything except `v` is optional, and
+  unknown keys are ignored:
+
+  ```json
+  {"v": 1, "sent_ms": 5123, "persona": "Ada", "model": "example-model", "effort": "low",
+   "requests": [{"start_ms": 15, "first_ms": 880, "end_ms": 1490, "stop": "tool_use",
+                 "input_tokens": 9123, "cache_read_tokens": 8800, "cache_write_tokens": 0,
+                 "output_tokens": 140, "thinking_tokens": 60}],
+   "tools": [{"server": "homeassistant", "name": "GetLiveContext",
+              "start_ms": 1495, "end_ms": 2310, "ok": true}],
+   "truncated": false}
+  ```
+
+  Times are milliseconds after the persona took the query, by the hub's clock.
+  Wiggins places them so that `sent_ms` falls when the message arrived, which
+  folds the hub-to-phone delay in as it is for speech. It reads at most 20
+  requests and 50 tools. A version other than 1 is ignored. As a downlink, it
+  needs no grant (§11.4).
+
 Messages are only routed to peers registered in `hm.clients`, which requires
 HELLO with a real `session_id` first (§4.5). The Python client's internal
 processing also renames `context.destination` to `source` before emitting

@@ -1,5 +1,6 @@
 package com.mulesipstea.wiggins.ui
 
+import com.mulesipstea.wiggins.turns.TurnDetails
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -10,7 +11,8 @@ enum class Who { USER, HUB }
 enum class Delivery { SENT, PENDING, NOT_SENT, TRANSCRIBING }
 
 /**
- * One line of the conversation: only what was said (SPEC "Conversation screen").
+ * One line of the conversation: what was said (SPEC "Conversation screen"), and for a
+ * question, what's known about how it was answered.
  * A hub reply is [streaming] while more of it may still arrive: OVOS can speak an
  * answer a sentence at a time, and the sentences join into one entry.
  */
@@ -21,7 +23,17 @@ data class TranscriptEntry(
     val text: String,
     val delivery: Delivery = Delivery.SENT,
     val streaming: Boolean = false,
+    /** The entry whose [details] cover this one: a reply points at its question. */
+    val turn: Long? = null,
+    /** What's known about the turn this entry started (SPEC "Reply details"). */
+    val details: TurnDetails? = null,
 )
+
+/** The details covering entry [id] in this list: its own, or those of the question it answers. */
+fun List<TranscriptEntry>.detailsFor(id: Long): TurnDetails? {
+    val entry = firstOrNull { it.id == id } ?: return null
+    return entry.details ?: entry.turn?.let { owner -> firstOrNull { it.id == owner }?.details }
+}
 
 data class LoggedMessage(val id: Long, val timeMillis: Long, val hiveType: String, val busType: String?, val json: String)
 

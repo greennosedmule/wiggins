@@ -386,7 +386,7 @@ class HiveProtocol(
             "speak", "ovos.utterance.speak" -> if (!isSpeechMirror(busType, payload)) {
                 data?.get("utterance")?.jsonPrimitive?.contentOrNull?.let {
                     val expect = data["expect_response"]?.jsonPrimitive?.booleanOrNull ?: false
-                    out += Output.Event(HubEvent.Speak(it, expect))
+                    out += Output.Event(HubEvent.Speak(it, expect, data["meta"] as? JsonObject))
                 }
             }
             "mycroft.mic.listen", "ovos.mic.listen" -> out += Output.Event(HubEvent.Listen)

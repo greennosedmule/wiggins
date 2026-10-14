@@ -3,6 +3,8 @@ package com.mulesipstea.wiggins
 import com.mulesipstea.wiggins.ui.Delivery
 import com.mulesipstea.wiggins.ui.TranscriptEntry
 import com.mulesipstea.wiggins.ui.Who
+import com.mulesipstea.wiggins.ui.detailsFor
+import com.mulesipstea.wiggins.turns.TurnDetails
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -56,9 +58,9 @@ class ConversationStore(
     private val saveLock = Mutex()
     private var pendingSave: Job? = null
 
-    fun add(who: Who, text: String, delivery: Delivery = Delivery.SENT, streaming: Boolean = false): Long {
+    fun add(who: Who, text: String, delivery: Delivery = Delivery.SENT, streaming: Boolean = false, turn: Long? = null): Long {
         val id = ids.incrementAndGet()
-        _entries.update { (it + TranscriptEntry(id, who, text, delivery, streaming)).takeLast(limit) }
+        _entries.update { (it + TranscriptEntry(id, who, text, delivery, streaming, turn = turn)).takeLast(limit) }
         changed()
         return id
     }
@@ -75,6 +77,22 @@ class ConversationStore(
         _entries.update { list -> list.map { if (it.id == id) it.copy(text = text, delivery = delivery) else it } }
         changed()
     }
+
+    /** Keeps what's known about the turn entry [id] started. */
+    fun setDetails(id: Long, details: TurnDetails) {
+        _entries.update { list -> list.map { if (it.id == id) it.copy(details = details) else it } }
+        changed()
+    }
+
+    /** Entry [id] belongs to the turn entry [owner] started. */
+    fun setTurn(id: Long, owner: Long) {
+        if (id == owner || get(id)?.turn == owner) return
+        _entries.update { list -> list.map { if (it.id == id) it.copy(turn = owner) else it } }
+        changed()
+    }
+
+    /** The details covering entry [id]: its own, or its question's. */
+    fun detailsFor(id: Long): TurnDetails? = _entries.value.detailsFor(id)
 
     fun remove(id: Long) {
         _entries.update { list -> list.filterNot { it.id == id } }

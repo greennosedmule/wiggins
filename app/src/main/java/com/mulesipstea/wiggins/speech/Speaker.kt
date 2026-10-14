@@ -26,7 +26,7 @@ class Speaker(
 
     private val lock = Any()
     private var engine = Engine.STARTING
-    private val pending = mutableListOf<String>()
+    private val pending = mutableListOf<Pair<String, String?>>()
     private var active = 0
 
     private val _speaking = MutableStateFlow(false)
@@ -41,13 +41,16 @@ class Speaker(
     /** Called when queued speech has finished, or at once if there's no engine. Any thread. */
     var onIdle: (() -> Unit)? = null
 
+    /** Progress of speech given a tag, by tag. Any thread. */
+    var onProgress: ((tag: String, SpeechProgress) -> Unit)? = null
+
     private val tts: TextToSpeech = TextToSpeech(context.applicationContext) { status ->
         synchronized(lock) {
             engine = if (status == TextToSpeech.SUCCESS) Engine.READY else Engine.UNAVAILABLE
             if (engine == Engine.UNAVAILABLE) Log.w(TAG, "TTS engine unavailable (status $status)")
             val queued = pending.toList()
             pending.clear()
-            queued.forEach(::enqueue)
+            queued.forEach { (text, tag) -> enqueue(text, tag) }
             updateSpeaking()
         }
         if (!isSpeaking) onIdle?.invoke()
@@ -55,13 +58,16 @@ class Speaker(
 
     init {
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String) = Unit
-            override fun onDone(utteranceId: String) = finished()
-            override fun onStop(utteranceId: String, interrupted: Boolean) = finished()
-            override fun onError(utteranceId: String, errorCode: Int) = finished()
+            override fun onStart(utteranceId: String) {
+                onProgress?.invoke(utteranceId, SpeechProgress.START)
+            }
+
+            override fun onDone(utteranceId: String) = finished(utteranceId)
+            override fun onStop(utteranceId: String, interrupted: Boolean) = finished(utteranceId)
+            override fun onError(utteranceId: String, errorCode: Int) = finished(utteranceId)
 
             @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String) = finished()
+            override fun onError(utteranceId: String) = finished(utteranceId)
         })
     }
 
@@ -69,11 +75,12 @@ class Speaker(
 
     val isSpeaking get() = synchronized(lock) { active > 0 || pending.isNotEmpty() }
 
-    fun speak(text: String) {
+    /** Queues [text]; a [tag] has its progress reported to [onProgress]. */
+    fun speak(text: String, tag: String? = null) {
         val idleNow = synchronized(lock) {
             when (engine) {
-                Engine.READY -> enqueue(text)
-                Engine.STARTING -> pending += text
+                Engine.READY -> enqueue(text, tag)
+                Engine.STARTING -> pending += text to tag
                 Engine.UNAVAILABLE -> Unit
             }
             updateSpeaking()
@@ -104,7 +111,7 @@ class Speaker(
 
     private var applied: AudioAttributes? = null
 
-    private fun enqueue(text: String) {
+    private fun enqueue(text: String, tag: String?) {
         if (engine != Engine.READY) return
         tts.language = Locale.getDefault()
         val wanted = attributes()
@@ -113,10 +120,11 @@ class Speaker(
             applied = wanted
         }
         active++
-        if (tts.speak(text, TextToSpeech.QUEUE_ADD, null, UUID.randomUUID().toString()) != TextToSpeech.SUCCESS) active--
+        if (tts.speak(text, TextToSpeech.QUEUE_ADD, null, tag ?: UUID.randomUUID().toString()) != TextToSpeech.SUCCESS) active--
     }
 
-    private fun finished() {
+    private fun finished(utteranceId: String) {
+        onProgress?.invoke(utteranceId, SpeechProgress.END)
         val nowIdle = synchronized(lock) {
             if (active == 0) return
             active--

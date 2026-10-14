@@ -1,5 +1,6 @@
 package com.mulesipstea.wiggins
 
+import com.mulesipstea.wiggins.turns.SampleTurns
 import com.mulesipstea.wiggins.ui.Delivery
 import com.mulesipstea.wiggins.ui.Who
 import kotlinx.coroutines.CoroutineScope
@@ -58,6 +59,20 @@ class ConversationStoreTest {
         assertEquals(false, ConversationStore(file, scope).entries.value.single().streaming)
         store.finish(id)
         assertEquals(false, store.get(id)!!.streaming)
+    }
+
+    /** The reply details stay with the conversation, and a reply finds its question's (SPEC "Reply details"). */
+    @Test fun detailsSurviveRestartAndRepliesFindThem() {
+        val store = ConversationStore(file, scope)
+        val question = store.add(Who.USER, "what time is it")
+        val reply = store.add(Who.HUB, "It's nine forty six.", turn = question)
+        store.setDetails(question, SampleTurns.skill)
+        val unrelated = store.add(Who.HUB, "Your timer is done.")
+        waitForSave(3)
+        val reloaded = ConversationStore(file, scope)
+        assertEquals(SampleTurns.skill, reloaded.detailsFor(reply))
+        assertEquals(SampleTurns.skill, reloaded.detailsFor(question))
+        assertEquals(null, reloaded.detailsFor(unrelated))
     }
 
     @Test fun idsKeepIncreasingAfterReload() {

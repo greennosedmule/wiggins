@@ -38,6 +38,7 @@ import com.mulesipstea.wiggins.speech.Speaker
 import com.mulesipstea.wiggins.speech.SpeechRoute
 import com.mulesipstea.wiggins.speech.Transcription
 import com.mulesipstea.wiggins.speech.WebRtcDetector
+import com.mulesipstea.wiggins.turns.TurnRecorder
 import com.mulesipstea.wiggins.ui.Delivery
 import com.mulesipstea.wiggins.ui.LoggedMessage
 import com.mulesipstea.wiggins.ui.Problem
@@ -69,6 +70,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import java.io.File
 import java.util.Locale
 import java.util.TimeZone
@@ -137,6 +139,12 @@ class Assistant(private val app: WigginsApp) {
 
     /** The assistant panel's conversation while it's open; it lives only in memory. */
     private var panel: ConversationStore? = null
+
+    /** What's known about each turn, kept with its question (SPEC "Reply details"). */
+    private val turns = TurnRecorder()
+
+    /** The question whose turn is open, which its replies point at. */
+    private var turnOwner: Pair<ConversationStore, Long>? = null
 
     // OVOS keeps conversation memory on the hub keyed by session_id: a persona's chat
     // history, active skills. The app and the panel share the saved conversation's
@@ -282,6 +290,9 @@ class Assistant(private val app: WigginsApp) {
             settings.collect { s -> if (s != null && !s.isComplete) _problem.value = NOT_CONFIGURED }
         }
         speaker.onIdle = { scope.launch { if (!isSpeaking) onPlaybackIdle() } }
+        speaker.onProgress = { tag, progress -> scope.launch { turns.onSpeech(tag, progress) } }
+        hubSpeaker.onProgress = turns::onSpeech
+        scope.launch { phoneActions.asks.collect { asks -> turns.onAsks(asks.map { it.request.id }.toSet()) } }
         hubSpeaker.onIdle = { if (!isSpeaking) onPlaybackIdle() }
         scope.launch {
             // Back on device speech, the hub's speech services no longer matter.
@@ -439,6 +450,7 @@ class Assistant(private val app: WigginsApp) {
         recording = null
         recorder.cancel()
         request.cancel()
+        turns.listeningCancelled()
         client.sendBus("recognizer_loop:record_end", sessionContext())
     }
 
@@ -467,6 +479,7 @@ class Assistant(private val app: WigginsApp) {
         )
         recording = request
         client.sendBus("recognizer_loop:record_begin", sessionContext())
+        turns.listeningStarted()
         recorder.start(object : Recorder.Listener {
             override fun onPause(pcm: () -> ByteArray) = request.onPause(pcm)
             override fun onResume() = request.onResume()
@@ -475,7 +488,9 @@ class Assistant(private val app: WigginsApp) {
                 client.sendBus("recognizer_loop:record_end", sessionContext())
                 expireIfIdle()
                 // The bubble goes in the conversation on screen when the utterance ends.
-                transcribing[request] = conversation to conversation.add(Who.USER, "", Delivery.TRANSCRIBING)
+                val bubble = conversation to conversation.add(Who.USER, "", Delivery.TRANSCRIBING)
+                transcribing[request] = bubble
+                turns.recorded(bubble)
                 request.onEnd(pcm)
             }
 
@@ -483,6 +498,7 @@ class Assistant(private val app: WigginsApp) {
                 if (recording === request) recording = null
                 client.sendBus("recognizer_loop:record_end", sessionContext())
                 request.cancel()
+                turns.listeningCancelled()
                 if (micFailed) showHint("Couldn't use the microphone")
             }
         }, input)
@@ -508,11 +524,13 @@ class Assistant(private val app: WigginsApp) {
         if (result != Transcription.Result.NotSent) onHubSpeechAnswered(result != Transcription.Result.NoAnswer)
         when (result) {
             is Transcription.Result.Heard -> {
+                turns.transcribed(store to id)
                 store.setText(id, result.text, Delivery.PENDING)
                 followUp = false
                 deliver(id, store)
             }
             else -> {
+                turns.forget(store to id)
                 store.remove(id)
                 showHint(if (result == Transcription.Result.NotSent) "Couldn't reach the hub" else "Didn't catch that")
             }
@@ -594,6 +612,7 @@ class Assistant(private val app: WigginsApp) {
      */
     fun onRecognizerStarted() {
         recognizing.value = true
+        turns.listeningStarted(device = true)
         client.sendBus("recognizer_loop:record_begin", sessionContext())
     }
 
@@ -601,7 +620,7 @@ class Assistant(private val app: WigginsApp) {
     fun onRecognized(text: String?) {
         recognizing.value = false
         client.sendBus("recognizer_loop:record_end", sessionContext())
-        if (!text.isNullOrBlank()) send(text)
+        if (text.isNullOrBlank()) turns.listeningCancelled() else send(text)
     }
 
     fun send(text: String) {
@@ -611,7 +630,9 @@ class Assistant(private val app: WigginsApp) {
         followUp = false
         stopVoice()
         cancelListening()
-        deliver(conversation.add(Who.USER, utterance, Delivery.PENDING))
+        val id = conversation.add(Who.USER, utterance, Delivery.PENDING)
+        turns.asked(conversation to id)
+        deliver(id)
     }
 
     /** Sends a question again that didn't reach the hub. */
@@ -619,6 +640,9 @@ class Assistant(private val app: WigginsApp) {
         if (conversation.get(id)?.delivery != Delivery.NOT_SENT) return
         conversation.setDelivery(id, Delivery.PENDING)
         retries = 0
+        // Timed from the retry, not from when it first failed.
+        turns.forget(conversation to id)
+        turns.asked(conversation to id)
         deliver(id)
     }
 
@@ -715,6 +739,8 @@ class Assistant(private val app: WigginsApp) {
             store.setDelivery(id, Delivery.SENT)
             touchSession()
             finishReply()
+            turns.sent(store to id) { details -> store.setDetails(id, details) }
+            turnOwner = store to id
             turnOpen = true
             setThinking(true)
             return
@@ -858,14 +884,19 @@ class Assistant(private val app: WigginsApp) {
             is HubEvent.Speak -> {
                 touchSession()
                 setThinking(false)
-                addToReply(event.utterance)
+                val store = conversation
+                val entry = addToReply(event.utterance)
+                turnOwner?.takeIf { it.first === store }?.let { (_, owner) -> store.setTurn(entry, owner) }
+                val tag = turns.onSpeak(event.utterance, event.meta, event.expectResponse, spoken = speakReplies.value) {
+                    TurnRecorder.Sink { details -> store.setDetails(entry, details) }
+                }
                 if (event.expectResponse) {
                     // A question ends this reply; the answer starts the next exchange.
                     followUp = true
                     finishReply()
                 }
                 if (speakReplies.value) {
-                    if (speech.value.ttsMode == SpeechMode.HUB) hubSpeaker.speak(event.utterance) else speaker.speak(event.utterance)
+                    if (speech.value.ttsMode == SpeechMode.HUB) hubSpeaker.speak(event.utterance, tag) else speaker.speak(event.utterance, tag)
                 }
                 // Muted, an utterance with no words, or no TTS engine: nothing plays, which the hub hears at once.
                 audioOutput.onSpeak(playing = isSpeaking)
@@ -880,11 +911,18 @@ class Assistant(private val app: WigginsApp) {
             }
             // Early answers come while the utterance is still being recorded.
             is HubEvent.WaggleRequest -> scope.launch {
+                val intent = event.type == Waggle.INTENT
+                val id = (event.data["id"] as? JsonPrimitive)?.contentOrNull
+                val name = (event.data[if (intent) "action" else "name"] as? JsonPrimitive)?.contentOrNull
+                if (id != null) turns.actionStarted(id, if (intent) "intent" else "query", name ?: "?")
                 val (handled, responseType) = when (event.type) {
                     Waggle.INTENT -> phoneActions.onIntent(event.data) to Waggle.INTENT_RESPONSE
                     else -> phoneActions.onQuery(event.data) to Waggle.QUERY_RESPONSE
                 }
-                handled?.let { sendWhenConnected(responseType, it.toJson()) }
+                handled?.let { response ->
+                    turns.actionDone(response.id, if (response.ok) "ok" else response.error?.wire ?: "error")
+                    sendWhenConnected(responseType, response.toJson())
+                }
             }
             is HubEvent.Transcription -> (transcribing.keys + listOfNotNull(recording)).forEach { it.onAnswer(event.id, event.text) }
             is HubEvent.SpeechAudio -> {
@@ -893,6 +931,7 @@ class Assistant(private val app: WigginsApp) {
             }
             is HubEvent.Downlink -> {
                 Log.i(TAG, "downlink ${event.hiveType} ${event.busType}")
+                (event.raw["payload"] as? JsonObject)?.let { turns.onDownlink(event.busType, it) }
                 if (event.busType == "ovos.utterance.handled") {
                     setThinking(false)
                     endTurn()
@@ -908,12 +947,12 @@ class Assistant(private val app: WigginsApp) {
      * entry until the turn ends; speech the hub starts by itself (a timer going off)
      * is an entry of its own.
      */
-    private fun addToReply(text: String) {
+    private fun addToReply(text: String): Long {
         val open = reply?.takeIf { it.first === conversation }
-        when {
+        val id = when {
             !turnOpen -> conversation.add(Who.HUB, text)
-            open != null -> open.first.append(open.second, text)
-            else -> reply = conversation to conversation.add(Who.HUB, text, streaming = true)
+            open != null -> open.second.also { open.first.append(it, text) }
+            else -> conversation.add(Who.HUB, text, streaming = true).also { reply = conversation to it }
         }
         if (reply != null) {
             replyTimeout?.cancel()
@@ -923,6 +962,7 @@ class Assistant(private val app: WigginsApp) {
                 finishReply()
             }
         }
+        return id
     }
 
     /** No more is coming for the reply being built. */
@@ -935,6 +975,8 @@ class Assistant(private val app: WigginsApp) {
     private fun endTurn() {
         finishReply()
         turnOpen = false
+        turnOwner = null
+        turns.endTurn()
     }
 
     /** Shows the hub working on an answer, for at most [THINKING_TIMEOUT_MS]. */

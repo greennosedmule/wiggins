@@ -44,8 +44,11 @@ This repo is public: use the placeholders the docs already use (`hub.example.com
   - `settings/`: DataStore settings; `SecretStore` (Tink, keyed in Android Keystore)
     encrypts the key, password, tokens and Noise keys.
   - `net/`: `EntraSignIn` (AppAuth) and `ClientCertificates` (mTLS).
+  - `turns/`: the reply details (SPEC "Reply details"). `TurnRecorder` collects each
+    turn's `TurnDetails` from the hub's messages and the phone's own timings;
+    `Timeline` turns them into waterfall rows and does the layout maths.
   - `ui/`: Compose screens. `AssistPanel` is the `ACTION_ASSIST` panel, `MessagesScreen`
-    the Hub messages log.
+    the Hub messages log, `ReplyDetails` the long-press sheet.
 - `:vad`: android-vad's WebRTC detector, vendored and built from source with a pinned
   NDK. Upstream sources stay unchanged; `vad/README.md` lists what differs.
 - `design/`: `wiggins.svg` is the source; `make_drawables.py` generates the launcher
@@ -65,8 +68,8 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
 - `--offline` works once the Gradle cache is warm; drop it after changing dependencies.
   After adding one, build the release too: R8 runs only there, and CI releases with it.
 - `-q` prints nothing on success. Results are in
-  `app/build/test-results/testDebugUnitTest/*.xml`. Two skips are expected:
-  `LiveHubTest` and one `AvatarAnimationTest` case.
+  `app/build/test-results/testDebugUnitTest/*.xml`. Three skips are expected:
+  `LiveHubTest` and two `AvatarAnimationTest` cases (frames, recorded only on request).
 - Room's schemas are exported to `app/schemas/` and committed. `ActionDatabaseMigrationTest`
   builds the old database from those files rather than with `room-testing`.
 - `LiveHubTest` runs only with `WIGGINS_LIVE_HUB` and the other `WIGGINS_LIVE_*`

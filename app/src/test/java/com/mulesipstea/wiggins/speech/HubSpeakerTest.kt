@@ -3,6 +3,7 @@ package com.mulesipstea.wiggins.speech
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -50,6 +51,21 @@ class HubSpeakerTest {
         assertEquals(listOf("hub:1", "hub:2"), heard)
         assertEquals(1, idle)
         assertFalse(s.isSpeaking)
+    }
+
+    /** A tagged reply reports when its audio is ready, starts and ends, for the reply details. */
+    @Test fun reportsTaggedProgress() = runTest {
+        val s = speaker()
+        val progress = mutableListOf<String>()
+        s.onProgress = { tag, p -> progress += "$tag:$p@$currentTime" }
+        s.speak("One. Two.", tag = "t")
+        advanceTimeBy(300)
+        s.onAudio(ids.getValue("One."), "1")
+        s.onAudio(ids.getValue("Two."), "2")
+        advanceTimeBy(5_000)
+        runCurrent()
+        // Each sentence of the speak reports; the first audio, first start and last end are what count.
+        assertEquals(listOf("t:AUDIO@300", "t:AUDIO@300", "t:START@300", "t:END@1300", "t:START@1300", "t:END@2300"), progress)
     }
 
     @Test fun requestsOnlyTheCurrentAndNextSentence() = runTest {

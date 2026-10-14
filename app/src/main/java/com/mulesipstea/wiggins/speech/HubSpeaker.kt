@@ -35,7 +35,7 @@ class HubSpeaker(
     private val newId: () -> String,
     private val locale: () -> Locale = Locale::getDefault,
 ) {
-    private class Sentence(val id: String, val text: String) {
+    private class Sentence(val id: String, val text: String, val tag: String?) {
         var requested = false
         var timeout: Job? = null
 
@@ -53,10 +53,19 @@ class HubSpeaker(
     /** Called when the queue has been spoken to the end; not after [stop]. */
     var onIdle: (() -> Unit)? = null
 
-    fun speak(text: String) {
+    /** Progress of speech given a tag; a tagged text split into sentences reports each. */
+    var onProgress: ((tag: String, SpeechProgress) -> Unit)? = null
+
+    /** Queues [text], a sentence at a time; a [tag] has its progress reported to [onProgress]. */
+    fun speak(text: String, tag: String? = null) {
         // One speak can be a whole paragraph, which the hub's engine takes many seconds
         // to synthesize; a sentence at a time starts sooner and keeps each request short.
-        sentences(text, locale()).forEach { queue.addLast(Sentence(newId(), it)) }
+        sentences(text, locale()).forEach { line ->
+            val sentence = Sentence(newId(), line, tag)
+            // Ready when the hub's audio arrives, or when it's given up and the fallback will speak.
+            if (tag != null) sentence.audio.invokeOnCompletion { onProgress?.invoke(tag, SpeechProgress.AUDIO) }
+            queue.addLast(sentence)
+        }
         if (queue.isEmpty()) return
         _speaking.value = true
         requestAhead()
@@ -84,6 +93,7 @@ class HubSpeaker(
         while (true) {
             val sentence = queue.firstOrNull() ?: break
             val audio = sentence.audio.await()
+            sentence.tag?.let { onProgress?.invoke(it, SpeechProgress.START) }
             if (audio != null) {
                 try {
                     play(audio)
@@ -96,6 +106,7 @@ class HubSpeaker(
             } else {
                 fallback(sentence.text)
             }
+            sentence.tag?.let { onProgress?.invoke(it, SpeechProgress.END) }
             queue.removeFirstOrNull()
             requestAhead()
         }

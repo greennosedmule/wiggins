@@ -11,6 +11,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +22,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -37,9 +38,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -57,12 +58,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -92,6 +97,8 @@ internal fun ConversationList(
     fill: Boolean = true,
     empty: @Composable () -> Unit,
 ) {
+    // The bubble whose details are open; they follow the turn while it goes on.
+    var detailsOf by rememberSaveable { mutableStateOf<Long?>(null) }
     // The first bubble fades in as the empty state fades out.
     // The crossfade sits between the list and the screen's Column, so a weight in [modifier]
     // goes on the crossfade, and its content fills it: otherwise the list shrinks to fit a
@@ -101,8 +108,12 @@ internal fun ConversationList(
         if (isEmpty) {
             Box(content, contentAlignment = Alignment.Center) { empty() }
         } else {
-            Transcript(transcript, thinking, onResend, content, contentPadding)
+            Transcript(transcript, thinking, onResend, content, contentPadding, onDetails = { detailsOf = it })
         }
+    }
+    detailsOf?.let { id ->
+        val sent = transcript.firstOrNull { it.id == id }?.delivery.let { it == null || it == Delivery.SENT }
+        ReplyDetailsSheet(transcript.detailsFor(id), sent, onDismiss = { detailsOf = null })
     }
 }
 
@@ -113,6 +124,7 @@ private fun Transcript(
     onResend: (Long) -> Unit,
     modifier: Modifier,
     contentPadding: PaddingValues,
+    onDetails: (Long) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val count = transcript.size + if (thinking) 1 else 0
@@ -124,15 +136,20 @@ private fun Transcript(
         // A short conversation sits at the bottom, next to the text box, as in a chat app.
         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
     ) {
-        items(transcript, key = { it.id }) { Bubble(it, onResend) }
+        items(transcript, key = { it.id }) { Bubble(it, onResend, onDetails) }
         if (thinking) item(key = "thinking") { ThinkingBubble() }
     }
 }
 
 @Composable
-internal fun Bubble(entry: TranscriptEntry, onResend: (Long) -> Unit) {
+internal fun Bubble(entry: TranscriptEntry, onResend: (Long) -> Unit, onDetails: (Long) -> Unit = {}) {
     val user = entry.who == Who.USER
     val colors = MaterialTheme.colorScheme
+    val haptics = LocalHapticFeedback.current
+    val showDetails = {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        onDetails(entry.id)
+    }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = if (user) Alignment.End else Alignment.Start) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = if (user) Arrangement.End else Arrangement.Start) {
             if (user) Spacer(Modifier.weight(0.15f))
@@ -142,7 +159,11 @@ internal fun Bubble(entry: TranscriptEntry, onResend: (Long) -> Unit) {
                 // The small corner points at the speaker.
                 shape = if (user) RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp) else RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp),
                 modifier = Modifier.weight(0.85f, fill = false)
-                    .alpha(if (entry.delivery == Delivery.PENDING || entry.delivery == Delivery.TRANSCRIBING) 0.6f else 1f),
+                    .alpha(if (entry.delivery == Delivery.PENDING || entry.delivery == Delivery.TRANSCRIBING) 0.6f else 1f)
+                    // Long-press for the reply details (SPEC "Reply details"); a tap does nothing.
+                    .pointerInput(entry.id) { detectTapGestures(onLongPress = { showDetails() }) }
+                    .semantics { onLongClick(label = "Reply details") { showDetails(); true } }
+                    .testTag("bubble-${entry.id}"),
             ) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
                     if (entry.delivery == Delivery.TRANSCRIBING) {
