@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -84,16 +85,23 @@ internal fun ConversationList(
     onResend: (Long) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(16.dp),
-    /** A short conversation sits at the bottom, next to the text box, rather than the top. */
-    anchorBottom: Boolean = false,
+    /**
+     * The list fills the space [modifier] gives it, as in the app. Otherwise it's sized to
+     * its content within [modifier]'s bounds, as in the panel.
+     */
+    fill: Boolean = true,
     empty: @Composable () -> Unit,
 ) {
     // The first bubble fades in as the empty state fades out.
-    Crossfade(transcript.isEmpty() && !thinking, label = "empty") { isEmpty ->
+    // The crossfade sits between the list and the screen's Column, so a weight in [modifier]
+    // goes on the crossfade, and its content fills it: otherwise the list shrinks to fit a
+    // short conversation and the text box rides up under it.
+    Crossfade(transcript.isEmpty() && !thinking, modifier = if (fill) modifier else Modifier, label = "empty") { isEmpty ->
+        val content = if (fill) Modifier.fillMaxSize() else modifier
         if (isEmpty) {
-            Box(modifier, contentAlignment = Alignment.Center) { empty() }
+            Box(content, contentAlignment = Alignment.Center) { empty() }
         } else {
-            Transcript(transcript, thinking, onResend, modifier, contentPadding, anchorBottom)
+            Transcript(transcript, thinking, onResend, content, contentPadding)
         }
     }
 }
@@ -105,7 +113,6 @@ private fun Transcript(
     onResend: (Long) -> Unit,
     modifier: Modifier,
     contentPadding: PaddingValues,
-    anchorBottom: Boolean,
 ) {
     val listState = rememberLazyListState()
     val count = transcript.size + if (thinking) 1 else 0
@@ -114,7 +121,8 @@ private fun Transcript(
         state = listState,
         modifier = modifier,
         contentPadding = contentPadding,
-        verticalArrangement = Arrangement.spacedBy(10.dp, if (anchorBottom) Alignment.Bottom else Alignment.Top),
+        // A short conversation sits at the bottom, next to the text box, as in a chat app.
+        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
     ) {
         items(transcript, key = { it.id }) { Bubble(it, onResend) }
         if (thinking) item(key = "thinking") { ThinkingBubble() }

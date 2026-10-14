@@ -126,7 +126,7 @@ fun AssistPanel(
                         // user's thumb when their first bubble replaces it.
                         modifier = Modifier.fillMaxWidth().heightIn(min = minOf(PANEL_GREETING_HEIGHT, maxListHeight), max = maxListHeight),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        anchorBottom = true,
+                        fill = false,
                     ) {
                         PanelGreeting(canListen, listening, startingToListen, connection.isConnecting(), level)
                     }

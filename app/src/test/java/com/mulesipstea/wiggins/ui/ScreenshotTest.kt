@@ -86,6 +86,9 @@ class ScreenshotTest {
         ),
     )
 
+    /** The text box sits at the bottom from the first bubble on (SPEC "Conversation screen"). */
+    @Test fun oneBubbleLight() = chat("one-bubble", false, conversation.take(1))
+    @Test fun oneBubbleDark() = chat("one-bubble", true, conversation.take(2))
     @Test fun emptyLight() = chat("empty", false, emptyList())
     @Test fun emptyDark() = chat("empty", true, emptyList())
 
