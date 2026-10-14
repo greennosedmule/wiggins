@@ -42,6 +42,10 @@ data class SpeechSettings(
      * Bluetooth permission.
      */
     val handsFree: Boolean = false,
+    /** Whether a car's or headset's voice button works on a locked phone (SPEC "Locked, in the car"). */
+    val whenLocked: WhenLocked = WhenLocked.ASK_UNLOCK,
+    /** Bluetooth addresses of the hands-free devices trusted for [WhenLocked.TRUSTED_CAR]. */
+    val trustedDevices: Set<String> = emptySet(),
 ) {
     val sttMode get() = stt ?: SpeechMode.DEVICE
     val ttsMode get() = tts ?: SpeechMode.DEVICE
@@ -60,6 +64,25 @@ enum class ListeningTone {
     ;
 
     fun shouldPlay(onBluetooth: Boolean) = this == ALWAYS || (this == BLUETOOTH && onBluetooth)
+}
+
+/**
+ * What a voice session over the hands-free link does on a locked phone (SPEC "Locked, in
+ * the car"). A locked session listens and speaks through the link only: it shows no
+ * conversation, runs no phone actions, and tells the hub the phone is locked.
+ */
+enum class WhenLocked {
+    /** Ask for the unlock first, as when Wiggins is invoked on the phone itself. */
+    ASK_UNLOCK,
+
+    /**
+     * Only through a trusted device, and only once the phone has been unlocked while
+     * connected to it; that lasts until it disconnects.
+     */
+    TRUSTED_CAR,
+
+    /** Through any connected hands-free device. */
+    ALWAYS,
 }
 
 /** Waggle settings besides the rules (SPEC "Phone actions (Waggle)"). */
@@ -153,6 +176,8 @@ class SettingsRepository(private val context: Context) {
             hubSpeechAvailable = it[HUB_SPEECH_AVAILABLE],
             handsFree = it[HANDS_FREE] ?: false,
             listeningTone = it[LISTENING_TONE]?.let { t -> runCatching { ListeningTone.valueOf(t) }.getOrNull() } ?: ListeningTone.BLUETOOTH,
+            whenLocked = it[WHEN_LOCKED]?.let { w -> runCatching { WhenLocked.valueOf(w) }.getOrNull() } ?: WhenLocked.ASK_UNLOCK,
+            trustedDevices = it[TRUSTED_DEVICES] ?: emptySet(),
         )
     }
 
@@ -164,6 +189,8 @@ class SettingsRepository(private val context: Context) {
             it.putOrRemove(HUB_SPEECH_AVAILABLE, speech.hubSpeechAvailable)
             it[LISTENING_TONE] = speech.listeningTone.name
             it[HANDS_FREE] = speech.handsFree
+            it[WHEN_LOCKED] = speech.whenLocked.name
+            it[TRUSTED_DEVICES] = speech.trustedDevices
         }
     }
 
@@ -289,6 +316,8 @@ class SettingsRepository(private val context: Context) {
         val HUB_SPEECH_AVAILABLE = booleanPreferencesKey("hub_speech_available")
         val LISTENING_TONE = stringPreferencesKey("listening_tone")
         val HANDS_FREE = booleanPreferencesKey("hands_free")
+        val WHEN_LOCKED = stringPreferencesKey("hands_free_when_locked")
+        val TRUSTED_DEVICES = stringSetPreferencesKey("hands_free_trusted")
         val UNMATCHED = stringPreferencesKey("waggle_unmatched")
         val QUERIES = stringSetPreferencesKey("waggle_queries")
         val NOISE_STATIC_KEY = stringPreferencesKey("noise_static_key_enc")

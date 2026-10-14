@@ -41,10 +41,11 @@ class PhoneActionsTest {
     private lateinit var actions: PhoneActions
     private val settings = SettingsRepository(app)
     private var foreground = true
+    private var locked = false
 
     @Before fun setUp() {
         db = ActionDatabase.open(app, name = null)
-        actions = PhoneActions(app, scope, db, settings, isForeground = { foreground })
+        actions = PhoneActions(app, scope, db, settings, isForeground = { foreground }, isLocked = { locked })
         // An alarm clock and a dialer the intents can resolve to.
         handle("android.intent.action.SET_ALARM", "com.example.clock", "Alarm")
         handle("android.intent.action.SET_TIMER", "com.example.clock", "Timer")
@@ -157,6 +158,21 @@ class PhoneActionsTest {
         assertEquals(ErrorCode.BAD_REQUEST, response?.error)
         assertNull(actions.onIntent(json("""{"action":"android.intent.action.VIEW"}"""))) // No id: can't answer.
         assertEquals(ErrorCode.UNSUPPORTED_VERSION, actions.onIntent(json("""{"id":"9","version":2,"action":"android.intent.action.SET_ALARM"}"""))?.error)
+    }
+
+    /** A locked voice session (SPEC "Locked, in the car") runs nothing: no run rule, no ask, no query. */
+    @Test fun aLockedSessionRefusesIntentsAndQueries() = runBlocking {
+        locked = true
+        settings.setQueryEnabled("apps.list", true)
+        assertEquals(ErrorCode.BLOCKED, actions.onIntent(intent("l1", "android.intent.action.SET_TIMER"))?.error)
+        val dial = actions.onIntent(intent("l2", "android.intent.action.DIAL", ""","data":"tel:+15555550100""""))
+        assertEquals(ErrorCode.BLOCKED, dial?.error)
+        assertTrue(actions.asks.value.isEmpty())
+        assertEquals(ErrorCode.BLOCKED, actions.onQuery(json("""{"id":"l3","name":"apps.list","params":{}}"""))?.error)
+        assertNull(nextStarted())
+        assertEquals(listOf("blocked", "blocked", "blocked"), db.log().recent().first().map { it.outcome })
+        locked = false
+        assertEquals(true, actions.onQuery(json("""{"id":"l4","name":"apps.list","params":{}}"""))?.ok)
     }
 
     @Test fun queriesAreOffUntilEnabled() = runBlocking {

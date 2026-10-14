@@ -653,6 +653,18 @@ non-default intent pipeline. Otherwise the hub's default list above is what
 ovos-core will use for this session. Whether that list matches the ovos-core
 release in use is **not verified** here.
 
+**Client facts go in the message context, not the session.** `Session.deserialize`
+keeps only the fields it knows, so anything else put in `context.session`
+never reaches a skill. Plain message-context keys do: hivemind-core 4.15
+updates the context it receives rather than replacing it, overwriting only
+`source`, `peer` and `destination` (`hivemind_core/protocol.py`, around
+lines 3170 and 3230 in 4.15.0a1), and OVOS's `Message.reply` and `forward`
+copy the context onwards. Wiggins sends `device_locked` (true or false) in
+every uplink's context. True marks a locked session over a car's or
+headset's hands-free link (SPEC "Locked, in the car"), so the hub can
+withhold what a locked phone mustn't reach. The key is always present, so a
+hub can treat a Wiggins message without it as locked.
+
 ### 11.2 Peer id
 
 The peer id is:

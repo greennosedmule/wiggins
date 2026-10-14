@@ -212,6 +212,37 @@ class HiveProtocolTest {
     }
 
     /**
+     * Every uplink says whether the phone is locked (SPEC "Locked, in the car"), as a
+     * message-context field rather than a session one, which OVOS would drop.
+     */
+    @Test fun everyUplinkSaysWhetherThePhoneIsLocked() {
+        val session = Vectors.cases("full_session.json", "sessions")[0]
+        val inputs = session.getValue("inputs").jsonObject
+        val negotiated = session.getValue("negotiated").jsonObject
+        val proto = HiveProtocol(
+            useragent = "Wiggins",
+            password = inputs.str("password"),
+            handshake = PasswordHandshake(inputs.str("password"), inputs.hex("client_iv_hex")),
+        ).also { it.setSession(context) }
+        session.arr("frames").map { it.jsonObject }.filter { it.str("dir") == "hub->client" && !it.bool("encrypted") }
+            .forEach { proto.onFrame(it.str("wire")) }
+        val hub = FrameCipher(negotiated.hex("key_hex"), HiveCipher.CHACHA20_POLY1305, HiveEncoding.JSON_B64)
+        fun contextOf(frames: List<HiveProtocol.Frame>?) =
+            hub.open(frames.text()).json().jsonObject.getValue("payload").jsonObject.getValue("context").jsonObject
+        val locked = context.copy(locked = true)
+
+        for (ctx in listOf(context, locked)) {
+            val expected = ctx.locked.toString()
+            assertEquals(expected, contextOf(proto.utterance("what's next", ctx)).getValue("device_locked").jsonPrimitive.content)
+            assertEquals(expected, contextOf(proto.transcribe("t1", byteArrayOf(1), ctx)).getValue("device_locked").jsonPrimitive.content)
+            assertEquals(expected, contextOf(proto.synthesize("s1", "Hi.", ctx)).getValue("device_locked").jsonPrimitive.content)
+            val begin = contextOf(proto.bus("recognizer_loop:record_begin", JsonObject(emptyMap()), ctx))
+            assertEquals(expected, begin.getValue("device_locked").jsonPrimitive.content)
+            assertNull(begin.getValue("session").jsonObject["device_locked"])
+        }
+    }
+
+    /**
      * ovos-core 3 speaks as `ovos.utterance.speak`, and during the rename a bus client can
      * also send a `speak` twin with the same data and context; each sentence is said once.
      */

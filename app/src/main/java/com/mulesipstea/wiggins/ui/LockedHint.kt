@@ -64,3 +64,51 @@ internal fun LockedHint(onUnlock: () -> Unit, onClose: () -> Unit) {
         }
     }
 }
+
+/**
+ * Shown over the lock screen during a locked session over a car's or headset's hands-free
+ * link (SPEC "Locked, in the car"). Like [LockedHint], it holds nothing from the
+ * conversation: only what Wiggins is doing, a way to unlock and see the conversation,
+ * and a way to end it.
+ */
+@Composable
+internal fun LockedSessionPanel(
+    listening: Boolean,
+    thinking: Boolean,
+    speaking: Boolean,
+    onUnlock: () -> Unit,
+    onClose: () -> Unit,
+) {
+    BackHandler(onBack = onClose)
+    Box(
+        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.32f)),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shadowElevation = 8.dp,
+            modifier = Modifier.fillMaxWidth().testTag("locked-session"),
+        ) {
+            Column(Modifier.navigationBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    when {
+                        listening -> "Listening…"
+                        speaking -> "Speaking…"
+                        thinking -> "Thinking…"
+                        else -> "Wiggins"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    "Hands-free while the phone is locked. Phone actions and the conversation need the unlock.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = onUnlock) { Text("Unlock") }
+                    TextButton(onClick = onClose) { Text("End") }
+                }
+            }
+        }
+    }
+}

@@ -191,6 +191,7 @@ class HiveProtocol(
                 put("destination", "HiveMind")
                 put("platform", useragent)
                 put("session", sessionJson(context))
+                put(SessionContext.LOCKED_KEY, context.locked)
                 extraContext.forEach { (key, value) -> put(key, value) }
             }
         }

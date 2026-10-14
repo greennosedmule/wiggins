@@ -2,11 +2,19 @@ package com.mulesipstea.wiggins
 
 import android.app.Application
 import com.mulesipstea.wiggins.settings.SettingsRepository
+import com.mulesipstea.wiggins.speech.LockedSessions
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
 class WigginsApp : Application() {
     val settings by lazy { SettingsRepository(this) }
+
+    /**
+     * Which hands-free devices may carry a voice session on a locked phone. Here rather
+     * than in [assistant] so [com.mulesipstea.wiggins.speech.HandsFreeReceiver] can update
+     * it without starting the whole assistant.
+     */
+    val lockedSessions = LockedSessions()
 
     /** The hub connection and conversation, shared by every screen. */
     val assistant by lazy { Assistant(this) }

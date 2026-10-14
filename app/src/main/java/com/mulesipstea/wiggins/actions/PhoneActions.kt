@@ -57,6 +57,12 @@ class PhoneActions(
     private val settings: SettingsRepository,
     /** Whether a Wiggins screen is visible; Android blocks activity launches from the background. */
     private val isForeground: () -> Boolean,
+    /**
+     * Whether a locked voice session is running (SPEC "Locked, in the car"). It refuses every
+     * intent and query as `blocked`: WAGGLE.md v1 has no code for a locked phone, and no
+     * one could answer an ask card there anyway.
+     */
+    private val isLocked: () -> Boolean = { false },
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     /** A confirmation the user hasn't answered yet. */
@@ -113,6 +119,7 @@ class PhoneActions(
             return finish("intent", data, rawTitle(data), null, WaggleResponse.error(id, e.code, e.message))
         }
         val response = try {
+            refuseIfLocked()
             val s = settings.actions.first()
             val decision = RuleMatcher.decide(db.rules().all().first().map { it.toRule() }, s.unmatched, request)
             rule = decision.rule
@@ -143,6 +150,7 @@ class PhoneActions(
             checkVersion(data)
             val request = QueryRequest.parse(data)
             name = request.name
+            refuseIfLocked()
             val query = Queries.named(request.name) ?: throw WaggleException(ErrorCode.BAD_REQUEST, "Unknown query ${request.name}")
             if (query.name !in settings.actions.first().queries) throw WaggleException(ErrorCode.BLOCKED, "${query.name} isn't enabled")
             WaggleResponse.ok(id, query.run(context, request.params))
@@ -199,6 +207,10 @@ class PhoneActions(
         val pkg = info.activityInfo.packageName
         if (pkg == "android") return null // The chooser: several apps could answer.
         return "${info.loadLabel(pm)} ($pkg)"
+    }
+
+    private fun refuseIfLocked() {
+        if (isLocked()) throw WaggleException(ErrorCode.BLOCKED, "The phone is locked")
     }
 
     private fun launch(intent: Intent) {

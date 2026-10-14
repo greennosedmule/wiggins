@@ -105,5 +105,20 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!--
+            Follows hands-free connections for locked sessions (SPEC "Locked, in the car").
+            Declared here rather than at runtime: Android holds back broadcasts to a cached
+            app's runtime receivers, and a late disconnect could let a reconnected car run
+            locked without the unlock. Exported for the Bluetooth app's protected broadcast;
+            the permission keeps other senders out.
+        -->
+        <receiver
+            android:name=".speech.HandsFreeReceiver"
+            android:exported="true"
+            android:permission="android.permission.BLUETOOTH_CONNECT">
+            <intent-filter>
+                <action android:name="android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

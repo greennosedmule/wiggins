@@ -17,6 +17,13 @@ data class SessionContext(
     val systemUnit: String = "metric",
     val timeFormat: String = "full",
     val dateFormat: String = "DMY",
+    /**
+     * The phone is locked: a voice session over a car's or headset's hands-free link that
+     * runs without the unlock (SPEC "Locked, in the car"). Sent in every uplink's message
+     * context as [LOCKED_KEY], true or false, so the hub can hold back what a locked
+     * phone mustn't reach. Not a session field: OVOS's Session drops fields it doesn't know.
+     */
+    val locked: Boolean = false,
 ) {
     /**
      * The phone's settings as OVOS session fields. No `location`: the hub replaces a
@@ -42,5 +49,10 @@ data class SessionContext(
             put("offset", tz.rawOffset)
             put("dstOffset", tz.dstSavings)
         }
+    }
+
+    companion object {
+        /** The message-context key for [locked]; see docs/hivemind-protocol.md §11.1. */
+        const val LOCKED_KEY = "device_locked"
     }
 }

@@ -1,5 +1,6 @@
 package com.mulesipstea.wiggins
 
+import android.app.KeyguardManager
 import android.icu.util.LocaleData
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
@@ -86,15 +87,42 @@ class Assistant(private val app: WigginsApp) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     /** The Bluetooth hands-free link to a car or headset, while a turn is going on (SPEC "In the car"). */
     private val handsFree = HandsFree(app)
-    private val linkKeeper = LinkKeeper(scope, LINK_GRACE_MS) { handsFree.close() }
+    private val linkKeeper = LinkKeeper(scope, LINK_GRACE_MS) {
+        handsFree.close()
+        _linkOpen.value = false
+    }
+    private val _linkOpen = MutableStateFlow(false)
+
+    /** The hands-free link is up. */
+    val linkOpen: StateFlow<Boolean> = _linkOpen.asStateFlow()
+
+    /** Which hands-free devices may carry a session on a locked phone (SPEC "Locked, in the car"). */
+    private val lockedSessions get() = app.lockedSessions
+
+    /**
+     * A locked voice session is running: the phone stays locked, and Wiggins listens and
+     * speaks over the hands-free link only, runs no phone actions and tells the hub.
+     */
+    private val _locked = MutableStateFlow(false)
+    private val _unlockRequests = Channel<Unit>(Channel.CONFLATED)
+
+    /** Each element asks the locked panel to fall back to the unlock prompt: the link didn't come up. */
+    val unlockRequests: Flow<Unit> = _unlockRequests.receiveAsFlow()
 
     /** The user's recognizer is listening (device speech-to-text). */
     private val recognizing = MutableStateFlow(false)
+
+    /** Listening is starting: waiting for the panel's screen, the link or the tone. */
+    private val starting = MutableStateFlow(false)
     private val speaker = Speaker(app) { handsFree.route().playback.takeIf { handsFree.isOpen } ?: Speaker.DEFAULT_ATTRIBUTES }
     private val client = HiveMindClient(app.http, scope)
     private val recorder = Recorder(app, scope, ::WebRtcDetector)
     /** Waggle: the hub's requests to launch intents and run queries, within the user's rules. */
-    val phoneActions = PhoneActions(app, scope, ActionDatabase.open(app), app.settings, isForeground = { foreground })
+    val phoneActions = PhoneActions(
+        app, scope, ActionDatabase.open(app), app.settings,
+        isForeground = { foreground },
+        isLocked = { _locked.value },
+    )
     private val hubSpeaker = HubSpeaker(
         scope,
         request = { id, text -> client.sendSynthesize(id, text, sessionContext()) },
@@ -240,7 +268,7 @@ class Assistant(private val app: WigginsApp) {
         scope.launch { client.events.collect(::onHubEvent) }
         scope.launch {
             // The hands-free link stays while the turn goes on: listening, waiting, speaking.
-            combine(listening, recognizing, thinking, speaking) { a, b, c, d -> a || b || c || d }
+            combine(starting, listening, recognizing, thinking, speaking) { s, a, b, c, d -> s || a || b || c || d }
                 .distinctUntilChanged()
                 .collect(linkKeeper::busy)
         }
@@ -275,6 +303,7 @@ class Assistant(private val app: WigginsApp) {
     fun onForeground() {
         visibleScreens++
         inForeground.value = true
+        if (!app.getSystemService(KeyguardManager::class.java).isKeyguardLocked) noteUnlocked()
         expireIfIdle()
         refreshPrerequisites()
         retries = 0
@@ -349,6 +378,15 @@ class Assistant(private val app: WigginsApp) {
      * listening tone, if wanted, plays first and is over before anything listens.
      */
     private suspend fun startListening() {
+        starting.value = true
+        try {
+            startListeningNow()
+        } finally {
+            starting.value = false
+        }
+    }
+
+    private suspend fun startListeningNow() {
         val speech = app.settings.speech.first()
         when {
             speech.sttMode == SpeechMode.DEVICE -> if (_prerequisites.value.recognizer != null) {
@@ -357,9 +395,21 @@ class Assistant(private val app: WigginsApp) {
                 _listen.trySend(Unit)
             }
             !recorder.hasPermission() -> _micRequests.trySend(Unit)
-            // An assist invocation asks before its screen has started; record only once it has.
-            withTimeoutOrNull(FOREGROUND_WAIT_MS) { inForeground.first { it } } != null -> {
+            else -> {
+                // The link first: a car drops a voice-recognition session no app takes up
+                // within about 5 s, and waking the screen for the panel can take most of that.
                 val route = openHandsFree(speech.handsFree)
+                if (_locked.value && !handsFree.isOpen) {
+                    // A locked session runs only over the link; without it, ask for the unlock.
+                    Log.w(TAG, "locked session without a hands-free link; asking for the unlock")
+                    _unlockRequests.trySend(Unit)
+                    return
+                }
+                // An assist invocation asks before its screen has started; record only once it has.
+                // If it never starts, the link closes after its grace period.
+                // Over the lock screen it has to wake the screen first, which takes longer.
+                val wait = if (_locked.value) LOCKED_FOREGROUND_WAIT_MS else FOREGROUND_WAIT_MS
+                if (withTimeoutOrNull(wait) { inForeground.first { it } } == null) return
                 cue.playIfWanted(speech.listeningTone, route)
                 recordUtterance(route.input)
             }
@@ -394,7 +444,10 @@ class Assistant(private val app: WigginsApp) {
      * the listening and the reply all use it; returns the route to use either way.
      */
     private suspend fun openHandsFree(wanted: Boolean): SpeechRoute {
-        if (wanted && handsFree.open()) linkKeeper.opened()
+        if (wanted && handsFree.open()) {
+            _linkOpen.value = true
+            linkKeeper.opened()
+        }
         return handsFree.route()
     }
 
@@ -622,6 +675,7 @@ class Assistant(private val app: WigginsApp) {
         dropTranscriptions(store)
         panel = null
         _panelTranscript.value = null
+        _locked.value = false
         followUp = false
         cancelListening()
         endTurn()
@@ -902,6 +956,51 @@ class Assistant(private val app: WigginsApp) {
         if (foreground && canListen.value) scope.launch { startListening() }
     }
 
+    /**
+     * Whether a voice invocation on the locked phone may run as a locked session now: hub
+     * speech-to-text (the user's recognizer can't show over the lock screen), the hands-free
+     * setting on, a hands-free device connected, and the user's "When locked" choice
+     * allowing it for that device (SPEC "Locked, in the car").
+     */
+    suspend fun mayRunLocked(): Boolean {
+        // From storage, not [speech]: in a process the car's button just started, that
+        // still holds the defaults.
+        val s = app.settings.speech.first()
+        if (!s.handsFree || s.sttMode != SpeechMode.HUB) return false
+        val device = handsFree.connectedAddress()
+        return lockedSessions.allows(s.whenLocked, s.trustedDevices, device).also {
+            Log.i(TAG, "locked invocation: ${s.whenLocked}, device ${if (device == null) "none" else "connected"}, runs locked: $it")
+        }
+    }
+
+    /** The panel is starting a locked session. */
+    fun startLockedSession() {
+        _unlockRequests.tryReceive() // A stale request from an earlier session mustn't end this one.
+        _locked.value = true
+    }
+
+    /**
+     * The panel's locked session ends without closing the panel: the phone was unlocked, so
+     * it carries on as an ordinary one, or the link didn't come up and the unlock is asked for.
+     */
+    fun endLockedSession() {
+        _locked.value = false
+    }
+
+    /**
+     * Wiggins saw the phone unlocked (its unlock prompt succeeded, or a Wiggins screen is
+     * showing on an unlocked phone): arm the hands-free devices connected now. Android's
+     * own unlock broadcast isn't used: it can reach a cached app late, and checked against
+     * the devices connected by then it could arm a car that connected after the unlock.
+     */
+    fun noteUnlocked() {
+        scope.launch {
+            val connected = handsFree.connectedAddresses()
+            lockedSessions.onUnlocked(connected)
+            Log.i(TAG, "unlocked with ${connected.size} hands-free device(s) connected")
+        }
+    }
+
     /** The phone's language, timezone, units and formats, so skills answer for the phone. */
     private fun sessionContext(): SessionContext {
         val locale = Locale.getDefault()
@@ -913,6 +1012,7 @@ class Assistant(private val app: WigginsApp) {
             systemUnit = if (imperial) "imperial" else "metric",
             timeFormat = if (DateFormat.is24HourFormat(app)) "full" else "half",
             dateFormat = order.takeIf { it in setOf("MDY", "DMY", "YMD") } ?: "DMY",
+            locked = _locked.value,
         )
     }
 
@@ -927,6 +1027,7 @@ class Assistant(private val app: WigginsApp) {
         const val IDLE_SESSION_MS = 30 * 60 * 1000L
         const val CONNECT_WAIT_MS = 10_000L
         const val FOREGROUND_WAIT_MS = 2_000L
+        const val LOCKED_FOREGROUND_WAIT_MS = 8_000L
 
         /** How long the hands-free link outlasts the turn, so a follow-up keeps it. */
         const val LINK_GRACE_MS = 3_000L

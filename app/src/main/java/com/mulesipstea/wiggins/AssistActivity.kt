@@ -8,6 +8,7 @@ import android.media.AudioManager
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.util.Log
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,11 +25,14 @@ import com.mulesipstea.wiggins.speech.Prerequisites
 import com.mulesipstea.wiggins.ui.AssistPanel
 import com.mulesipstea.wiggins.ui.Banner
 import com.mulesipstea.wiggins.ui.LockedHint
+import com.mulesipstea.wiggins.ui.LockedSessionPanel
 import com.mulesipstea.wiggins.ui.Problem
 import com.mulesipstea.wiggins.ui.openAppSettings
 import com.mulesipstea.wiggins.ui.theme.WigginsTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -41,6 +45,11 @@ import kotlinx.coroutines.launch
  * the phone is unlocked (SPEC "Lock screen"). If the user backs out, a short hint shows
  * over the lock screen, holding nothing from the conversation, then the panel closes and
  * whatever it covered, such as a ringing alarm's screen, comes back.
+ *
+ * The exception is a voice button on a car or headset when the user's "When locked"
+ * setting allows it (SPEC "Locked, in the car"): then a locked session runs over the
+ * lock screen, through the hands-free link only, showing nothing from the conversation,
+ * and the panel closes when the link does.
  */
 class AssistActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -52,6 +61,12 @@ class AssistActivity : ComponentActivity() {
 
     /** The user backed out of unlocking: the lock-screen hint is showing instead of the panel. */
     private var lockedHint by mutableStateOf(false)
+
+    /** A locked session is running over the lock screen; see [runLocked]. */
+    private var lockedSession by mutableStateOf(false)
+
+    /** Deciding whether a locked invocation may run locked; being stopped meanwhile isn't leaving. */
+    private var deciding = false
     private var hintTimeout: Job? = null
 
     /** Whether this screen counts as visible for [Assistant.onForeground]; the hint doesn't. */
@@ -77,6 +92,19 @@ class AssistActivity : ComponentActivity() {
             WigginsTheme {
                 if (lockedHint) {
                     LockedHint(onUnlock = ::retryUnlock, onClose = ::finish)
+                    return@WigginsTheme
+                }
+                if (lockedSession) {
+                    val listening by assistant.listening.collectAsStateWithLifecycle()
+                    val thinking by assistant.thinking.collectAsStateWithLifecycle()
+                    val speaking by assistant.speaking.collectAsStateWithLifecycle()
+                    LockedSessionPanel(
+                        listening = listening,
+                        thinking = thinking,
+                        speaking = speaking,
+                        onUnlock = { unlockThen(::leaveLocked) },
+                        onClose = ::finish,
+                    )
                     return@WigginsTheme
                 }
                 val connection by assistant.connection.collectAsStateWithLifecycle()
@@ -149,7 +177,7 @@ class AssistActivity : ComponentActivity() {
         leaveForeground()
         super.onStop()
         // The panel's conversation lasts only while it's on screen.
-        if (!awaitingResult && !awaitingUnlock && !isChangingConfigurations) finish()
+        if (!awaitingResult && !awaitingUnlock && !deciding && !isChangingConfigurations) finish()
     }
 
     override fun onDestroy() {
@@ -162,13 +190,53 @@ class AssistActivity : ComponentActivity() {
             Intent.ACTION_ASSIST, Intent.ACTION_VOICE_COMMAND -> {
                 val fromKeyboard = intent.getBooleanExtra(Intent.EXTRA_ASSIST_INPUT_HINT_KEYBOARD, false)
                 val keyguard = getSystemService(KeyguardManager::class.java)
-                if (keyguard.isKeyguardLocked) {
-                    unlockThen { viewModel.onAssistInvoked(fromKeyboard) }
+                if (keyguard.isKeyguardLocked && !lockedSession) {
+                    deciding = true
+                    lifecycleScope.launch {
+                        val locked = !fromKeyboard && assistant.mayRunLocked()
+                        deciding = false
+                        if (locked) runLocked() else unlockThen { viewModel.onAssistInvoked(fromKeyboard) }
+                    }
                 } else {
                     viewModel.onAssistInvoked(fromKeyboard)
                 }
             }
         }
+    }
+
+    /**
+     * Runs the invocation as a locked session: shown over the lock screen, waking the screen
+     * and keeping it on while the session lasts, so the screen timing out doesn't end it.
+     * It ends when the hands-free link closes, or falls back to the unlock prompt if the
+     * link doesn't come up.
+     */
+    private fun runLocked() {
+        lockedSession = true
+        assistant.startLockedSession()
+        setShowWhenLocked(true)
+        setTurnScreenOn(true)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        lifecycleScope.launch {
+            assistant.linkOpen.dropWhile { !it }.first { !it }
+            if (lockedSession) finish()
+        }
+        lifecycleScope.launch {
+            assistant.unlockRequests.first()
+            if (!lockedSession) return@launch
+            leaveLocked()
+            unlockThen { viewModel.onAssistInvoked(false) }
+        }
+        viewModel.onAssistInvoked(false)
+    }
+
+    /** The locked session becomes an ordinary panel (after the unlock), or gives way to the unlock prompt. */
+    private fun leaveLocked() {
+        if (!lockedSession) return
+        lockedSession = false
+        assistant.endLockedSession()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        setTurnScreenOn(false)
+        setShowWhenLocked(false)
     }
 
     private fun enterForeground() {
@@ -209,6 +277,7 @@ class AssistActivity : ComponentActivity() {
 
     private fun unlocked() {
         awaitingUnlock = false
+        assistant.noteUnlocked()
         hintTimeout?.cancel()
         if (lockedHint) {
             lockedHint = false

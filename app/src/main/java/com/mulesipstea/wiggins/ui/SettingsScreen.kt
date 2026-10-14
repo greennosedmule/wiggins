@@ -1,5 +1,8 @@
 package com.mulesipstea.wiggins.ui
 
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothManager
+import androidx.compose.material3.Checkbox
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -59,6 +62,7 @@ import com.mulesipstea.wiggins.settings.HubUrl
 import com.mulesipstea.wiggins.settings.ListeningTone
 import com.mulesipstea.wiggins.settings.SpeechMode
 import com.mulesipstea.wiggins.settings.SpeechSettings
+import com.mulesipstea.wiggins.settings.WhenLocked
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -186,6 +190,15 @@ fun SettingsScreen(
                 }
                 ListeningToneChoice(speech.listeningTone) { speech = speech.copy(listeningTone = it) }
                 HandsFreeSwitch(speech.handsFree) { speech = speech.copy(handsFree = it) }
+                if (speech.handsFree) {
+                    WhenLockedChoice(
+                        selected = speech.whenLocked,
+                        trusted = speech.trustedDevices,
+                        hubStt = speech.sttMode == SpeechMode.HUB,
+                        onSelect = { speech = speech.copy(whenLocked = it) },
+                        onTrustedChange = { speech = speech.copy(trustedDevices = it) },
+                    )
+                }
             }
             SettingsSection("Reaching the hub", "How the connection gets past the hub's reverse proxy, if it has one.") {
                 AuthModeOption(AuthMode.NONE, mode, "LAN or VPN", "No proxy sign-in. ws:// or wss://.") { mode = it }
@@ -304,6 +317,84 @@ private fun HandsFreeSwitch(on: Boolean, onChange: (Boolean) -> Unit) {
             )
         }
         Switch(checked = on, onCheckedChange = null)
+    }
+}
+
+/**
+ * What the car's or headset's voice button does on a locked phone (SPEC "Locked, in the
+ * car"), and for "Trusted car", which paired devices are trusted.
+ */
+@SuppressLint("MissingPermission")
+@Composable
+private fun WhenLockedChoice(
+    selected: WhenLocked,
+    trusted: Set<String>,
+    hubStt: Boolean,
+    onSelect: (WhenLocked) -> Unit,
+    onTrustedChange: (Set<String>) -> Unit,
+) {
+    val context = LocalContext.current
+    val choices = listOf(WhenLocked.ASK_UNLOCK to "Ask to unlock", WhenLocked.TRUSTED_CAR to "Trusted car", WhenLocked.ALWAYS to "Always")
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("When the phone is locked", style = MaterialTheme.typography.bodyLarge)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            choices.forEachIndexed { i, (value, label) ->
+                SegmentedButton(
+                    selected = value == selected,
+                    onClick = { onSelect(value) },
+                    shape = SegmentedButtonDefaults.itemShape(i, choices.size),
+                ) { Text(label, maxLines = 1) }
+            }
+        }
+        Text(
+            when (selected) {
+                WhenLocked.ASK_UNLOCK -> "The voice button asks for the unlock first, like the assist gesture."
+                WhenLocked.TRUSTED_CAR ->
+                    "Unlock once while connected to a trusted car; until it disconnects, its voice button works " +
+                        "while the phone is locked. Phone actions and the conversation still need the unlock, " +
+                        "and the hub is told the phone is locked."
+                WhenLocked.ALWAYS ->
+                    "Any car or headset's voice button works while the phone is locked, so anyone holding it " +
+                        "with a headset can talk to the hub. Phone actions and the conversation still need the unlock."
+            },
+            style = MaterialTheme.typography.bodySmall,
+        )
+        if (selected != WhenLocked.ASK_UNLOCK && !hubStt) {
+            Text(
+                "Needs hub speech to text: the phone's recognizer can't listen over the lock screen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        if (selected == WhenLocked.TRUSTED_CAR) {
+            val paired = remember {
+                runCatching {
+                    context.getSystemService(BluetoothManager::class.java)?.adapter?.bondedDevices.orEmpty()
+                        .map { (it.name ?: it.address) to it.address }
+                        .sortedBy { it.first.lowercase() }
+                }.getOrDefault(emptyList())
+            }
+            if (paired.isEmpty()) {
+                Text("No paired Bluetooth devices.", style = MaterialTheme.typography.bodySmall)
+            }
+            paired.forEach { (name, address) ->
+                val on = address in trusted
+                Row(
+                    Modifier.fillMaxWidth().toggleable(
+                        value = on,
+                        role = Role.Checkbox,
+                        onValueChange = { onTrustedChange(if (it) trusted + address else trusted - address) },
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = on, onCheckedChange = null)
+                    Column(Modifier.padding(start = 8.dp)) {
+                        Text(name, style = MaterialTheme.typography.bodyMedium)
+                        Text(address, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
     }
 }
 

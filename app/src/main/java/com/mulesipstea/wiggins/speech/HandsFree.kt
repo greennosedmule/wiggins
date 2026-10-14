@@ -78,6 +78,16 @@ class HandsFree(private val context: Context) {
         return withTimeoutOrNull(BIND_TIMEOUT_MS) { pending.await() }
     }
 
+    /** Addresses of the connected hands-free devices; empty without the permission or Bluetooth. */
+    @SuppressLint("MissingPermission")
+    suspend fun connectedAddresses(): List<String> {
+        if (!permitted()) return emptyList()
+        return headset()?.connectedDevices?.map { it.address }.orEmpty()
+    }
+
+    /** The device [open] would use, or null if none is connected. */
+    suspend fun connectedAddress(): String? = connectedAddresses().firstOrNull()
+
     /**
      * Opens the link if a hands-free device is connected; returns whether it's up. Waits up
      * to [OPEN_TIMEOUT_MS] for the audio to connect. Calling it while it's open is cheap.
