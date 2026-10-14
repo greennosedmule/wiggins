@@ -1013,6 +1013,8 @@ class Assistant(private val app: WigginsApp) {
             timeFormat = if (DateFormat.is24HourFormat(app)) "full" else "half",
             dateFormat = order.takeIf { it in setOf("MDY", "DMY", "YMD") } ?: "DMY",
             locked = _locked.value,
+            watching = foreground && !_locked.value && !handsFree.isOpen &&
+                !app.getSystemService(KeyguardManager::class.java).isKeyguardLocked,
         )
     }
 

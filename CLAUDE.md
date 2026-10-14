@@ -183,6 +183,10 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
     hold the end until `ovos.utterance.handled`.
 - **`device_locked`** in every uplink's message context, true only in a locked session.
   Never omit it: the hub may treat a Wiggins message without it as locked.
+- **`user_watching`** in every uplink's message context: true only from a visible Wiggins
+  screen on an unlocked phone, not over a hands-free link. With true, the hub doesn't
+  speak confirmations the screen shows (WAGGLE.md "Watching"), so a turn may end with
+  `ovos.utterance.handled` and no `speak`.
 - **Turn end.** Only `ovos.utterance.handled` ends a turn. The 15 s reply and 30 s
   thinking timeouts are fallbacks.
 - **Speech twins.** `speak` / `ovos.utterance.speak` and `mycroft.mic.listen` /

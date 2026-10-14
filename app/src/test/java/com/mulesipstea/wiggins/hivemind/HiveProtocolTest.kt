@@ -212,10 +212,11 @@ class HiveProtocolTest {
     }
 
     /**
-     * Every uplink says whether the phone is locked (SPEC "Locked, in the car"), as a
-     * message-context field rather than a session one, which OVOS would drop.
+     * Every uplink says whether the phone is locked (SPEC "Locked, in the car") and whether
+     * the user is watching the screen, as message-context fields rather than session ones,
+     * which OVOS would drop.
      */
-    @Test fun everyUplinkSaysWhetherThePhoneIsLocked() {
+    @Test fun everyUplinkSaysWhetherThePhoneIsLockedAndWatched() {
         val session = Vectors.cases("full_session.json", "sessions")[0]
         val inputs = session.getValue("inputs").jsonObject
         val negotiated = session.getValue("negotiated").jsonObject
@@ -230,15 +231,22 @@ class HiveProtocolTest {
         fun contextOf(frames: List<HiveProtocol.Frame>?) =
             hub.open(frames.text()).json().jsonObject.getValue("payload").jsonObject.getValue("context").jsonObject
         val locked = context.copy(locked = true)
+        val watching = context.copy(watching = true)
 
-        for (ctx in listOf(context, locked)) {
-            val expected = ctx.locked.toString()
-            assertEquals(expected, contextOf(proto.utterance("what's next", ctx)).getValue("device_locked").jsonPrimitive.content)
-            assertEquals(expected, contextOf(proto.transcribe("t1", byteArrayOf(1), ctx)).getValue("device_locked").jsonPrimitive.content)
-            assertEquals(expected, contextOf(proto.synthesize("s1", "Hi.", ctx)).getValue("device_locked").jsonPrimitive.content)
-            val begin = contextOf(proto.bus("recognizer_loop:record_begin", JsonObject(emptyMap()), ctx))
-            assertEquals(expected, begin.getValue("device_locked").jsonPrimitive.content)
-            assertNull(begin.getValue("session").jsonObject["device_locked"])
+        for (ctx in listOf(context, locked, watching)) {
+            for (frames in listOf(
+                proto.utterance("what's next", ctx),
+                proto.transcribe("t1", byteArrayOf(1), ctx),
+                proto.synthesize("s1", "Hi.", ctx),
+                proto.bus("recognizer_loop:record_begin", JsonObject(emptyMap()), ctx),
+            )) {
+                val sent = contextOf(frames)
+                assertEquals(ctx.locked.toString(), sent.getValue("device_locked").jsonPrimitive.content)
+                assertEquals(ctx.watching.toString(), sent.getValue("user_watching").jsonPrimitive.content)
+                val session = sent.getValue("session").jsonObject
+                assertNull(session["device_locked"])
+                assertNull(session["user_watching"])
+            }
         }
     }
 

@@ -24,6 +24,13 @@ data class SessionContext(
      * phone mustn't reach. Not a session field: OVOS's Session drops fields it doesn't know.
      */
     val locked: Boolean = false,
+    /**
+     * The user is looking at a Wiggins screen: the question comes from the assistant panel
+     * or the app, on an unlocked phone, and not over a car's or headset's hands-free link.
+     * Sent as [WATCHING_KEY], true or false, on every uplink; the hub then doesn't speak a
+     * confirmation whose result is on screen (WAGGLE.md "Watching").
+     */
+    val watching: Boolean = false,
 ) {
     /**
      * The phone's settings as OVOS session fields. No `location`: the hub replaces a
@@ -54,5 +61,8 @@ data class SessionContext(
     companion object {
         /** The message-context key for [locked]; see docs/hivemind-protocol.md §11.1. */
         const val LOCKED_KEY = "device_locked"
+
+        /** The message-context key for [watching]; see docs/hivemind-protocol.md §11.1. */
+        const val WATCHING_KEY = "user_watching"
     }
 }

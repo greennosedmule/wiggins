@@ -663,7 +663,12 @@ copy the context onwards. Wiggins sends `device_locked` (true or false) in
 every uplink's context. True marks a locked session over a car's or
 headset's hands-free link (SPEC "Locked, in the car"), so the hub can
 withhold what a locked phone mustn't reach. The key is always present, so a
-hub can treat a Wiggins message without it as locked.
+hub can treat a Wiggins message without it as locked. Likewise `user_watching`
+(true or false): true when the question comes from a Wiggins screen the user is
+looking at (an unlocked phone, not a hands-free car or headset), so the hub
+can leave unsaid what the screen already shows (WAGGLE.md "Watching").
+`device_locked` was seen arriving through a real hub's listener on 2026-10-14,
+in ovos-core's persona log; `user_watching` travels the same way.
 
 ### 11.2 Peer id
 
