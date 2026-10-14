@@ -138,6 +138,16 @@ class HandsFree(private val context: Context) {
         if (target != null && permitted()) runCatching { headset?.stopVoiceRecognition(target) }
     }
 
+    /**
+     * The Bluetooth address the call audio goes to now, or null if the link isn't open or
+     * Android doesn't say: what a trusted-device session checks its audio against.
+     */
+    fun routedAddress(): String? {
+        if (!isOpen) return null
+        val device = audio.communicationDevice?.takeIf { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO } ?: return null
+        return device.address.takeIf { it.isNotEmpty() }
+    }
+
     /** The devices and attributes to use now: the link's while it's open, the usual ones otherwise. */
     fun route(): SpeechRoute {
         if (!isOpen) return SpeechRoute.DEFAULT

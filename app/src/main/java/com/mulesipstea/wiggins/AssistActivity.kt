@@ -21,6 +21,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.mulesipstea.wiggins.settings.PhoneContext
 import com.mulesipstea.wiggins.speech.Prerequisites
 import com.mulesipstea.wiggins.ui.AssistPanel
 import com.mulesipstea.wiggins.ui.Banner
@@ -46,8 +47,8 @@ import kotlinx.coroutines.launch
  * over the lock screen, holding nothing from the conversation, then the panel closes and
  * whatever it covered, such as a ringing alarm's screen, comes back.
  *
- * The exception is a voice button on a car or headset when the user's "When locked"
- * setting allows it (SPEC "Locked, in the car"): then a locked session runs over the
+ * The exception is a car's or headset's own voice button, never the gesture, when the
+ * device is trusted or other headsets may talk (SPEC "Permissions"): then a locked session runs over the
  * lock screen, through the hands-free link only, showing nothing from the conversation,
  * and the panel closes when the link does.
  */
@@ -197,9 +198,11 @@ class AssistActivity : ComponentActivity() {
                 if (keyguard.isKeyguardLocked && !lockedSession) {
                     deciding = true
                     lifecycleScope.launch {
-                        val locked = !fromKeyboard && assistant.mayRunLocked()
+                        // Only a car's or headset's own button can run locked, never the gesture.
+                        val voiceButton = intent.action == Intent.ACTION_VOICE_COMMAND
+                        val locked = if (fromKeyboard) null else assistant.lockedContextFor(voiceButton)
                         deciding = false
-                        if (locked) runLocked() else unlockThen { viewModel.onAssistInvoked(fromKeyboard) }
+                        if (locked != null) runLocked(locked) else unlockThen { viewModel.onAssistInvoked(fromKeyboard) }
                     }
                 } else {
                     viewModel.onAssistInvoked(fromKeyboard)
@@ -214,9 +217,9 @@ class AssistActivity : ComponentActivity() {
      * It ends when the hands-free link closes, or falls back to the unlock prompt if the
      * link doesn't come up.
      */
-    private fun runLocked() {
+    private fun runLocked(context: PhoneContext) {
         lockedSession = true
-        assistant.startLockedSession()
+        assistant.startLockedSession(context)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

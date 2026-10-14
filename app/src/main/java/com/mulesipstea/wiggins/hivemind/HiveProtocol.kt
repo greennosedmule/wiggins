@@ -194,6 +194,11 @@ class HiveProtocol(
                 put(SessionContext.LOCKED_KEY, context.locked)
                 put(SessionContext.WATCHING_KEY, context.watching)
                 put(SessionContext.RAW_UTTERANCE_KEY, context.rawUtterance)
+                put(SessionContext.CONTEXT_KEY, context.phoneContext)
+                put(SessionContext.CAN_ASK_KEY, context.canAsk)
+                put(SessionContext.PHONE_ACTIONS_KEY, context.phoneActions)
+                put(SessionContext.HISTORY_KEY, context.personaHistory)
+                putJsonObject(SessionContext.TOOLS_KEY) {}
                 extraContext.forEach { (key, value) -> put(key, value) }
             }
         }

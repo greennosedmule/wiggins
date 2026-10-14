@@ -21,9 +21,11 @@ import com.mulesipstea.wiggins.net.ClientCertificateException
 import com.mulesipstea.wiggins.net.ClientCertificates
 import com.mulesipstea.wiggins.net.EntraSignIn
 import com.mulesipstea.wiggins.net.SignInException
+import com.mulesipstea.wiggins.settings.ActionSettings
 import com.mulesipstea.wiggins.settings.AuthMode
 import com.mulesipstea.wiggins.settings.HubSettings
 import com.mulesipstea.wiggins.settings.HubUrl
+import com.mulesipstea.wiggins.settings.PhoneContext
 import com.mulesipstea.wiggins.settings.SpeechMode
 import com.mulesipstea.wiggins.settings.SpeechSettings
 import com.mulesipstea.wiggins.speech.AudioOutput
@@ -98,7 +100,7 @@ class Assistant(private val app: WigginsApp) {
     /** The hands-free link is up. */
     val linkOpen: StateFlow<Boolean> = _linkOpen.asStateFlow()
 
-    /** Which hands-free devices may carry a session on a locked phone (SPEC "Locked, in the car"). */
+    /** Which hands-free devices may carry a session on a locked phone (SPEC "Permissions"). */
     private val lockedSessions get() = app.lockedSessions
 
     /**
@@ -123,7 +125,7 @@ class Assistant(private val app: WigginsApp) {
     val phoneActions = PhoneActions(
         app, scope, ActionDatabase.open(app), app.settings,
         isForeground = { foreground },
-        isLocked = { _locked.value },
+        phoneContext = { phoneContext() },
     )
     private val hubSpeaker = HubSpeaker(
         scope,
@@ -136,6 +138,9 @@ class Assistant(private val app: WigginsApp) {
     /** Tells the hub when a reply is being read aloud, which skills speaking with wait=True wait for. */
     private val audioOutput = AudioOutput { type -> client.sendBus(type, sessionContext()) }
     private val saved = ConversationStore(File(app.filesDir, "conversation.json"), scope)
+
+    /** Where phone actions run, for the flags every message carries. */
+    private val actionSettings = app.settings.actions.stateIn(scope, SharingStarted.Eagerly, ActionSettings())
 
     /** The assistant panel's conversation while it's open; it lives only in memory. */
     private var panel: ConversationStore? = null
@@ -1003,25 +1008,31 @@ class Assistant(private val app: WigginsApp) {
     }
 
     /**
-     * Whether a voice invocation on the locked phone may run as a locked session now: hub
-     * speech-to-text (the user's recognizer can't show over the lock screen), the hands-free
-     * setting on, a hands-free device connected, and the user's "When locked" choice
-     * allowing it for that device (SPEC "Locked, in the car").
+     * What a voice invocation on the locked phone may run as, or null to ask for the unlock
+     * (SPEC "Permissions"). It needs hub speech-to-text (the user's recognizer can't show
+     * over the lock screen), the hands-free setting on and a hands-free device connected;
+     * then [LockedSessions] decides. [voiceButton]: a device's voice button, not the gesture.
      */
-    suspend fun mayRunLocked(): Boolean {
+    suspend fun lockedContextFor(voiceButton: Boolean): PhoneContext? {
         // From storage, not [speech]: in a process the car's button just started, that
         // still holds the defaults.
         val s = app.settings.speech.first()
-        if (!s.handsFree || s.sttMode != SpeechMode.HUB) return false
-        val device = handsFree.connectedAddress()
-        return lockedSessions.allows(s.whenLocked, s.trustedDevices, device).also {
-            Log.i(TAG, "locked invocation: ${s.whenLocked}, device ${if (device == null) "none" else "connected"}, runs locked: $it")
+        if (!s.handsFree || s.sttMode != SpeechMode.HUB) return null
+        val connected = handsFree.connectedAddresses()
+        decidedTrust = s.trustedDevices
+        return lockedSessions.contextFor(voiceButton, connected, s.trustedDevices, s.unlockPerDrive, s.otherHeadsets).also {
+            Log.i(TAG, "locked invocation: voice button $voiceButton, ${connected.size} device(s) connected, " +
+                "${connected.count { d -> d in s.trustedDevices }} trusted: runs ${it?.wire ?: "after the unlock"}")
         }
     }
 
-    /** The panel is starting a locked session. */
-    fun startLockedSession() {
+    /** The panel is starting a locked session, as [context]. */
+    fun startLockedSession(context: PhoneContext) {
         _unlockRequests.tryReceive() // A stale request from an earlier session mustn't end this one.
+        // The devices the decision was made with, read from storage: in a process the car's
+        // button just started, [speech] may still hold the defaults.
+        lockedSessions.start(context, decidedTrust)
+        loggedUntrustedRoute = false
         _locked.value = true
     }
 
@@ -1031,6 +1042,7 @@ class Assistant(private val app: WigginsApp) {
      */
     fun endLockedSession() {
         _locked.value = false
+        lockedSessions.end()
     }
 
     /**
@@ -1047,8 +1059,37 @@ class Assistant(private val app: WigginsApp) {
         }
     }
 
+    /**
+     * Where the phone is now (SPEC "Permissions"), checked on every message: a trusted
+     * session whose audio no longer goes to a trusted device, or that an untrusted device
+     * joined, is a locked one from then on.
+     */
+    private fun phoneContext(): PhoneContext {
+        val keyguardLocked = app.getSystemService(KeyguardManager::class.java).isKeyguardLocked
+        if (!_locked.value) return if (keyguardLocked) PhoneContext.LOCKED else PhoneContext.UNLOCKED
+        val context = lockedSessions.current ?: PhoneContext.LOCKED
+        if (context == PhoneContext.TRUSTED_DEVICE) {
+            val routed = handsFree.routedAddress()
+            if (routed !in lockedSessions.trusted) {
+                // Said once per session: why a trusted device's session runs as locked.
+                if (!loggedUntrustedRoute) {
+                    loggedUntrustedRoute = true
+                    Log.w(TAG, "trusted session runs as locked: the call audio goes to ${if (routed == null) "no Bluetooth device Android names" else "an untrusted device"}")
+                }
+                return PhoneContext.LOCKED
+            }
+        }
+        return context
+    }
+
+    private var loggedUntrustedRoute = false
+
+    /** The trusted devices [lockedContextFor] decided with, for the session it starts. */
+    private var decidedTrust: Set<String> = emptySet()
+
     /** The phone's language, timezone, units and formats, so skills answer for the phone. */
     private fun sessionContext(): SessionContext {
+        val where = phoneContext()
         val locale = Locale.getDefault()
         val imperial = LocaleData.getMeasurementSystem(ULocale.forLocale(locale)) == LocaleData.MeasurementSystem.US
         val order = DateFormat.getDateFormatOrder(app).joinToString("") { it.uppercase() }
@@ -1058,10 +1099,13 @@ class Assistant(private val app: WigginsApp) {
             systemUnit = if (imperial) "imperial" else "metric",
             timeFormat = if (DateFormat.is24HourFormat(app)) "full" else "half",
             dateFormat = order.takeIf { it in setOf("MDY", "DMY", "YMD") } ?: "DMY",
-            locked = _locked.value,
-            watching = foreground && !_locked.value && !handsFree.isOpen &&
-                !app.getSystemService(KeyguardManager::class.java).isKeyguardLocked,
+            locked = where != PhoneContext.UNLOCKED,
+            watching = foreground && where == PhoneContext.UNLOCKED && !handsFree.isOpen,
             rawUtterance = speech.value.personaRawUtterance,
+            phoneContext = where.wire,
+            canAsk = where == PhoneContext.UNLOCKED,
+            phoneActions = where in actionSettings.value.contexts,
+            personaHistory = where.history,
         )
     }
 

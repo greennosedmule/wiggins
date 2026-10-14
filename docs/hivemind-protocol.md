@@ -661,9 +661,8 @@ the context it receives rather than replacing it, overwriting only `source`,
 3230 in 4.15.0a1, and 3811 and 3875 in 5.3.3a1, where the utterance
 transformers also merge into it), and OVOS's `Message.reply` and `forward`
 copy the context onwards. Wiggins sends `device_locked` (true or false) in
-every uplink's context. True marks a locked session over a car's or
-headset's hands-free link (SPEC "Locked, in the car"), so the hub can
-withhold what a locked phone mustn't reach. The key is always present, so a
+every uplink's context: true unless the phone is unlocked (SPEC "Permissions"),
+so the hub can withhold what a locked phone mustn't reach. The key is always present, so a
 hub can treat a Wiggins message without it as locked. Likewise `user_watching`
 (true or false): true when the question comes from a Wiggins screen the user is
 looking at (an unlocked phone, not a hands-free car or headset), so the hub
@@ -673,6 +672,18 @@ default): true asks the hub to give a persona the utterance exactly as sent,
 before OVOS's normalizer expands contractions and drops the final "?"; false
 gives it the normalized text, as skills always get. A hub without the feature
 ignores it; one with it treats a missing or non-boolean value as true.
+
+From 0.7.0, the permissions (SPEC "Permissions"), all always present:
+
+| Key | Values | Meaning |
+|---|---|---|
+| `phone_context` | `unlocked`, `trusted_device`, `locked` | Where the phone is. A hub treats anything else as `locked`. |
+| `can_ask` | bool | The user can answer an ask card now (unlocked only). Waggle treats ask rules as block when false. |
+| `phone_actions` | bool | Phone actions run here at all. Waggle steps aside when false. |
+| `persona_history` | `full`, `since_lock` | How much of the conversation the persona may see. The hub may narrow it. |
+| `persona_tools` | object | Per tool server, `"all"`, `"none"` or a list of tool names: what the user allows here. Empty until Wiggins reads the hub's catalog, which leaves the hub's per-context defaults. |
+
+None of these widen what the hub allows a client; they only narrow it.
 Both were seen arriving through a real hub on 2026-10-14:
 - `device_locked` through 4.15.0a1, in ovos-core's persona log (`False` from
   the phone, `None` from a client that doesn't send it);

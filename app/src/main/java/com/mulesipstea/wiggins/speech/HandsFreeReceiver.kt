@@ -10,9 +10,10 @@ import android.content.Intent
 import com.mulesipstea.wiggins.WigginsApp
 
 /**
- * Follows hands-free connections for [LockedSessions] (SPEC "Locked, in the car"): a
- * device that disconnects is disarmed, and one that connects while the phone is unlocked
- * is armed, since the user has the phone unlocked during this connection. Declared in the
+ * Follows hands-free connections for [LockedSessions] (SPEC "Permissions"): a device that
+ * disconnects is disarmed, one that connects while the phone is unlocked is armed, since
+ * the user has the phone unlocked during this connection, and one that connects while it's
+ * locked can end a trusted session's trust. Declared in the
  * manifest so the broadcast arrives when it's sent; see the manifest's comment.
  */
 class HandsFreeReceiver : BroadcastReceiver() {
@@ -25,6 +26,8 @@ class HandsFreeReceiver : BroadcastReceiver() {
             BluetoothProfile.STATE_CONNECTED ->
                 if (!context.getSystemService(KeyguardManager::class.java).isKeyguardLocked) {
                     sessions.onUnlocked(listOf(device.address))
+                } else {
+                    sessions.onConnectedLocked(device.address)
                 }
         }
     }

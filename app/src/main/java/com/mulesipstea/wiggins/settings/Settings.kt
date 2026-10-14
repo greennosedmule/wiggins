@@ -42,10 +42,15 @@ data class SpeechSettings(
      * Bluetooth permission.
      */
     val handsFree: Boolean = false,
-    /** Whether a car's or headset's voice button works on a locked phone (SPEC "Locked, in the car"). */
-    val whenLocked: WhenLocked = WhenLocked.ASK_UNLOCK,
-    /** Bluetooth addresses of the hands-free devices trusted for [WhenLocked.TRUSTED_CAR]. */
+    /**
+     * Bluetooth addresses of the trusted hands-free devices (SPEC "Permissions"): their voice
+     * button runs a [PhoneContext.TRUSTED_DEVICE] session on a locked phone.
+     */
     val trustedDevices: Set<String> = emptySet(),
+    /** A trusted device works locked only after an unlock while it's connected, until it disconnects. */
+    val unlockPerDrive: Boolean = false,
+    /** What any other headset's voice button does on a locked phone. */
+    val otherHeadsets: OtherHeadsets = OtherHeadsets.ASK_UNLOCK,
     /**
      * Ask the hub to give a persona the user's exact words rather than the normalized text
      * skills match on (`persona_raw_utterance`, `docs/hivemind-protocol.md` §11.1). On by default.
@@ -71,32 +76,19 @@ enum class ListeningTone {
     fun shouldPlay(onBluetooth: Boolean) = this == ALWAYS || (this == BLUETOOTH && onBluetooth)
 }
 
-/**
- * What a voice session over the hands-free link does on a locked phone (SPEC "Locked, in
- * the car"). A locked session listens and speaks through the link only: it shows no
- * conversation, runs no phone actions, and tells the hub the phone is locked.
- */
-enum class WhenLocked {
-    /** Ask for the unlock first, as when Wiggins is invoked on the phone itself. */
-    ASK_UNLOCK,
-
-    /**
-     * Only through a trusted device, and only once the phone has been unlocked while
-     * connected to it; that lasts until it disconnects.
-     */
-    TRUSTED_CAR,
-
-    /** Through any connected hands-free device. */
-    ALWAYS,
-}
-
 /** Waggle settings besides the rules (SPEC "Phone actions (Waggle)"). */
 data class ActionSettings(
     /** What happens to an intent no rule matches: block (the default) or ask. */
     val unmatched: Mode = Mode.BLOCK,
     /** The queries the user has enabled; all are off until enabled. */
     val queries: Set<String> = emptySet(),
-)
+    /** Where phone actions run at all (SPEC "Permissions"): unlocked and through a trusted device, until changed. */
+    val contexts: Set<PhoneContext> = DEFAULT_CONTEXTS,
+) {
+    companion object {
+        val DEFAULT_CONTEXTS = setOf(PhoneContext.UNLOCKED, PhoneContext.TRUSTED_DEVICE)
+    }
+}
 
 /** How the connection to the hub's reverse proxy is authenticated (SPEC "Security requirements"). */
 enum class AuthMode {
@@ -174,6 +166,16 @@ class SettingsRepository(private val context: Context) {
     }
 
     val speech: Flow<SpeechSettings> = context.dataStore.data.map {
+        // Settings saved before 0.7.0 have only the old "When the phone is locked" choice.
+        val locked = if (it[OTHER_HEADSETS] == null) {
+            LegacyWhenLocked.migrate(it[WHEN_LOCKED], it[TRUSTED_DEVICES].orEmpty())
+        } else {
+            Triple(
+                it[TRUSTED_DEVICES].orEmpty(),
+                it[UNLOCK_PER_DRIVE] ?: false,
+                runCatching { OtherHeadsets.valueOf(it[OTHER_HEADSETS]!!) }.getOrDefault(OtherHeadsets.ASK_UNLOCK),
+            )
+        }
         SpeechSettings(
             stt = it[STT_MODE]?.let { m -> runCatching { SpeechMode.valueOf(m) }.getOrNull() },
             tts = it[TTS_MODE]?.let { m -> runCatching { SpeechMode.valueOf(m) }.getOrNull() },
@@ -181,8 +183,9 @@ class SettingsRepository(private val context: Context) {
             hubSpeechAvailable = it[HUB_SPEECH_AVAILABLE],
             handsFree = it[HANDS_FREE] ?: false,
             listeningTone = it[LISTENING_TONE]?.let { t -> runCatching { ListeningTone.valueOf(t) }.getOrNull() } ?: ListeningTone.BLUETOOTH,
-            whenLocked = it[WHEN_LOCKED]?.let { w -> runCatching { WhenLocked.valueOf(w) }.getOrNull() } ?: WhenLocked.ASK_UNLOCK,
-            trustedDevices = it[TRUSTED_DEVICES] ?: emptySet(),
+            trustedDevices = locked.first,
+            unlockPerDrive = locked.second,
+            otherHeadsets = locked.third,
             personaRawUtterance = it[PERSONA_RAW_UTTERANCE] ?: true,
         )
     }
@@ -195,8 +198,10 @@ class SettingsRepository(private val context: Context) {
             it.putOrRemove(HUB_SPEECH_AVAILABLE, speech.hubSpeechAvailable)
             it[LISTENING_TONE] = speech.listeningTone.name
             it[HANDS_FREE] = speech.handsFree
-            it[WHEN_LOCKED] = speech.whenLocked.name
+            it.remove(WHEN_LOCKED)
             it[TRUSTED_DEVICES] = speech.trustedDevices
+            it[UNLOCK_PER_DRIVE] = speech.unlockPerDrive
+            it[OTHER_HEADSETS] = speech.otherHeadsets.name
             it[PERSONA_RAW_UTTERANCE] = speech.personaRawUtterance
         }
     }
@@ -223,7 +228,17 @@ class SettingsRepository(private val context: Context) {
         ActionSettings(
             unmatched = Mode.fromWire(it[UNMATCHED])?.takeIf { m -> m != Mode.RUN } ?: Mode.BLOCK,
             queries = it[QUERIES].orEmpty(),
+            contexts = it[ACTION_CONTEXTS]?.mapNotNull { c -> PhoneContext.entries.firstOrNull { e -> e.wire == c } }?.toSet()
+                ?: ActionSettings.DEFAULT_CONTEXTS,
         )
+    }
+
+    /** Whether phone actions run in [where] (SPEC "Permissions"). */
+    suspend fun setActionsIn(where: PhoneContext, on: Boolean) {
+        context.dataStore.edit {
+            val now = it[ACTION_CONTEXTS]?.toSet() ?: ActionSettings.DEFAULT_CONTEXTS.map { c -> c.wire }.toSet()
+            it[ACTION_CONTEXTS] = if (on) now + where.wire else now - where.wire
+        }
     }
 
     suspend fun setUnmatched(mode: Mode) {
@@ -324,7 +339,11 @@ class SettingsRepository(private val context: Context) {
         val HUB_SPEECH_AVAILABLE = booleanPreferencesKey("hub_speech_available")
         val LISTENING_TONE = stringPreferencesKey("listening_tone")
         val HANDS_FREE = booleanPreferencesKey("hands_free")
+        /** Before 0.7.0: ask to unlock, trusted car or always. Read once, for the migration. */
         val WHEN_LOCKED = stringPreferencesKey("hands_free_when_locked")
+        val UNLOCK_PER_DRIVE = booleanPreferencesKey("hands_free_unlock_per_drive")
+        val OTHER_HEADSETS = stringPreferencesKey("hands_free_other_headsets")
+        val ACTION_CONTEXTS = stringSetPreferencesKey("waggle_contexts")
         val TRUSTED_DEVICES = stringSetPreferencesKey("hands_free_trusted")
         val UNMATCHED = stringPreferencesKey("waggle_unmatched")
         val QUERIES = stringSetPreferencesKey("waggle_queries")

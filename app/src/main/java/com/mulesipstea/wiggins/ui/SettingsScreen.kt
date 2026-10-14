@@ -1,57 +1,57 @@
 package com.mulesipstea.wiggins.ui
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
-import androidx.compose.material3.Checkbox
-import androidx.compose.ui.platform.LocalContext
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.compose.rememberLauncherForActivityResult
 import android.content.pm.PackageManager
-import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -60,9 +60,9 @@ import com.mulesipstea.wiggins.settings.AuthMode
 import com.mulesipstea.wiggins.settings.HubSettings
 import com.mulesipstea.wiggins.settings.HubUrl
 import com.mulesipstea.wiggins.settings.ListeningTone
+import com.mulesipstea.wiggins.settings.OtherHeadsets
 import com.mulesipstea.wiggins.settings.SpeechMode
 import com.mulesipstea.wiggins.settings.SpeechSettings
-import com.mulesipstea.wiggins.settings.WhenLocked
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -191,12 +191,9 @@ fun SettingsScreen(
                 ListeningToneChoice(speech.listeningTone) { speech = speech.copy(listeningTone = it) }
                 HandsFreeSwitch(speech.handsFree) { speech = speech.copy(handsFree = it) }
                 if (speech.handsFree) {
-                    WhenLockedChoice(
-                        selected = speech.whenLocked,
-                        trusted = speech.trustedDevices,
-                        hubStt = speech.sttMode == SpeechMode.HUB,
-                        onSelect = { speech = speech.copy(whenLocked = it) },
-                        onTrustedChange = { speech = speech.copy(trustedDevices = it) },
+                    LockedChoices(
+                        speech = speech,
+                        onChange = { speech = it },
                     )
                 }
             }
@@ -352,76 +349,81 @@ private fun HandsFreeSwitch(on: Boolean, onChange: (Boolean) -> Unit) {
  * car"), and for "Trusted car", which paired devices are trusted.
  */
 @SuppressLint("MissingPermission")
+/**
+ * Which cars and headsets work on a locked phone (SPEC "Permissions"): the trusted ones,
+ * with an optional unlock once per drive, and what any other headset's button does.
+ */
 @Composable
-private fun WhenLockedChoice(
-    selected: WhenLocked,
-    trusted: Set<String>,
-    hubStt: Boolean,
-    onSelect: (WhenLocked) -> Unit,
-    onTrustedChange: (Set<String>) -> Unit,
-) {
+private fun LockedChoices(speech: SpeechSettings, onChange: (SpeechSettings) -> Unit) {
     val context = LocalContext.current
-    val choices = listOf(WhenLocked.ASK_UNLOCK to "Ask to unlock", WhenLocked.TRUSTED_CAR to "Trusted car", WhenLocked.ALWAYS to "Always")
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("When the phone is locked", style = MaterialTheme.typography.bodyLarge)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            choices.forEachIndexed { i, (value, label) ->
-                SegmentedButton(
-                    selected = value == selected,
-                    onClick = { onSelect(value) },
-                    shape = SegmentedButtonDefaults.itemShape(i, choices.size),
-                ) { Text(label, maxLines = 1) }
-            }
-        }
+        Text("Trusted devices", style = MaterialTheme.typography.bodyLarge)
         Text(
-            when (selected) {
-                WhenLocked.ASK_UNLOCK -> "The voice button asks for the unlock first, like the assist gesture."
-                WhenLocked.TRUSTED_CAR ->
-                    "Unlock once while connected to a trusted car; until it disconnects, its voice button works " +
-                        "while the phone is locked. Phone actions and the conversation still need the unlock, " +
-                        "and the hub is told the phone is locked."
-                WhenLocked.ALWAYS ->
-                    "Any car or headset's voice button works while the phone is locked, so anyone holding it " +
-                        "with a headset can talk to the hub. Phone actions and the conversation still need the unlock."
-            },
+            "A trusted car or headset's voice button works while the phone is locked, as long as no other " +
+                "hands-free device is connected. Anyone with it can then use what you allow for trusted devices " +
+                "(Phone actions › Where they run).",
             style = MaterialTheme.typography.bodySmall,
         )
-        if (selected != WhenLocked.ASK_UNLOCK && !hubStt) {
+        if (speech.sttMode != SpeechMode.HUB) {
             Text(
                 "Needs hub speech to text: the phone's recognizer can't listen over the lock screen.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
         }
-        if (selected == WhenLocked.TRUSTED_CAR) {
-            val paired = remember {
-                runCatching {
-                    context.getSystemService(BluetoothManager::class.java)?.adapter?.bondedDevices.orEmpty()
-                        .map { (it.name ?: it.address) to it.address }
-                        .sortedBy { it.first.lowercase() }
-                }.getOrDefault(emptyList())
-            }
-            if (paired.isEmpty()) {
-                Text("No paired Bluetooth devices.", style = MaterialTheme.typography.bodySmall)
-            }
-            paired.forEach { (name, address) ->
-                val on = address in trusted
-                Row(
-                    Modifier.fillMaxWidth().toggleable(
-                        value = on,
-                        role = Role.Checkbox,
-                        onValueChange = { onTrustedChange(if (it) trusted + address else trusted - address) },
-                    ),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(checked = on, onCheckedChange = null)
-                    Column(Modifier.padding(start = 8.dp)) {
-                        Text(name, style = MaterialTheme.typography.bodyMedium)
-                        Text(address, style = MaterialTheme.typography.bodySmall)
-                    }
+        val paired = remember {
+            runCatching {
+                context.getSystemService(BluetoothManager::class.java)?.adapter?.bondedDevices.orEmpty()
+                    .map { (it.name ?: it.address) to it.address }
+                    .sortedBy { it.first.lowercase() }
+            }.getOrDefault(emptyList())
+        }
+        if (paired.isEmpty()) {
+            Text("No paired Bluetooth devices.", style = MaterialTheme.typography.bodySmall)
+        }
+        val trusted = speech.trustedDevices
+        paired.forEach { (name, address) ->
+            val on = address in trusted
+            Row(
+                Modifier.fillMaxWidth().toggleable(
+                    value = on,
+                    role = Role.Checkbox,
+                    onValueChange = { onChange(speech.copy(trustedDevices = if (it) trusted + address else trusted - address)) },
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = on, onCheckedChange = null)
+                Column(Modifier.padding(start = 8.dp)) {
+                    Text(name, style = MaterialTheme.typography.bodyMedium)
+                    Text(address, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
+        SwitchRow(
+            "Unlock once per drive",
+            "A trusted device works locked only after you've unlocked the phone while it was connected, until it disconnects.",
+            speech.unlockPerDrive,
+        ) { onChange(speech.copy(unlockPerDrive = it)) }
+        Text("Other headsets", style = MaterialTheme.typography.bodyLarge)
+        val choices = listOf(OtherHeadsets.ASK_UNLOCK to "Ask to unlock", OtherHeadsets.TALK_ONLY to "Talk only")
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            choices.forEachIndexed { i, (value, label) ->
+                SegmentedButton(
+                    selected = value == speech.otherHeadsets,
+                    onClick = { onChange(speech.copy(otherHeadsets = value)) },
+                    shape = SegmentedButtonDefaults.itemShape(i, choices.size),
+                ) { Text(label, maxLines = 1) }
+            }
+        }
+        Text(
+            when (speech.otherHeadsets) {
+                OtherHeadsets.ASK_UNLOCK -> "Any other headset's voice button asks for the unlock first, like the assist gesture."
+                OtherHeadsets.TALK_ONLY ->
+                    "Any other headset's voice button works while the phone is locked, with what you allow when locked: " +
+                        "by default no phone actions, and the hub's persona sees only what's said since."
+            },
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 

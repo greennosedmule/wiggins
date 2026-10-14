@@ -67,7 +67,7 @@ internal fun LockedHint(onUnlock: () -> Unit, onClose: () -> Unit) {
 
 /**
  * Shown over the lock screen during a locked session over a car's or headset's hands-free
- * link (SPEC "Locked, in the car"). Like [LockedHint], it holds nothing from the
+ * link (SPEC "Permissions"). Like [LockedHint], it holds nothing from the
  * conversation: only what Wiggins is doing, a way to unlock and see the conversation,
  * and a way to end it.
  */

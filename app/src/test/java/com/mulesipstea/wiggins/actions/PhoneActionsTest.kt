@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.mulesipstea.wiggins.settings.PhoneContext
 import com.mulesipstea.wiggins.settings.SettingsRepository
 import com.mulesipstea.wiggins.waggle.ErrorCode
 import com.mulesipstea.wiggins.waggle.Mode
@@ -41,11 +42,11 @@ class PhoneActionsTest {
     private lateinit var actions: PhoneActions
     private val settings = SettingsRepository(app)
     private var foreground = true
-    private var locked = false
+    private var where = PhoneContext.UNLOCKED
 
     @Before fun setUp() {
         db = ActionDatabase.open(app, name = null)
-        actions = PhoneActions(app, scope, db, settings, isForeground = { foreground }, isLocked = { locked })
+        actions = PhoneActions(app, scope, db, settings, isForeground = { foreground }, phoneContext = { where })
         // An alarm clock and a dialer the intents can resolve to.
         handle("android.intent.action.SET_ALARM", "com.example.clock", "Alarm")
         handle("android.intent.action.SET_TIMER", "com.example.clock", "Timer")
@@ -53,7 +54,11 @@ class PhoneActionsTest {
         handle("android.intent.action.DISMISS_ALARM", "com.example.clock", "DismissAlarm")
         handle("android.intent.action.DIAL", "com.example.dialer", "Dial", scheme = "tel")
         handle("org.example.NO_RULE", "com.example.other", "Other")
-        runBlocking { settings.setUnmatched(Mode.BLOCK); Queries().forEach { settings.setQueryEnabled(it, false) } }
+        runBlocking {
+            settings.setUnmatched(Mode.BLOCK)
+            Queries().forEach { settings.setQueryEnabled(it, false) }
+            PhoneContext.entries.forEach { settings.setActionsIn(it, it != PhoneContext.LOCKED) }
+        }
     }
 
     @After fun tearDown() {
@@ -160,19 +165,37 @@ class PhoneActionsTest {
         assertEquals(ErrorCode.UNSUPPORTED_VERSION, actions.onIntent(json("""{"id":"9","version":2,"action":"android.intent.action.SET_ALARM"}"""))?.error)
     }
 
-    /** A locked voice session (SPEC "Locked, in the car") runs nothing: no run rule, no ask, no query. */
-    @Test fun aLockedSessionRefusesIntentsAndQueries() = runBlocking {
-        locked = true
-        settings.setQueryEnabled("apps.list", true)
-        assertEquals(ErrorCode.BLOCKED, actions.onIntent(intent("l1", "android.intent.action.SET_TIMER"))?.error)
-        val dial = actions.onIntent(intent("l2", "android.intent.action.DIAL", ""","data":"tel:+15555550100""""))
+    /** Through a trusted device (SPEC "Permissions"): allow rules run, ask rules are refused without an ask card. */
+    @Test fun aTrustedDeviceRunsAllowRulesButNeverAsks() = runBlocking {
+        where = PhoneContext.TRUSTED_DEVICE
+        assertEquals(true, actions.onIntent(intent("t1", "android.intent.action.SET_TIMER"))?.ok)
+        assertEquals("android.intent.action.SET_TIMER", nextStarted()?.action)
+        val dial = actions.onIntent(intent("t2", "android.intent.action.DIAL", ""","data":"tel:+15555550100""""))
         assertEquals(ErrorCode.BLOCKED, dial?.error)
         assertTrue(actions.asks.value.isEmpty())
-        assertEquals(ErrorCode.BLOCKED, actions.onQuery(json("""{"id":"l3","name":"apps.list","params":{}}"""))?.error)
         assertNull(nextStarted())
-        assertEquals(listOf("blocked", "blocked", "blocked"), db.log().recent().first().map { it.outcome })
-        locked = false
-        assertEquals(true, actions.onQuery(json("""{"id":"l4","name":"apps.list","params":{}}"""))?.ok)
+    }
+
+    /** Locked otherwise, with phone actions off there by default: nothing runs, not even a query. */
+    @Test fun aLockedPhoneRunsNothingByDefault() = runBlocking {
+        where = PhoneContext.LOCKED
+        settings.setQueryEnabled("apps.list", true)
+        assertEquals(ErrorCode.BLOCKED, actions.onIntent(intent("l1", "android.intent.action.SET_TIMER"))?.error)
+        assertEquals(ErrorCode.BLOCKED, actions.onQuery(json("""{"id":"l2","name":"apps.list","params":{}}"""))?.error)
+        assertNull(nextStarted())
+        assertEquals(listOf("blocked", "blocked"), db.log().recent().first().map { it.outcome })
+        where = PhoneContext.UNLOCKED
+        assertEquals(true, actions.onQuery(json("""{"id":"l3","name":"apps.list","params":{}}"""))?.ok)
+    }
+
+    /** The user decides where phone actions run at all. */
+    @Test fun phoneActionsFollowTheUsersContexts() = runBlocking {
+        settings.setActionsIn(PhoneContext.UNLOCKED, false)
+        assertEquals(ErrorCode.BLOCKED, actions.onIntent(intent("c1", "android.intent.action.SET_TIMER"))?.error)
+        settings.setActionsIn(PhoneContext.UNLOCKED, true)
+        settings.setActionsIn(PhoneContext.LOCKED, true)
+        where = PhoneContext.LOCKED
+        assertEquals(true, actions.onIntent(intent("c2", "android.intent.action.SET_TIMER"))?.ok)
     }
 
     @Test fun queriesAreOffUntilEnabled() = runBlocking {

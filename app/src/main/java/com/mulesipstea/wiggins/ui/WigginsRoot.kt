@@ -125,6 +125,7 @@ fun WigginsRoot(viewModel: MainViewModel) {
                     onResetRules = { actions.resetRules() },
                     onUnmatchedChange = { actions.setUnmatched(it) },
                     onQueryEnabledChange = { name, on -> actions.setQueryEnabled(name, on) },
+                    onContextChange = { where, on -> actions.setActionsIn(where, on) },
                     onOpenLog = { screen = Screen.ACTION_LOG },
                     onBack = { screen = Screen.CHAT },
                 )

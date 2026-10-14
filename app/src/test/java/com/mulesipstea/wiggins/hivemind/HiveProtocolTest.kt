@@ -212,7 +212,7 @@ class HiveProtocolTest {
     }
 
     /**
-     * Every uplink says whether the phone is locked (SPEC "Locked, in the car") and whether
+     * Every uplink says whether the phone is locked (SPEC "Permissions") and whether
      * the user is watching the screen, as message-context fields rather than session ones,
      * which OVOS would drop.
      */
@@ -233,8 +233,10 @@ class HiveProtocolTest {
         val locked = context.copy(locked = true)
         val watching = context.copy(watching = true)
         val normalized = context.copy(rawUtterance = false)
+        val trusted = context.copy(locked = true, phoneContext = "trusted_device", canAsk = false, phoneActions = true)
+        val nightstand = context.copy(locked = true, phoneContext = "locked", canAsk = false, phoneActions = false, personaHistory = "since_lock")
 
-        for (ctx in listOf(context, locked, watching, normalized)) {
+        for (ctx in listOf(context, locked, watching, normalized, trusted, nightstand)) {
             for (frames in listOf(
                 proto.utterance("what's next", ctx),
                 proto.transcribe("t1", byteArrayOf(1), ctx),
@@ -245,10 +247,17 @@ class HiveProtocolTest {
                 assertEquals(ctx.locked.toString(), sent.getValue("device_locked").jsonPrimitive.content)
                 assertEquals(ctx.watching.toString(), sent.getValue("user_watching").jsonPrimitive.content)
                 assertEquals(ctx.rawUtterance.toString(), sent.getValue("persona_raw_utterance").jsonPrimitive.content)
+                assertEquals(ctx.phoneContext, sent.getValue("phone_context").jsonPrimitive.content)
+                assertEquals(ctx.canAsk.toString(), sent.getValue("can_ask").jsonPrimitive.content)
+                assertEquals(ctx.phoneActions.toString(), sent.getValue("phone_actions").jsonPrimitive.content)
+                assertEquals(ctx.personaHistory, sent.getValue("persona_history").jsonPrimitive.content)
+                // Until the hub's tool catalog is read: always a dict, so a hub applies its own defaults.
+                assertEquals(JsonObject(emptyMap()), sent.getValue("persona_tools"))
                 val session = sent.getValue("session").jsonObject
                 assertNull(session["device_locked"])
                 assertNull(session["user_watching"])
                 assertNull(session["persona_raw_utterance"])
+                assertNull(session["phone_context"])
             }
         }
     }

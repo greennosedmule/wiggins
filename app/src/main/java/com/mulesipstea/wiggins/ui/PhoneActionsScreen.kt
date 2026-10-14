@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.mulesipstea.wiggins.actions.RuleEntity
 import com.mulesipstea.wiggins.settings.ActionSettings
+import com.mulesipstea.wiggins.settings.PhoneContext
 import com.mulesipstea.wiggins.waggle.Mode
 import com.mulesipstea.wiggins.waggle.Rule
 import com.mulesipstea.wiggins.waggle.queries.Queries
@@ -74,6 +75,7 @@ fun PhoneActionsScreen(
     onQueryEnabledChange: (String, Boolean) -> Unit,
     onOpenLog: () -> Unit,
     onBack: () -> Unit,
+    onContextChange: (PhoneContext, Boolean) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     var editing by remember { mutableStateOf<RuleEntity?>(null) }
@@ -98,7 +100,22 @@ fun PhoneActionsScreen(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Section("Rules", "What the hub may launch. Run starts it, Ask shows you first, Block refuses. The most specific matching rule wins.") {
+            Section("Where they run", "Phone actions happen only where they're on. Ask me needs the phone's screen, so it never runs on a locked phone.") {
+                CONTEXT_DETAILS.forEach { (where, detail) ->
+                    val on = where in settings.contexts
+                    Row(
+                        Modifier.fillMaxWidth().toggleable(value = on, role = Role.Switch, onValueChange = { onContextChange(where, it) }),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(where.label, style = MaterialTheme.typography.bodyLarge)
+                            Text(detail, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Switch(checked = on, onCheckedChange = null)
+                    }
+                }
+            }
+            Section("Rules", "What the hub may launch. Allow starts it, Ask me shows you first, Never refuses. The most specific matching rule wins.") {
                 rules.forEach { rule -> RuleRow(rule) { editing = rule } }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { editing = RuleEntity(action = "android.intent.action.", mode = Mode.ASK.wire) }) {
@@ -254,10 +271,17 @@ private fun ModeChoice(selected: Mode, choices: List<Mode>, onSelect: (Mode) -> 
 }
 
 private fun Mode.label() = when (this) {
-    Mode.RUN -> "Run"
-    Mode.ASK -> "Ask"
-    Mode.BLOCK -> "Block"
+    Mode.RUN -> "Allow"
+    Mode.ASK -> "Ask me"
+    Mode.BLOCK -> "Never"
 }
+
+/** The contexts, in order, with what each one is (SPEC "Permissions"). */
+private val CONTEXT_DETAILS = listOf(
+    PhoneContext.UNLOCKED to "The phone is unlocked.",
+    PhoneContext.TRUSTED_DEVICE to "Locked, through a trusted car's or headset's voice button. Allow rules run; Ask me rules don't.",
+    PhoneContext.LOCKED to "Locked otherwise, such as a talk-only headset. Allow rules run; Ask me rules don't.",
+)
 
 @Composable
 private fun Section(title: String, subtitle: String, content: @Composable () -> Unit) {

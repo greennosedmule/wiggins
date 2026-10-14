@@ -106,7 +106,7 @@
             </intent-filter>
         </activity>
         <!--
-            Follows hands-free connections for locked sessions (SPEC "Locked, in the car").
+            Follows hands-free connections for locked sessions (SPEC "Permissions").
             Declared here rather than at runtime: Android holds back broadcasts to a cached
             app's runtime receivers, and a late disconnect could let a reconnected car run
             locked without the unlock. Exported for the Bluetooth app's protected broadcast;

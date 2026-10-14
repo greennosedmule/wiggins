@@ -164,11 +164,13 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
   phone, `AssistActivity` asks for the unlock (`requestDismissKeyguard`) and listens
   afterwards; while it waits, being stopped behind the keyguard mustn't finish it. The
   Clock's invisible trampolines (`SNOOZE_ALARM`, `DISMISS_TIMER`) work under the keyguard.
-- **Locked sessions refuse every request** (SPEC "Locked, in the car"). A car's
-  voice button may run Wiggins over the lock screen when the user allows it; then
-  `PhoneActions` answers every intent and query `blocked`, since WAGGLE.md v1 has no
-  "locked" code. Arming a trusted car must never come from a late broadcast: the
-  connection receiver is in the manifest, and Android's unlock broadcast isn't used.
+- **Contexts decide what runs** (SPEC "Permissions"). Only a hands-free device's voice
+  button (`ACTION_VOICE_COMMAND`) runs a locked session, as trusted_device only when every
+  connected hands-free device is trusted. `PhoneActions` answers `blocked` where the
+  user has phone actions off, and for an `ask` rule anywhere but unlocked (no card), since
+  WAGGLE.md v1 has no "locked" code. Arming a trusted device must never come from a late
+  broadcast: the connection receiver is in the manifest, and Android's unlock broadcast
+  isn't used. Anything unsure fails closed: the unlock prompt, or the locked context.
 
 ## Contracts the hub relies on
 
@@ -185,8 +187,11 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
   - A `speak` that plays nothing gets an immediate end.
   - `speak(wait=True)` blocks the skill for up to 15 s waiting for that end, so never
     hold the end until `ovos.utterance.handled`.
-- **`device_locked`** in every uplink's message context, true only in a locked session.
-  Never omit it: the hub may treat a Wiggins message without it as locked.
+- **`device_locked`** in every uplink's message context, true unless the phone is
+  unlocked. Never omit it: the hub may treat a Wiggins message without it as locked.
+- **`phone_context`, `can_ask`, `phone_actions`, `persona_history` and
+  `persona_tools`** in every uplink's message context too (SPEC "Permissions"). An
+  older hub ignores them; a newer one narrows what it allows by them, never widens.
 - **`user_watching`** in every uplink's message context: true only from a visible Wiggins
   screen on an unlocked phone, not over a hands-free link. With true, the hub doesn't
   speak confirmations the screen shows (WAGGLE.md "Watching"), so a turn may end with

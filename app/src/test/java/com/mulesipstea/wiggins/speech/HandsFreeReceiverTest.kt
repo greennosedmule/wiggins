@@ -10,7 +10,9 @@ import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mulesipstea.wiggins.WigginsApp
-import com.mulesipstea.wiggins.settings.WhenLocked
+import com.mulesipstea.wiggins.settings.OtherHeadsets
+import com.mulesipstea.wiggins.settings.PhoneContext
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,7 +20,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
-/** Hands-free connections arm and disarm locked sessions (SPEC "Locked, in the car"). */
+/** Hands-free connections arm and disarm trusted devices, and can end a session's trust (SPEC "Permissions"). */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [36])
 class HandsFreeReceiverTest {
@@ -32,14 +34,16 @@ class HandsFreeReceiverTest {
         return adapter.getRemoteDevice(address)
     }
 
-    private fun broadcast(state: Int) = HandsFreeReceiver().onReceive(
+    private fun broadcast(state: Int, address: String = car) = HandsFreeReceiver().onReceive(
         app,
         Intent(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)
-            .putExtra(BluetoothDevice.EXTRA_DEVICE, device(car))
+            .putExtra(BluetoothDevice.EXTRA_DEVICE, device(address))
             .putExtra(BluetoothProfile.EXTRA_STATE, state),
     )
 
-    private fun allowed() = app.lockedSessions.allows(WhenLocked.TRUSTED_CAR, trusted, car)
+    /** With unlock once per drive: whether the car's button may run locked as a trusted device. */
+    private fun allowed() =
+        app.lockedSessions.contextFor(true, listOf(car), trusted, unlockPerDrive = true, OtherHeadsets.ASK_UNLOCK) == PhoneContext.TRUSTED_DEVICE
 
     @Test fun connectingWhileUnlockedArms() {
         keyguard.setKeyguardLocked(false)
@@ -61,5 +65,15 @@ class HandsFreeReceiverTest {
         broadcast(BluetoothProfile.STATE_DISCONNECTED)
         broadcast(BluetoothProfile.STATE_CONNECTED)
         assertFalse(allowed())
+    }
+
+    @Test fun anUntrustedDeviceConnectingEndsATrustedSessionsTrust() {
+        keyguard.setKeyguardLocked(true)
+        app.lockedSessions.start(PhoneContext.TRUSTED_DEVICE, trusted)
+        broadcast(BluetoothProfile.STATE_CONNECTED, car) // the car again: still trusted
+        assertEquals(PhoneContext.TRUSTED_DEVICE, app.lockedSessions.current)
+        broadcast(BluetoothProfile.STATE_CONNECTED, "00:11:22:33:44:55")
+        assertEquals(PhoneContext.LOCKED, app.lockedSessions.current)
+        app.lockedSessions.end()
     }
 }

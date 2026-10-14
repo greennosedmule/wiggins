@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.room.withTransaction
 import com.mulesipstea.wiggins.settings.ActionSettings
+import com.mulesipstea.wiggins.settings.PhoneContext
 import com.mulesipstea.wiggins.settings.SettingsRepository
 import com.mulesipstea.wiggins.waggle.Capabilities
 import com.mulesipstea.wiggins.waggle.ErrorCode
@@ -21,6 +22,9 @@ import com.mulesipstea.wiggins.waggle.WaggleException
 import com.mulesipstea.wiggins.waggle.WaggleResponse
 import com.mulesipstea.wiggins.waggle.queries.Queries
 import com.mulesipstea.wiggins.waggle.requestId
+import java.util.Locale
+import java.util.TimeZone
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -38,9 +42,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
-import java.util.Locale
-import java.util.TimeZone
-import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Runs the hub's Waggle requests within the user's rules (SPEC "Phone actions (Waggle)"):
@@ -58,11 +59,13 @@ class PhoneActions(
     /** Whether a Wiggins screen is visible; Android blocks activity launches from the background. */
     private val isForeground: () -> Boolean,
     /**
-     * Whether a locked voice session is running (SPEC "Locked, in the car"). It refuses every
-     * intent and query as `blocked`: WAGGLE.md v1 has no code for a locked phone, and no
-     * one could answer an ask card there anyway.
+     * Where the phone is now (SPEC "Permissions"). Where the user has phone actions off,
+     * every intent and query is refused as `blocked`. Only an unlocked phone shows ask
+     * cards: elsewhere an `ask` rule is refused as `blocked` too, since nobody should be
+     * tapping confirmations in a car. The hub is told both with every message, so these
+     * refusals are a backstop.
      */
-    private val isLocked: () -> Boolean = { false },
+    private val phoneContext: () -> PhoneContext = { PhoneContext.UNLOCKED },
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     /** A confirmation the user hasn't answered yet. */
@@ -119,11 +122,15 @@ class PhoneActions(
             return finish("intent", data, rawTitle(data), null, WaggleResponse.error(id, e.code, e.message))
         }
         val response = try {
-            refuseIfLocked()
+            val where = phoneContext()
             val s = settings.actions.first()
+            refuseIfOff(where, s)
             val decision = RuleMatcher.decide(db.rules().all().first().map { it.toRule() }, s.unmatched, request)
             rule = decision.rule
             if (decision.mode == Mode.BLOCK) throw WaggleException(ErrorCode.BLOCKED, if (rule == null) "No rule matches" else "A rule blocks it")
+            if (decision.mode == Mode.ASK && where != PhoneContext.UNLOCKED) {
+                throw WaggleException(ErrorCode.BLOCKED, "It needs a yes on the phone's screen, which isn't in use")
+            }
             // Built before asking, so a request that can't run never bothers the user.
             val intent = IntentBuilder.build(context, request)
             if (decision.mode == Mode.ASK) {
@@ -150,7 +157,7 @@ class PhoneActions(
             checkVersion(data)
             val request = QueryRequest.parse(data)
             name = request.name
-            refuseIfLocked()
+            refuseIfOff(phoneContext(), settings.actions.first())
             val query = Queries.named(request.name) ?: throw WaggleException(ErrorCode.BAD_REQUEST, "Unknown query ${request.name}")
             if (query.name !in settings.actions.first().queries) throw WaggleException(ErrorCode.BLOCKED, "${query.name} isn't enabled")
             WaggleResponse.ok(id, query.run(context, request.params))
@@ -185,6 +192,7 @@ class PhoneActions(
 
     fun setUnmatched(mode: Mode) = scope.launch { settings.setUnmatched(mode) }
     fun setQueryEnabled(name: String, enabled: Boolean) = scope.launch { settings.setQueryEnabled(name, enabled) }
+    fun setActionsIn(where: PhoneContext, on: Boolean) = scope.launch { settings.setActionsIn(where, on) }
     fun clearLog() = scope.launch { db.log().clear() }
 
     private suspend fun ask(request: IntentRequest, rule: Rule?, intent: Intent): Answer? {
@@ -209,8 +217,8 @@ class PhoneActions(
         return "${info.loadLabel(pm)} ($pkg)"
     }
 
-    private fun refuseIfLocked() {
-        if (isLocked()) throw WaggleException(ErrorCode.BLOCKED, "The phone is locked")
+    private fun refuseIfOff(where: PhoneContext, s: ActionSettings) {
+        if (where !in s.contexts) throw WaggleException(ErrorCode.BLOCKED, "Phone actions are off when ${where.label.lowercase()}")
     }
 
     private fun launch(intent: Intent) {
