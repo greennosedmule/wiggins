@@ -129,7 +129,8 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
 - The car path without a car: `tools/car/README.md`. `fake_car.py` pairs with the
   emulator over its virtual Bluetooth and presses the voice button; the SCO link it gets
   carries only silence, so audio still needs a real headset or car.
-- End to end without the real hub: a throwaway hivemind-core 4.15 and `ovos-messagebus`
+- End to end without the real hub: a throwaway hivemind-core (5.3.3a1, as the hub runs,
+  Noise only; or 4.15 for the password handshake) and `ovos-messagebus`
   (as in `docs/hivemind-protocol.md` §16.6, with every `XDG_*_HOME` set), a client
   granted the uplink types below, Wiggins pointed at `ws://10.0.2.2:<port>`, and Waggle's
   `waggle-fake-hub --script` on the same bus to send scripted requests. The fake hub
@@ -203,7 +204,8 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
     engine as noise; plugin 2.1.x, which wanted it, is no longer supported.
   - Never send `lang: "auto"`: the hub's STT client would then send the audio to a
     public language-detection server.
-- **Uplink types the hub must grant.** hivemind-core 4.15 grants none by default:
+- **Uplink types the hub must grant.** hivemind-core 4.15 and 5.x (checked in 5.3.3a1)
+  grant none by default:
   - `recognizer_loop:utterance`, `record_begin`, `record_end`, `audio_output_start`,
     `audio_output_end`, `b64_transcribe`;
   - `speak:b64_audio`;

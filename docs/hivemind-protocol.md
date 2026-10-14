@@ -655,10 +655,11 @@ release in use is **not verified** here.
 
 **Client facts go in the message context, not the session.** `Session.deserialize`
 keeps only the fields it knows, so anything else put in `context.session`
-never reaches a skill. Plain message-context keys do: hivemind-core 4.15
-updates the context it receives rather than replacing it, overwriting only
-`source`, `peer` and `destination` (`hivemind_core/protocol.py`, around
-lines 3170 and 3230 in 4.15.0a1), and OVOS's `Message.reply` and `forward`
+never reaches a skill. Plain message-context keys do: hivemind-core updates
+the context it receives rather than replacing it, overwriting only `source`,
+`peer` and `destination` (`hivemind_core/protocol.py`: around lines 3170 and
+3230 in 4.15.0a1, and 3811 and 3875 in 5.3.3a1, where the utterance
+transformers also merge into it), and OVOS's `Message.reply` and `forward`
 copy the context onwards. Wiggins sends `device_locked` (true or false) in
 every uplink's context. True marks a locked session over a car's or
 headset's hands-free link (SPEC "Locked, in the car"), so the hub can
@@ -667,8 +668,11 @@ hub can treat a Wiggins message without it as locked. Likewise `user_watching`
 (true or false): true when the question comes from a Wiggins screen the user is
 looking at (an unlocked phone, not a hands-free car or headset), so the hub
 can leave unsaid what the screen already shows (WAGGLE.md "Watching").
-`device_locked` was seen arriving through a real hub's listener on 2026-10-14,
-in ovos-core's persona log; `user_watching` travels the same way.
+Both were seen arriving through a real hub on 2026-10-14:
+- `device_locked` through 4.15.0a1, in ovos-core's persona log (`False` from
+  the phone, `None` from a client that doesn't send it);
+- `user_watching` through 5.3.3a1, when Waggle muted a "show my alarms" asked
+  from the panel.
 
 ### 11.2 Peer id
 
