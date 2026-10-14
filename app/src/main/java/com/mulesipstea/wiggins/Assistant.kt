@@ -180,6 +180,10 @@ class Assistant(private val app: WigginsApp) {
     /** Wiggins is recording an utterance for the hub's STT. */
     val listening: StateFlow<Boolean> = recorder.recording
 
+    /** Listening was asked for and is getting ready: the hands-free link, the tone. */
+    val startingToListen: StateFlow<Boolean> = combine(starting, listening) { s, l -> s && !l }
+        .stateIn(scope, SharingStarted.Eagerly, false)
+
     /** The microphone's level while [listening], 0 to 1. */
     val inputLevel: StateFlow<Float> = recorder.level
 

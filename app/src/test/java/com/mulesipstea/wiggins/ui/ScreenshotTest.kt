@@ -154,6 +154,29 @@ class ScreenshotTest {
         )
     }
 
+    /** The listening indicator (SPEC "Conversation screen"): getting ready, then listening in silence and aloud. */
+    private fun voice(name: String, dark: Boolean, listening: Boolean, level: Float = 0f, starting: Boolean = false) = shoot(name, dark) {
+        ChatScreen(
+            connection = ConnectionState.Connected("hub"),
+            transcript = conversation.take(2),
+            thinking = false, speaking = false, speakReplies = true, onStopSpeaking = {}, onSpeakRepliesChange = {},
+            banner = null, onSend = {}, onResend = {}, onClearConversation = {}, canListen = true, onListen = {},
+            onOpenSetup = {}, onOpenSettings = {}, onOpenMessages = {}, onOpenAbout = {},
+            listening = listening, level = level, startingToListen = starting,
+        )
+    }
+
+    @Test fun gettingReadyLight() = voice("getting-ready", false, listening = false, starting = true)
+    @Test fun gettingReadyDark() = voice("getting-ready", true, listening = false, starting = true)
+    @Test fun listeningQuietLight() = voice("listening-quiet", false, listening = true, level = 0f)
+    @Test fun listeningQuietDark() = voice("listening-quiet", true, listening = true, level = 0f)
+    @Test fun listeningLoudLight() = voice("listening-loud", false, listening = true, level = 0.8f)
+    @Test fun listeningLoudDark() = voice("listening-loud", true, listening = true, level = 0.8f)
+
+    @Test fun lockedSessionLight() = shoot("locked-session", false) {
+        LockedSessionPanel(listening = true, level = 0.6f, thinking = false, speaking = false, onUnlock = {}, onClose = {})
+    }
+
     @Test fun askLight() = shoot("ask", false) {
         ChatScreen(
             connection = ConnectionState.Connected("hub"),

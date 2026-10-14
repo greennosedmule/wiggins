@@ -61,6 +61,7 @@ fun AssistPanel(
     startVisible: Boolean = false,
     listening: Boolean = false,
     level: Float = 0f,
+    startingToListen: Boolean = false,
     onStopListening: () -> Unit = {},
     hint: String? = null,
     ask: PhoneActions.Ask? = null,
@@ -127,7 +128,7 @@ fun AssistPanel(
                         EmptyConversation(canListen, onAsk = onSend, compact = true)
                     }
                     ask?.let { a -> AskCard(a, onAnswer = { allow, always -> onAnswerAsk(a.key, allow, always) }) }
-                    InputRow(onSend, canListen, onListen, speaking, onStopSpeaking, listening, level, onStopListening, hint)
+                    InputRow(onSend, canListen, onListen, speaking, onStopSpeaking, listening, level, onStopListening, hint, startingToListen)
                 }
             }
         }

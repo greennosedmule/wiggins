@@ -98,8 +98,10 @@ class AssistActivity : ComponentActivity() {
                     val listening by assistant.listening.collectAsStateWithLifecycle()
                     val thinking by assistant.thinking.collectAsStateWithLifecycle()
                     val speaking by assistant.speaking.collectAsStateWithLifecycle()
+                    val level by assistant.inputLevel.collectAsStateWithLifecycle()
                     LockedSessionPanel(
                         listening = listening,
+                        level = level,
                         thinking = thinking,
                         speaking = speaking,
                         onUnlock = { unlockThen(::leaveLocked) },
@@ -117,6 +119,7 @@ class AssistActivity : ComponentActivity() {
                 val canListen by assistant.canListen.collectAsStateWithLifecycle()
                 val listening by assistant.listening.collectAsStateWithLifecycle()
                 val level by assistant.inputLevel.collectAsStateWithLifecycle()
+                val startingToListen by assistant.startingToListen.collectAsStateWithLifecycle()
                 val hint by assistant.hint.collectAsStateWithLifecycle()
                 val asks by assistant.phoneActions.asks.collectAsStateWithLifecycle()
                 AssistPanel(
@@ -143,6 +146,7 @@ class AssistActivity : ComponentActivity() {
                     onClosed = ::finish,
                     listening = listening,
                     level = level,
+                    startingToListen = startingToListen,
                     onStopListening = assistant::finishListening,
                     hint = hint,
                     ask = asks.firstOrNull(),

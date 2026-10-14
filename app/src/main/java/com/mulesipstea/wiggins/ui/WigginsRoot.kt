@@ -45,6 +45,7 @@ fun WigginsRoot(viewModel: MainViewModel) {
         val canListen by assistant.canListen.collectAsStateWithLifecycle()
         val listening by assistant.listening.collectAsStateWithLifecycle()
         val level by assistant.inputLevel.collectAsStateWithLifecycle()
+        val startingToListen by assistant.startingToListen.collectAsStateWithLifecycle()
         val hint by assistant.hint.collectAsStateWithLifecycle()
         val checkingHubSpeech by assistant.checkingHubSpeech.collectAsStateWithLifecycle()
         val actions = assistant.phoneActions
@@ -87,6 +88,7 @@ fun WigginsRoot(viewModel: MainViewModel) {
                     onListen = assistant::listen,
                     listening = listening,
                     level = level,
+                    startingToListen = startingToListen,
                     onStopListening = assistant::finishListening,
                     onCancelListening = assistant::cancelListening,
                     hint = hint,

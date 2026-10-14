@@ -1,5 +1,7 @@
 package com.mulesipstea.wiggins.ui
 
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -16,6 +18,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,7 +33,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,9 +55,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -207,8 +216,13 @@ internal fun InputRow(
     level: Float = 0f,
     onStopListening: () -> Unit = {},
     hint: String? = null,
+    /** Listening was asked for and is getting ready (the hands-free link, the tone). */
+    starting: Boolean = false,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
+    val view = LocalView.current
+    // A tick when the microphone actually opens, for a user who isn't looking.
+    LaunchedEffect(listening) { if (listening) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM) }
     val submit = {
         if (text.isNotBlank()) {
             onSend(text)
@@ -224,7 +238,24 @@ internal fun InputRow(
             value = text,
             onValueChange = { text = it },
             modifier = Modifier.weight(1f).testTag("utterance"),
-            placeholder = { Text(hint ?: if (listening) "Listening…" else "Ask something") },
+            placeholder = {
+                when {
+                    hint != null -> Text(hint)
+                    listening -> Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        LevelMeter(level)
+                        Text(
+                            "Listening…",
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                        )
+                    }
+                    starting -> Text("Getting ready…", Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                    else -> Text("Ask something")
+                }
+            },
             singleLine = true,
             shape = RoundedCornerShape(28.dp),
             colors = OutlinedTextFieldDefaults.colors(
@@ -240,6 +271,7 @@ internal fun InputRow(
                 Icon(Icons.AutoMirrored.Filled.Send, "Send")
             }
             listening -> ListeningButton(level, onStopListening)
+            starting -> StartingButton()
             speaking -> FilledIconButton(onClick = onStopSpeaking, modifier = Modifier.size(52.dp)) {
                 Icon(painterResource(R.drawable.ic_stop), "Stop speaking")
             }
@@ -253,20 +285,78 @@ internal fun InputRow(
     }
 }
 
-/** The mic while recording: a halo that follows the input level. Tapping it ends the utterance. */
+/**
+ * The button while recording: a filled stop square in the recording colour, so it reads
+ * differently from the mic at a glance. A ring breathes out from it all the time, even in
+ * silence, and a halo grows with the input level. Tapping it ends the utterance.
+ */
 @Composable
 private fun ListeningButton(level: Float, onStop: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
     val halo by animateFloatAsState(level, tween(durationMillis = 90), label = "level")
+    val breath by rememberInfiniteTransition(label = "breathing").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(BREATH_MS, easing = LinearEasing)),
+        label = "breath",
+    )
     Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
         Box(
-            Modifier.size(52.dp).scale(1f + 0.4f * halo)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f + 0.22f * halo), CircleShape),
+            Modifier.size(52.dp).scale(1f + 0.32f * breath)
+                .border(2.dp, colors.error.copy(alpha = 0.7f * (1f - breath)), CircleShape),
         )
-        FilledIconButton(onClick = onStop, modifier = Modifier.size(52.dp).testTag("listening")) {
-            Icon(painterResource(R.drawable.ic_mic), "Listening; tap when you've finished")
+        Box(
+            Modifier.size(52.dp).scale(1.1f + 0.22f * halo)
+                .background(colors.error.copy(alpha = 0.14f + 0.22f * halo), CircleShape),
+        )
+        FilledIconButton(
+            onClick = onStop,
+            modifier = Modifier.size(52.dp).testTag("listening"),
+            colors = IconButtonDefaults.filledIconButtonColors(containerColor = colors.error, contentColor = colors.onError),
+        ) {
+            Icon(painterResource(R.drawable.ic_stop), "Listening; tap when you've finished")
         }
     }
 }
+
+/** The mic while listening gets ready (the hands-free link, the tone): a spinner around it, no action. */
+@Composable
+private fun StartingButton() {
+    Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(Modifier.size(52.dp), strokeWidth = 2.dp)
+        FilledIconButton(onClick = {}, enabled = false, modifier = Modifier.size(44.dp).testTag("starting")) {
+            Icon(painterResource(R.drawable.ic_mic), "Getting ready to listen")
+        }
+    }
+}
+
+/**
+ * Five bars that follow the input [level] (0 to 1), louder in the middle, with a slight
+ * idle wobble so the meter visibly lives even in silence.
+ */
+@Composable
+internal fun LevelMeter(level: Float, modifier: Modifier = Modifier) {
+    val shown by animateFloatAsState(level, tween(durationMillis = 90), label = "meter")
+    val wobble by rememberInfiniteTransition(label = "wobble").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(BREATH_MS, easing = LinearEasing), RepeatMode.Reverse),
+        label = "wobble",
+    )
+    Row(modifier.height(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        METER_WEIGHTS.forEachIndexed { i, weight ->
+            val idle = 0.2f + 0.1f * (if (i % 2 == 0) wobble else 1f - wobble)
+            val fraction = (idle + shown * weight).coerceIn(0f, 1f)
+            Box(
+                Modifier.width(3.dp).height(18.dp * fraction)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)),
+            )
+        }
+    }
+}
+
+private const val BREATH_MS = 1_200
+private val METER_WEIGHTS = floatArrayOf(0.55f, 0.85f, 1f, 0.85f, 0.55f)
 
 /** Turns spoken replies on or off; with them off, replies are text only. */
 @Composable

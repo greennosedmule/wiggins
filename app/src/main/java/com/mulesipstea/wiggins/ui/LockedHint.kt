@@ -74,6 +74,7 @@ internal fun LockedHint(onUnlock: () -> Unit, onClose: () -> Unit) {
 @Composable
 internal fun LockedSessionPanel(
     listening: Boolean,
+    level: Float = 0f,
     thinking: Boolean,
     speaking: Boolean,
     onUnlock: () -> Unit,
@@ -91,15 +92,18 @@ internal fun LockedSessionPanel(
             modifier = Modifier.fillMaxWidth().testTag("locked-session"),
         ) {
             Column(Modifier.navigationBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(
-                    when {
-                        listening -> "Listening…"
-                        speaking -> "Speaking…"
-                        thinking -> "Thinking…"
-                        else -> "Wiggins"
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (listening) LevelMeter(level)
+                    Text(
+                        when {
+                            listening -> "Listening…"
+                            speaking -> "Speaking…"
+                            thinking -> "Thinking…"
+                            else -> "Wiggins"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
                 Text(
                     "Hands-free while the phone is locked. Phone actions and the conversation need the unlock.",
                     style = MaterialTheme.typography.bodyMedium,

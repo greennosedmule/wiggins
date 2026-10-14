@@ -52,6 +52,7 @@ fun ChatScreen(
     onOpenAbout: () -> Unit,
     listening: Boolean = false,
     level: Float = 0f,
+    startingToListen: Boolean = false,
     onStopListening: () -> Unit = {},
     onCancelListening: () -> Unit = {},
     hint: String? = null,
@@ -107,7 +108,7 @@ fun ChatScreen(
                 EmptyConversation(canListen, onAsk = onSend)
             }
             ask?.let { a -> AskCard(a, onAnswer = { allow, always -> onAnswerAsk(a.key, allow, always) }) }
-            InputRow(onSend, canListen, onListen, speaking, onStopSpeaking, listening, level, onStopListening, hint)
+            InputRow(onSend, canListen, onListen, speaking, onStopSpeaking, listening, level, onStopListening, hint, startingToListen)
         }
     }
 }
