@@ -133,9 +133,9 @@ class AssistActivity : ComponentActivity() {
                     onSpeakRepliesChange = assistant::setSpeakReplies,
                     banner = problem?.let { p ->
                         when (p.fix) {
-                            Problem.Fix.SETTINGS -> Banner(p.message, "Open app", isProblem = true, ::openApp)
-                            Problem.Fix.RETRY -> Banner(p.message, "Retry", isProblem = true, assistant::retry)
-                            Problem.Fix.DEVICE_SPEECH -> Banner(p.message, "Use device speech", isProblem = true, assistant::useDeviceSpeech)
+                            Problem.Fix.SETTINGS -> Banner(p.message, "Open app", isProblem = true, onAction = ::openApp)
+                            Problem.Fix.RETRY -> Banner(p.message, "Retry", isProblem = true, onAction = assistant::retry)
+                            Problem.Fix.DEVICE_SPEECH -> Banner(p.message, "Use device speech", isProblem = true, onAction = assistant::useDeviceSpeech)
                             Problem.Fix.MIC_PERMISSION -> Banner(p.message, "Allow", isProblem = true) { openAppSettings() }
                         }
                     },

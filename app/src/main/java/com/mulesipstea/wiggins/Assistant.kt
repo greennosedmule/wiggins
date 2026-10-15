@@ -40,6 +40,7 @@ import com.mulesipstea.wiggins.speech.ListeningCue
 import com.mulesipstea.wiggins.speech.PcmPlayer
 import com.mulesipstea.wiggins.speech.Prerequisites
 import com.mulesipstea.wiggins.speech.Recorder
+import com.mulesipstea.wiggins.speech.SetupItem
 import com.mulesipstea.wiggins.speech.Speaker
 import com.mulesipstea.wiggins.speech.SpeechRoute
 import com.mulesipstea.wiggins.speech.Transcription
@@ -269,6 +270,19 @@ class Assistant(private val app: WigginsApp) {
     /** Whether the mic button can listen: hub STT, or a recognizer app for device STT. */
     val canListen: StateFlow<Boolean> = combine(speech, _prerequisites) { s, p -> p.canListen(s) }
         .stateIn(scope, SharingStarted.Eagerly, false)
+
+    /** What's left to set up for the chosen speech modes (SPEC "Prerequisites"). */
+    val missingSetup: StateFlow<Set<SetupItem>> = combine(speech, _prerequisites) { s, p -> p.missing(s) }
+        .stateIn(scope, SharingStarted.Eagerly, emptySet())
+
+    /** What was missing when the setup banner was last dismissed; null until loaded. */
+    val dismissedSetup: StateFlow<Set<String>?> = app.settings.dismissedSetup.stateIn(scope, SharingStarted.Eagerly, null)
+
+    /** Hides the setup banner until something else is missing. */
+    fun dismissSetupBanner() {
+        val missing = missingSetup.value.map { it.key }.toSet()
+        scope.launch { app.settings.dismissSetup(missing) }
+    }
 
     private val _listen = Channel<Unit>(Channel.CONFLATED)
 

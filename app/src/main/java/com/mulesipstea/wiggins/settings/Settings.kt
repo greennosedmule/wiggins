@@ -384,6 +384,16 @@ class SettingsRepository(private val context: Context) {
         }.getOrDefault(emptyMap())
     }
 
+    /**
+     * The setup items ([com.mulesipstea.wiggins.speech.SetupItem] keys) that were missing when
+     * the user last dismissed the setup banner. It shows again only when something else is missing.
+     */
+    val dismissedSetup: Flow<Set<String>> = context.dataStore.data.map { it[SETUP_DISMISSED].orEmpty() }
+
+    suspend fun dismissSetup(missing: Set<String>) {
+        context.dataStore.edit { it[SETUP_DISMISSED] = missing }
+    }
+
     /** Use the Noise handshake even when the hub also offers the password one (a testing switch in Hub messages). */
     val forceNoise: Flow<Boolean> = context.dataStore.data.map { it[FORCE_NOISE] ?: false }
 
@@ -447,6 +457,7 @@ class SettingsRepository(private val context: Context) {
         val NOISE_STATIC_KEY = stringPreferencesKey("noise_static_key_enc")
         val NOISE_PSKS = stringPreferencesKey("noise_psks_enc")
         val FORCE_NOISE = booleanPreferencesKey("force_noise")
+        val SETUP_DISMISSED = stringSetPreferencesKey("setup_banner_dismissed")
         const val MAX_NOISE_PSKS = 4
     }
 }

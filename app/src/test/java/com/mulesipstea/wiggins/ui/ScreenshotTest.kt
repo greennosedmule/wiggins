@@ -98,7 +98,7 @@ class ScreenshotTest {
         connection = ConnectionState.Failed("x", retryable = true),
     )
 
-    @Test fun setupBannerDark() = chat("setup-banner", true, conversation.take(2), banner = Banner("Setup isn't complete.", "See what's missing", isProblem = false) {})
+    @Test fun setupBannerDark() = chat("setup-banner", true, conversation.take(2), banner = Banner("Setup isn't complete.", "See what's missing", isProblem = false, onDismiss = {}) {})
 
     private fun panel(
         dark: Boolean,

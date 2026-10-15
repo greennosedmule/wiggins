@@ -27,6 +27,13 @@ data class Prerequisites(
     fun speechReady(speech: SpeechSettings) =
         canListen(speech) && (speech.ttsMode == SpeechMode.HUB || ttsEngines.isNotEmpty())
 
+    /** What the setup screen marks as missing for the chosen speech modes; the hub and the mic have their own banners. */
+    fun missing(speech: SpeechSettings): Set<SetupItem> = buildSet {
+        if (!canListen(speech)) add(SetupItem.SPEECH_RECOGNIZER)
+        if (speech.ttsMode == SpeechMode.DEVICE && ttsEngines.isEmpty()) add(SetupItem.TTS_ENGINE)
+        if (!isAssistant) add(SetupItem.DEFAULT_ASSISTANT)
+    }
+
     companion object {
         fun check(context: Context): Prerequisites {
             val pm = context.packageManager
@@ -49,5 +56,22 @@ data class Prerequisites(
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                 prompt?.let { putExtra(RecognizerIntent.EXTRA_PROMPT, it) }
             }
+    }
+}
+
+/** A setup item the "Setup isn't complete" banner is about. [key] is what's stored when the banner is dismissed. */
+enum class SetupItem(val key: String) {
+    SPEECH_RECOGNIZER("speech_recognizer"),
+    TTS_ENGINE("tts_engine"),
+    DEFAULT_ASSISTANT("default_assistant");
+
+    companion object {
+        /**
+         * Whether the setup banner shows: something is [missing] that wasn't when the user
+         * last dismissed it ([dismissed], the keys missing then). Null [dismissed] means not
+         * loaded yet, which shows nothing rather than flashing the banner.
+         */
+        fun bannerShows(missing: Set<SetupItem>, dismissed: Set<String>?) =
+            dismissed != null && missing.any { it.key !in dismissed }
     }
 }

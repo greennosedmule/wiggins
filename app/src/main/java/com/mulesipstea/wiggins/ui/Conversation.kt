@@ -34,6 +34,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
@@ -479,8 +480,14 @@ internal fun SpeechToggle(speakReplies: Boolean, onChange: (Boolean) -> Unit) {
     }
 }
 
-/** A problem or missing setup, with the action that fixes it. */
-data class Banner(val message: String, val action: String, val isProblem: Boolean, val onAction: () -> Unit)
+/** A problem or missing setup, with the action that fixes it, and [onDismiss] where it can be put away. */
+data class Banner(
+    val message: String,
+    val action: String,
+    val isProblem: Boolean,
+    val onDismiss: (() -> Unit)? = null,
+    val onAction: () -> Unit,
+)
 
 @Composable
 internal fun BannerRow(banner: Banner, modifier: Modifier = Modifier) {
@@ -495,6 +502,7 @@ internal fun BannerRow(banner: Banner, modifier: Modifier = Modifier) {
             Icon(if (banner.isProblem) Icons.Default.Warning else Icons.Default.Info, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(banner.message, Modifier.weight(1f).padding(horizontal = 12.dp), style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = banner.onAction) { Text(banner.action) }
+            banner.onDismiss?.let { IconButton(onClick = it) { Icon(Icons.Default.Close, contentDescription = "Dismiss") } }
         }
     }
 }

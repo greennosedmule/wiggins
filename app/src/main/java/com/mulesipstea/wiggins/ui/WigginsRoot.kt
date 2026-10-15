@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mulesipstea.wiggins.MainViewModel
+import com.mulesipstea.wiggins.speech.SetupItem
 import com.mulesipstea.wiggins.ui.theme.WigginsTheme
 
 enum class Screen { CHAT, SETTINGS, MESSAGES, SETUP, ABOUT, ACTIONS, ACTION_LOG, PERMISSIONS }
@@ -46,6 +47,8 @@ fun WigginsRoot(viewModel: MainViewModel) {
         val forceNoise by assistant.forceNoise.collectAsStateWithLifecycle()
         val prerequisites by assistant.prerequisites.collectAsStateWithLifecycle()
         val problem by assistant.problem.collectAsStateWithLifecycle()
+        val missingSetup by assistant.missingSetup.collectAsStateWithLifecycle()
+        val dismissedSetup by assistant.dismissedSetup.collectAsStateWithLifecycle()
         val thinking by assistant.thinking.collectAsStateWithLifecycle()
         val speaking by assistant.speaking.collectAsStateWithLifecycle()
         val speakReplies by assistant.speakReplies.collectAsStateWithLifecycle()
@@ -69,12 +72,15 @@ fun WigginsRoot(viewModel: MainViewModel) {
         val banner = problem?.let { p ->
             when (p.fix) {
                 Problem.Fix.SETTINGS -> Banner(p.message, "Settings", isProblem = true) { screen = Screen.SETTINGS }
-                Problem.Fix.RETRY -> Banner(p.message, "Retry", isProblem = true, assistant::retry)
-                Problem.Fix.DEVICE_SPEECH -> Banner(p.message, "Use device speech", isProblem = true, assistant::useDeviceSpeech)
+                Problem.Fix.RETRY -> Banner(p.message, "Retry", isProblem = true, onAction = assistant::retry)
+                Problem.Fix.DEVICE_SPEECH -> Banner(p.message, "Use device speech", isProblem = true, onAction = assistant::useDeviceSpeech)
                 Problem.Fix.MIC_PERMISSION -> Banner(p.message, "Allow", isProblem = true) { context.openAppSettings() }
             }
-        } ?: if (settings != null && (!prerequisites.speechReady(speech) || !prerequisites.isAssistant)) {
-            Banner("Setup isn't complete.", "See what's missing", isProblem = false) { screen = Screen.SETUP }
+        } ?: if (settings != null && SetupItem.bannerShows(missingSetup, dismissedSetup)) {
+            // Dismissable: someone who skips a feature on purpose shouldn't see it every time.
+            Banner("Setup isn't complete.", "See what's missing", isProblem = false, onDismiss = assistant::dismissSetupBanner) {
+                screen = Screen.SETUP
+            }
         } else {
             null
         }
