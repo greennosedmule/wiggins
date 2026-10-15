@@ -1,6 +1,7 @@
 package com.mulesipstea.wiggins.waggle
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
@@ -44,12 +45,27 @@ class RuleMatcherTest {
             Rule.fromJson(r.jsonObject)!!
         }
         val unmatched = case["unmatched"]?.let { Mode.fromWire(it.jsonPrimitive.content)!! } ?: Mode.BLOCK
-        val intent = IntentRequest.parse(case.getValue("intent").jsonObject)
+        val intent = standIn(case.getValue("intent").jsonObject)
         val expect = case.getValue("expect").jsonObject
         val decision = RuleMatcher.decide(rules, unmatched, intent)
         assertEquals(Mode.fromWire(expect.getValue("mode").jsonPrimitive.content), decision.mode)
         val index = expect.getValue("rule")
         if (index is JsonNull) assertNull(decision.rule) else assertSame(rules[index.jsonPrimitive.int], decision.rule)
+    }
+
+    /**
+     * The intent a case describes. A command's case (its action starts with `waggle.`)
+     * is the stand-in PhoneActions builds for a command, since the intent parser
+     * rightly refuses commands' names.
+     */
+    private fun standIn(json: JsonObject): IntentRequest {
+        val action = json.getValue("action").jsonPrimitive.content
+        if (!action.startsWith(Waggle.COMMAND_PREFIX)) return IntentRequest.parse(json)
+        return IntentRequest(
+            id = json["id"]?.jsonPrimitive?.content ?: "", action = action, description = null, data = null, mimeType = null,
+            categories = (json["categories"] as? JsonArray).orEmpty().map { it.jsonPrimitive.content },
+            packageName = json["package"]?.jsonPrimitive?.content, extras = emptyMap(),
+        )
     }
 
     @Test fun ruleJsonRoundTrips() {
