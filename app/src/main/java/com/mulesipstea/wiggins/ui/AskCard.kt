@@ -25,9 +25,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.mulesipstea.wiggins.actions.PhoneActions
 import com.mulesipstea.wiggins.waggle.ClockRequests
-import kotlinx.coroutines.delay
+import com.mulesipstea.wiggins.waggle.commands.Commands
 import java.util.Calendar
-
+import kotlinx.coroutines.delay
 /**
  * The hub asks to launch something (SPEC "Asking"): the hub's own description, and beneath
  * it what would actually run, so a hub can't disguise a request. For Clock requests that
@@ -89,4 +89,4 @@ private fun Detail(label: String, value: String) {
 }
 
 /** `android.intent.action.SET_ALARM` → `SET_ALARM`. */
-internal fun shortAction(action: String) = action.removePrefix("android.intent.action.")
+internal fun shortAction(action: String) = Commands.label(action) ?: action.removePrefix("android.intent.action.")

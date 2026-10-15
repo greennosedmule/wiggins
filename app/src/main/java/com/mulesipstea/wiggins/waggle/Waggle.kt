@@ -16,6 +16,13 @@ object Waggle {
     const val INTENT_RESPONSE = "waggle.intent.response"
     const val QUERY = "waggle.query"
     const val QUERY_RESPONSE = "waggle.query.response"
+
+    /** Things the phone does itself rather than through an app (WAGGLE.md "Commands"). */
+    const val COMMAND = "waggle.command"
+    const val COMMAND_RESPONSE = "waggle.command.response"
+
+    /** Command names start with this; an intent's action never may, so a command's rule can't be borrowed. */
+    const val COMMAND_PREFIX = "waggle."
 }
 
 /** What a rule, or the unmatched setting, does with an intent. Declared from least to most strict. */
@@ -40,6 +47,12 @@ enum class ErrorCode(val wire: String) {
     PERMISSION_DENIED("permission_denied"),
     BAD_REQUEST("bad_request"),
     UNSUPPORTED_VERSION("unsupported_version"),
+
+    /** What the request names is gone, or never existed. */
+    NOT_FOUND("not_found"),
+
+    /** What the request names matches more than one thing; the phone never guesses. */
+    AMBIGUOUS("ambiguous"),
 }
 
 /** A request failed with [code]; [message] is detail for logs, never spoken. */

@@ -34,7 +34,7 @@ interface Query {
 
 /** The queries Wiggins implements. */
 object Queries {
-    val all: List<Query> = listOf(CalendarNext, ContactsLookup, AppsList)
+    val all: List<Query> = listOf(CalendarNext, ContactsLookup, AppsList, PhoneStatus)
 
     fun named(name: String): Query? = all.firstOrNull { it.name == name }
 }

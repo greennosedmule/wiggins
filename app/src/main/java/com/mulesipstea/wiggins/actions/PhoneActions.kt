@@ -10,6 +10,7 @@ import com.mulesipstea.wiggins.settings.ActionSettings
 import com.mulesipstea.wiggins.settings.PhoneContext
 import com.mulesipstea.wiggins.settings.SettingsRepository
 import com.mulesipstea.wiggins.waggle.Capabilities
+import com.mulesipstea.wiggins.waggle.CommandRequest
 import com.mulesipstea.wiggins.waggle.ErrorCode
 import com.mulesipstea.wiggins.waggle.IntentBuilder
 import com.mulesipstea.wiggins.waggle.IntentRequest
@@ -20,6 +21,7 @@ import com.mulesipstea.wiggins.waggle.RuleMatcher
 import com.mulesipstea.wiggins.waggle.Waggle
 import com.mulesipstea.wiggins.waggle.WaggleException
 import com.mulesipstea.wiggins.waggle.WaggleResponse
+import com.mulesipstea.wiggins.waggle.commands.Commands
 import com.mulesipstea.wiggins.waggle.queries.Queries
 import com.mulesipstea.wiggins.waggle.requestId
 import java.util.Locale
@@ -41,6 +43,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 
 /**
@@ -108,6 +111,7 @@ class PhoneActions(
             unmatched = s.unmatched,
             rules = db.rules().all().first().map { it.toRule() },
             queries = Queries.all.map { it.name }.filter { it in s.queries },
+            commands = Commands.all.filter { it.available(context) }.map { it.name },
         )
     }
 
@@ -134,7 +138,7 @@ class PhoneActions(
             // Built before asking, so a request that can't run never bothers the user.
             val intent = IntentBuilder.build(context, request)
             if (decision.mode == Mode.ASK) {
-                when (ask(request, rule, intent)) {
+                when (ask(request, rule, target(intent))) {
                     null -> throw WaggleException(ErrorCode.TIMEOUT, "No answer in ${ASK_TIMEOUT_S}s")
                     Answer.DENY -> throw WaggleException(ErrorCode.DECLINED, "The user said no")
                     Answer.ALLOW -> Unit
@@ -147,6 +151,49 @@ class PhoneActions(
             WaggleResponse.error(id, e.code, e.message)
         }
         return finish("intent", data, request.description ?: request.action, rule, response)
+    }
+
+    /**
+     * Handles a `waggle.command` (WAGGLE.md "Commands"); returns the response to send, or
+     * null if it can't be answered (no id). The rules judge it as an intent whose action is
+     * the command's name and whose category is its variant ("silent", "on"), so an ask
+     * rule shows the same ask card, and only on an unlocked phone.
+     */
+    suspend fun onCommand(data: JsonObject): WaggleResponse? {
+        val id = requestId(data) ?: return null.also { Log.w(TAG, "waggle.command without an id") }
+        var rule: Rule? = null
+        var title: String? = (data["name"] as? JsonPrimitive)?.contentOrNull
+        val response = try {
+            checkVersion(data)
+            val request = CommandRequest.parse(data)
+            val command = Commands.named(request.name) ?: throw WaggleException(ErrorCode.BAD_REQUEST, "Unknown command ${request.name}")
+            // Params are checked before anything else, so a bad request says so.
+            val variant = command.variant(request.params)
+            title = command.describe(request.params)
+            val where = phoneContext()
+            val s = settings.actions.first()
+            refuseIfOff(where, s)
+            val asIntent = IntentRequest(
+                id = id, action = command.name, description = request.description ?: title, data = null, mimeType = null,
+                categories = listOfNotNull(variant), packageName = null, extras = emptyMap(),
+            )
+            val decision = RuleMatcher.decide(db.rules().all().first().map { it.toRule() }, s.unmatched, asIntent)
+            rule = decision.rule
+            if (decision.mode == Mode.BLOCK) throw WaggleException(ErrorCode.BLOCKED, if (rule == null) "No rule matches" else "A rule blocks it")
+            if (decision.mode == Mode.ASK) {
+                if (where != PhoneContext.UNLOCKED) throw WaggleException(ErrorCode.BLOCKED, "It needs a yes on the phone's screen, which isn't in use")
+                when (ask(asIntent, rule, target = null)) {
+                    null -> throw WaggleException(ErrorCode.TIMEOUT, "No answer in ${ASK_TIMEOUT_S}s")
+                    Answer.DENY -> throw WaggleException(ErrorCode.DECLINED, "The user said no")
+                    Answer.ALLOW -> Unit
+                    Answer.ALLOW_ALWAYS -> db.rules().upsert(RuleEntity.of(ruleFor(asIntent)))
+                }
+            }
+            WaggleResponse.ok(id, command.run(context, request.params))
+        } catch (e: WaggleException) {
+            WaggleResponse.error(id, e.code, e.message)
+        }
+        return finish("command", data, title, rule, response)
     }
 
     /** Handles a `waggle.query`; returns the response to send, or null if it can't be answered (no id). */
@@ -195,11 +242,12 @@ class PhoneActions(
     fun setActionsIn(where: PhoneContext, on: Boolean) = scope.launch { settings.setActionsIn(where, on) }
     fun clearLog() = scope.launch { db.log().clear() }
 
-    private suspend fun ask(request: IntentRequest, rule: Rule?, intent: Intent): Answer? {
+    /** Shows an ask card for [request] and waits for the answer; [target] is the app that would open, if any. */
+    private suspend fun ask(request: IntentRequest, rule: Rule?, target: String?): Answer? {
         val key = askKeys.incrementAndGet()
         val answer = CompletableDeferred<Answer>()
         answers[key] = answer
-        _asks.update { it + Ask(key, request, rule, target(intent), clock() + ASK_TIMEOUT_S * 1000L) }
+        _asks.update { it + Ask(key, request, rule, target, clock() + ASK_TIMEOUT_S * 1000L) }
         return try {
             withTimeoutOrNull(ASK_TIMEOUT_S * 1000L) { answer.await() }
         } finally {

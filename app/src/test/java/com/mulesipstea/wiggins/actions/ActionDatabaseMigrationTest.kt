@@ -40,8 +40,11 @@ class ActionDatabaseMigrationTest {
     }
 
     /** Creates a version 1 database holding [rules] (action to mode), as Room 1 left it. */
-    private fun createVersion1(vararg rules: Pair<String, String>) {
-        val schema = File("schemas/com.mulesipstea.wiggins.actions.ActionDatabase/1.json")
+    private fun createVersion1(vararg rules: Pair<String, String>) = createVersion(1, rules.map { (a, m) -> Triple(a, null, m) })
+
+    /** Creates a database at schema [version] holding [rules] (action, scheme, mode). */
+    private fun createVersion(version: Int, rules: List<Triple<String, String?, String>>) {
+        val schema = File("schemas/com.mulesipstea.wiggins.actions.ActionDatabase/$version.json")
             .let { if (it.exists()) it else File("app/${it.path}") }
             .readText().let { Json.parseToJsonElement(it).jsonObject["database"]!!.jsonObject }
         val sql = SQLiteDatabase.openOrCreateDatabase(app.getDatabasePath(name).apply { parentFile?.mkdirs() }, null)
@@ -51,10 +54,10 @@ class ActionDatabaseMigrationTest {
                 it.execSQL(e["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", e["tableName"]!!.jsonPrimitive.content))
             }
             schema["setupQueries"]!!.jsonArray.forEach { query -> it.execSQL(query.jsonPrimitive.content) }
-            rules.forEach { (action, mode) ->
-                it.execSQL("INSERT INTO rules (action, mode) VALUES (?, ?)", arrayOf(action, mode))
+            rules.forEach { (action, scheme, mode) ->
+                it.execSQL("INSERT INTO rules (action, scheme, mode) VALUES (?, ?, ?)", arrayOf(action, scheme, mode))
             }
-            it.version = 1
+            it.version = version
         }
     }
 
@@ -73,9 +76,39 @@ class ActionDatabaseMigrationTest {
                 "DISMISS_TIMER" to "run",
                 "SNOOZE_ALARM" to "run",
                 "DISMISS_ALARM" to "ask",
+                "VIEW" to "run",
+                "waggle.torch.set" to "run",
+                "waggle.volume.set" to "run",
+                "waggle.ringer.set" to "run",
+                "waggle.dnd.set" to "run",
             ),
             byAction,
         )
+    }
+
+    /** Version 3 adds navigation and the commands (0.8.0), keeping what the user made. */
+    @Test fun addsNavigationAndCommandsToAVersion2Install() {
+        createVersion(2, listOf(
+            Triple("android.intent.action.VIEW", "https", "ask"), // the user's own VIEW rule, for another scheme
+            Triple("waggle.ringer.set", null, "ask"), // and their own ringer rule
+        ))
+        val rules = rules().map { Triple(it.action, it.scheme, it.mode) }.toSet()
+        assertEquals(
+            setOf(
+                Triple("android.intent.action.VIEW", "https", "ask"),
+                Triple("android.intent.action.VIEW", "geo", "run"),
+                Triple("waggle.ringer.set", null, "ask"),
+                Triple("waggle.torch.set", null, "run"),
+                Triple("waggle.volume.set", null, "run"),
+                Triple("waggle.dnd.set", null, "run"),
+            ),
+            rules,
+        )
+    }
+
+    @Test fun aGeoRuleOfTheUsersOwnIsKept() {
+        createVersion(2, listOf(Triple("android.intent.action.VIEW", "geo", "block")))
+        assertEquals(listOf("block"), rules().filter { it.scheme == "geo" }.map { it.mode })
     }
 
     @Test fun keepsTheUsersOwnRuleForANewAction() {

@@ -91,7 +91,7 @@ interface LogDao {
     }
 }
 
-@Database(entities = [RuleEntity::class, LogEntity::class], version = 2)
+@Database(entities = [RuleEntity::class, LogEntity::class], version = 3)
 abstract class ActionDatabase : RoomDatabase() {
     abstract fun rules(): RuleDao
     abstract fun log(): LogDao
@@ -115,9 +115,18 @@ abstract class ActionDatabase : RoomDatabase() {
             Rule("${A}DIAL", scheme = "tel", mode = Mode.ASK),
             Rule("${A}SENDTO", scheme = "smsto", mode = Mode.ASK),
             Rule("${A}SENDTO", scheme = "sms", mode = Mode.ASK),
+            // Added in version 3 (MIGRATION_2_3): directions in the user's maps app, and the
+            // commands Wiggins carries out itself, all of which work in the car.
+            Rule("${A}VIEW", scheme = "geo", mode = Mode.RUN),
+            Rule("waggle.torch.set", mode = Mode.RUN),
+            Rule("waggle.volume.set", mode = Mode.RUN),
+            Rule("waggle.ringer.set", mode = Mode.RUN),
+            Rule("waggle.dnd.set", mode = Mode.RUN),
         )
 
         /** The defaults each schema version introduced, for installs that predate them. */
+        private val RULES_ADDED_IN_3 = DEFAULT_RULES.filter { it.scheme == "geo" || it.action.startsWith("waggle.") }
+
         private val RULES_ADDED_IN_2 = DEFAULT_RULES.filter {
             it.action.removePrefix(A) in setOf("SHOW_TIMERS", "DISMISS_TIMER", "SNOOZE_ALARM", "DISMISS_ALARM")
         }
@@ -130,6 +139,25 @@ abstract class ActionDatabase : RoomDatabase() {
          */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) = RULES_ADDED_IN_2.forEach { insertDefault(db, it, ifNoRuleForAction = true) }
+        }
+
+        /**
+         * Version 3 adds no columns either: the navigation rule and the command rules, each
+         * only where the user has no rule for its action. A VIEW rule of the user's own
+         * (for some other scheme) doesn't stop the geo one, since only its scheme matters.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) = RULES_ADDED_IN_3.forEach { rule ->
+                if (rule.scheme == "geo") {
+                    db.execSQL(
+                        "INSERT INTO rules (action, scheme, packageName, category, mode) SELECT ?, ?, NULL, NULL, ? " +
+                            "WHERE NOT EXISTS (SELECT 1 FROM rules WHERE action = ? AND scheme = ?)",
+                        arrayOf<Any?>(rule.action, rule.scheme, rule.mode.wire, rule.action, rule.scheme),
+                    )
+                } else {
+                    insertDefault(db, rule, ifNoRuleForAction = true)
+                }
+            }
         }
 
         private fun insertDefault(db: SupportSQLiteDatabase, rule: Rule, ifNoRuleForAction: Boolean = false) {
@@ -153,7 +181,7 @@ abstract class ActionDatabase : RoomDatabase() {
             }
             // onCreate runs only for a new database, which is created at the latest version
             // and so gets every default; the migrations bring older ones up to date.
-            return builder.addMigrations(MIGRATION_1_2).addCallback(object : Callback() {
+            return builder.addMigrations(MIGRATION_1_2, MIGRATION_2_3).addCallback(object : Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) = DEFAULT_RULES.forEach { insertDefault(db, it) }
             }).build()
         }

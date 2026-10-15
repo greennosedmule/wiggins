@@ -20,8 +20,8 @@ class QueriesTest {
         assertEquals(ErrorCode.BAD_REQUEST, e.code)
     }
 
-    @Test fun registryHasTheThreeQueries() {
-        assertEquals(listOf("calendar.next", "contacts.lookup", "apps.list"), Queries.all.map { it.name })
+    @Test fun registryHasTheQueries() {
+        assertEquals(listOf("calendar.next", "contacts.lookup", "apps.list", "phone.status"), Queries.all.map { it.name })
         assertSame(CalendarNext, Queries.named("calendar.next"))
         assertSame(ContactsLookup, Queries.named("contacts.lookup"))
         assertSame(AppsList, Queries.named("apps.list"))

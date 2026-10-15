@@ -1,6 +1,8 @@
 package com.mulesipstea.wiggins.ui
 
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -44,11 +46,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.mulesipstea.wiggins.actions.RuleEntity
 import com.mulesipstea.wiggins.settings.ActionSettings
 import com.mulesipstea.wiggins.settings.PhoneContext
 import com.mulesipstea.wiggins.waggle.Mode
 import com.mulesipstea.wiggins.waggle.Rule
+import com.mulesipstea.wiggins.waggle.commands.DoNotDisturb
 import com.mulesipstea.wiggins.waggle.queries.Queries
 
 /** What each query gives the hub, in the user's terms. */
@@ -56,6 +60,7 @@ private val QUERY_DETAILS = mapOf(
     "calendar.next" to ("Upcoming events" to "Lets the hub read your next calendar events, to answer \"what's next?\""),
     "contacts.lookup" to ("Contact lookup" to "Lets the hub look up a contact's phone numbers by name, to call or text them. It never gets the whole address book."),
     "apps.list" to ("Installed apps" to "Lets the hub see your launcher apps' names, to open one by name."),
+    "phone.status" to ("Phone status" to "Lets the hub read the battery, whether you're on Wi-Fi or mobile data, the ringer and Do Not Disturb. Nothing personal."),
 )
 
 /**
@@ -79,6 +84,12 @@ fun PhoneActionsScreen(
     onOpenPermissions: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    // Granted or revoked in Android's settings, so checked again whenever this screen comes back.
+    var dndAccess by remember { mutableStateOf(DoNotDisturb.hasAccess(context)) }
+    LifecycleResumeEffect(Unit) {
+        dndAccess = DoNotDisturb.hasAccess(context)
+        onPauseOrDispose {}
+    }
     var editing by remember { mutableStateOf<RuleEntity?>(null) }
     var confirmReset by remember { mutableStateOf(false) }
     // A query that needs a permission is enabled once the permission is granted.
@@ -142,7 +153,21 @@ fun PhoneActionsScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            Section("Queries", "What the hub may read from the phone. Each is off until you turn it on.") {
+            Section("Phone settings", "Flashlight, volume, ringer and Do Not Disturb: Wiggins sets them itself, by the rules above.") {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Do Not Disturb access", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            if (dndAccess) "Granted." else "Needed to turn Do Not Disturb on or off, and to silence the ringer. Android grants it in its settings.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    if (!dndAccess) {
+                        TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }) { Text("Grant") }
+                    }
+                }
+            }
+            Section("Queries", "What the hub may read from the phone. Each is off until you turn it on, except phone status.") {
                 Queries.all.forEach { query ->
                     val (title, detail) = QUERY_DETAILS[query.name] ?: (query.name to "")
                     val enabled = query.name in settings.queries

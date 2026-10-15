@@ -345,6 +345,8 @@ class Assistant(private val app: WigginsApp) {
         idleDisconnect?.cancel()
         val state = connection.value
         if (state is ConnectionState.Disconnected || state is ConnectionState.Failed) connect()
+        // Do Not Disturb access, say, may have changed in Android's settings meanwhile.
+        else announceCapabilities()
     }
 
     /** No Wiggins screen is visible: disconnect after a short idle period. */
@@ -959,9 +961,10 @@ class Assistant(private val app: WigginsApp) {
                 val intent = event.type == Waggle.INTENT
                 val id = (event.data["id"] as? JsonPrimitive)?.contentOrNull
                 val name = (event.data[if (intent) "action" else "name"] as? JsonPrimitive)?.contentOrNull
-                if (id != null) turns.actionStarted(id, if (intent) "intent" else "query", name ?: "?")
+                if (id != null) turns.actionStarted(id, event.type.removePrefix("waggle."), name ?: "?")
                 val (handled, responseType) = when (event.type) {
                     Waggle.INTENT -> phoneActions.onIntent(event.data) to Waggle.INTENT_RESPONSE
+                    Waggle.COMMAND -> phoneActions.onCommand(event.data) to Waggle.COMMAND_RESPONSE
                     else -> phoneActions.onQuery(event.data) to Waggle.QUERY_RESPONSE
                 }
                 handled?.let { response ->

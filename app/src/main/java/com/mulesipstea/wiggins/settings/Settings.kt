@@ -97,7 +97,7 @@ data class PersonaPermissions(
 data class ActionSettings(
     /** What happens to an intent no rule matches: block (the default) or ask. */
     val unmatched: Mode = Mode.BLOCK,
-    /** The queries the user has enabled; all are off until enabled. */
+    /** The queries the user has enabled; all but phone.status are off until enabled. */
     val queries: Set<String> = emptySet(),
     /** Where phone actions run at all (SPEC "Permissions"): unlocked and through a trusted device, until changed. */
     val contexts: Set<PhoneContext> = DEFAULT_CONTEXTS,
@@ -244,7 +244,9 @@ class SettingsRepository(private val context: Context) {
     val actions: Flow<ActionSettings> = context.dataStore.data.map {
         ActionSettings(
             unmatched = Mode.fromWire(it[UNMATCHED])?.takeIf { m -> m != Mode.RUN } ?: Mode.BLOCK,
-            queries = it[QUERIES].orEmpty(),
+            // Queries that need no permission and read nothing personal start on, once, even
+            // for installs that predate them; after that the user's choice stands.
+            queries = queriesFrom(it[QUERIES], it[QUERY_DEFAULTS_APPLIED]),
             contexts = it[ACTION_CONTEXTS]?.mapNotNull { c -> PhoneContext.entries.firstOrNull { e -> e.wire == c } }?.toSet()
                 ?: ActionSettings.DEFAULT_CONTEXTS,
         )
@@ -289,8 +291,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setQueryEnabled(name: String, enabled: Boolean) {
         context.dataStore.edit {
-            val now = it[QUERIES].orEmpty()
+            val now = queriesFrom(it[QUERIES], it[QUERY_DEFAULTS_APPLIED])
             it[QUERIES] = if (enabled) now + name else now - name
+            it[QUERY_DEFAULTS_APPLIED] = true
         }
     }
 
@@ -362,7 +365,7 @@ class SettingsRepository(private val context: Context) {
         authState = this[AUTH_STATE]?.let { secrets.decrypt(AUTH_STATE.name, it) }.orEmpty(),
     )
 
-    private companion object {
+    internal companion object {
         val HUB_URL = stringPreferencesKey("hub_url")
         val AUTH_MODE = stringPreferencesKey("auth_mode")
         val ACCESS_KEY = stringPreferencesKey("access_key_enc")
@@ -391,6 +394,14 @@ class SettingsRepository(private val context: Context) {
         val TRUSTED_DEVICES = stringSetPreferencesKey("hands_free_trusted")
         val UNMATCHED = stringPreferencesKey("waggle_unmatched")
         val QUERIES = stringSetPreferencesKey("waggle_queries")
+        val QUERY_DEFAULTS_APPLIED = booleanPreferencesKey("waggle_query_defaults_0_8")
+
+        /** phone.status: the battery, network and ringer; no permission, nothing personal. */
+        val QUERIES_ON_BY_DEFAULT = setOf("phone.status")
+
+        /** The enabled queries from what's [stored], with the defaults until the user has chosen ([applied]). */
+        internal fun queriesFrom(stored: Set<String>?, applied: Boolean?): Set<String> =
+            stored.orEmpty() + if (applied == true) emptySet() else QUERIES_ON_BY_DEFAULT
         val NOISE_STATIC_KEY = stringPreferencesKey("noise_static_key_enc")
         val NOISE_PSKS = stringPreferencesKey("noise_psks_enc")
         val FORCE_NOISE = booleanPreferencesKey("force_noise")

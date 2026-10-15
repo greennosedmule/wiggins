@@ -66,7 +66,7 @@ class PhoneActionsTest {
         scope.cancel()
     }
 
-    private fun Queries() = listOf("calendar.next", "contacts.lookup", "apps.list")
+    private fun Queries() = listOf("calendar.next", "contacts.lookup", "apps.list", "phone.status")
 
     private fun handle(action: String, pkg: String, cls: String, scheme: String? = null) {
         val component = ComponentName(pkg, "$pkg.$cls")
@@ -196,6 +196,49 @@ class PhoneActionsTest {
         settings.setActionsIn(PhoneContext.LOCKED, true)
         where = PhoneContext.LOCKED
         assertEquals(true, actions.onIntent(intent("c2", "android.intent.action.SET_TIMER"))?.ok)
+    }
+
+    /** Commands (WAGGLE.md "Commands"): judged by the rules like intents, with their variant as the category. */
+    @Test fun aCommandRunsByItsRule() = runBlocking {
+        val response = actions.onCommand(json("""{"id":"k1","name":"waggle.ringer.set","params":{"mode":"vibrate"}}"""))
+        assertEquals(true, response?.ok)
+        assertEquals(android.media.AudioManager.RINGER_MODE_VIBRATE, app.getSystemService(android.media.AudioManager::class.java).ringerMode)
+        assertEquals("ok", db.log().recent().first().single().outcome)
+    }
+
+    @Test fun aVariantRuleCanAskForOneMode() = runBlocking {
+        db.rules().upsert(RuleEntity.of(com.mulesipstea.wiggins.waggle.Rule("waggle.ringer.set", category = "silent", mode = Mode.ASK)))
+        val pending = async { actions.onCommand(json("""{"id":"k2","name":"waggle.ringer.set","params":{"mode":"silent"}}""")) }
+        val ask = withTimeout(2_000) { actions.asks.first { it.isNotEmpty() } }.single()
+        assertEquals("Ringer: silent", ask.request.description)
+        actions.answer(ask.key, allow = false)
+        assertEquals(ErrorCode.DECLINED, pending.await()?.error)
+        // Other modes still run.
+        assertEquals(true, actions.onCommand(json("""{"id":"k3","name":"waggle.ringer.set","params":{"mode":"normal"}}"""))?.ok)
+    }
+
+    @Test fun commandsFollowContextsAndNeverAskLocked() = runBlocking {
+        db.rules().upsert(RuleEntity.of(com.mulesipstea.wiggins.waggle.Rule("waggle.ringer.set", category = "silent", mode = Mode.ASK)))
+        where = PhoneContext.TRUSTED_DEVICE
+        assertEquals(ErrorCode.BLOCKED, actions.onCommand(json("""{"id":"k4","name":"waggle.ringer.set","params":{"mode":"silent"}}"""))?.error)
+        assertTrue(actions.asks.value.isEmpty())
+        where = PhoneContext.LOCKED // phone actions off there by default
+        assertEquals(ErrorCode.BLOCKED, actions.onCommand(json("""{"id":"k5","name":"waggle.ringer.set","params":{"mode":"normal"}}"""))?.error)
+    }
+
+    @Test fun badCommandsAreBadRequests() = runBlocking {
+        assertEquals(ErrorCode.BAD_REQUEST, actions.onCommand(json("""{"id":"k6","name":"waggle.toaster.set","params":{}}"""))?.error)
+        assertEquals(ErrorCode.BAD_REQUEST, actions.onCommand(json("""{"id":"k7","name":"waggle.ringer.set","params":{"mode":"loud"}}"""))?.error)
+        // An intent may not borrow a command's name, and so its rule.
+        assertEquals(ErrorCode.BAD_REQUEST, actions.onIntent(intent("k8", "waggle.torch.set"))?.error)
+        assertNull(actions.onCommand(json("""{"name":"waggle.torch.set"}""")))
+    }
+
+    @Test fun capabilitiesListTheCommandsThePhoneCanDo() = runBlocking {
+        org.robolectric.Shadows.shadowOf(app.getSystemService(android.app.NotificationManager::class.java)).setNotificationPolicyAccessGranted(false)
+        val commands = actions.capabilities().toJson()["commands"].toString()
+        // No flash on Robolectric's phone, and no Do Not Disturb access yet.
+        assertEquals("[\"waggle.volume.set\",\"waggle.ringer.set\"]", commands)
     }
 
     @Test fun queriesAreOffUntilEnabled() = runBlocking {

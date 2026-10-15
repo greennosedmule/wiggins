@@ -65,6 +65,8 @@ data class Capabilities(
     val unmatched: Mode,
     val rules: List<Rule>,
     val queries: List<String>,
+    /** The commands this phone implements and has Android's access for now; left out when empty. */
+    val commands: List<String> = emptyList(),
     val version: Int = Waggle.VERSION,
 ) {
     init {
@@ -85,6 +87,7 @@ data class Capabilities(
         put("unmatched", unmatched.wire)
         put("rules", JsonArray(rules.map { it.toJson() }))
         put("queries", buildJsonArray { queries.forEach { add(JsonPrimitive(it)) } })
+        if (commands.isNotEmpty()) put("commands", buildJsonArray { commands.forEach { add(JsonPrimitive(it)) } })
     }
 }
 
@@ -116,6 +119,7 @@ data class IntentRequest(
         fun parse(data: JsonObject): IntentRequest {
             val id = data.requiredString("id")
             val action = data.requiredString("action")
+            if (action.startsWith(Waggle.COMMAND_PREFIX)) throw badRequest("'$action' is a command's name, not an intent's")
             val uri = data.optionalString("data")?.also { checkUri(it, "'data'") }
             val categories = when (val value = data["categories"]) {
                 null -> emptyList()
@@ -166,6 +170,23 @@ data class IntentRequest(
             if (!ok) throw badRequest("extra '$name' value $value is not a valid $type")
             if (type == "uri") checkUri(primitive!!.content, "extra '$name'")
             return Extra(type, value)
+        }
+    }
+}
+
+/** The `data` of a `waggle.command`. Command names and their params are checked by the command that runs. */
+data class CommandRequest(val id: String, val name: String, val params: JsonObject, val description: String?) {
+    companion object {
+        /** Throws [WaggleException] with [ErrorCode.BAD_REQUEST] if id or name is missing or params isn't an object. */
+        fun parse(data: JsonObject): CommandRequest {
+            val id = data.requiredString("id")
+            val name = data.requiredString("name")
+            val params = when (val value = data["params"]) {
+                null, JsonNull -> JsonObject(emptyMap())
+                is JsonObject -> value
+                else -> throw badRequest("'params' must be an object")
+            }
+            return CommandRequest(id, name, params, data.optionalString("description"))
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.mulesipstea.wiggins.turns
 
+import com.mulesipstea.wiggins.waggle.commands.Commands
 import java.util.Locale
 import kotlin.math.max
 
@@ -156,7 +157,8 @@ object Timeline {
     ).joinToString(" · ")
 
     /** `android.intent.action.SET_ALARM` → `SET_ALARM`; a query name stays as it is. */
-    fun shortAction(name: String) = name.substringAfterLast('.').takeIf { name.contains("intent.action") } ?: name
+    fun shortAction(name: String) =
+        Commands.label(name) ?: name.substringAfterLast('.').takeIf { name.contains("intent.action") } ?: name
 
     /** How long [ms] took: "340 ms", "1.2 s", "1:05". */
     fun duration(ms: Long): String = when {

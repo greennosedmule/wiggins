@@ -40,6 +40,7 @@ hivemind-core allow-msg speak:b64_audio <id>
 hivemind-core allow-msg waggle.capabilities <id>
 hivemind-core allow-msg waggle.intent.response <id>
 hivemind-core allow-msg waggle.query.response <id>
+hivemind-core allow-msg waggle.command.response <id>
 # For the persona's tools on the Permissions screen:
 hivemind-core allow-msg ovos.persona.list <id>
 ```

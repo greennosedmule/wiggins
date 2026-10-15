@@ -15,6 +15,10 @@
          action's caller (set, show, dismiss, snooze). A normal permission, granted
          at install. -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- Waggle's Do Not Disturb and silent-ringer commands: lists Wiggins under Android's
+         "Do Not Disturb access", which the user grants there. A normal permission; the
+         access itself is the special grant. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <queries>
         <!-- The system TTS engine, for speaking replies. -->
@@ -64,6 +68,11 @@
         <intent>
             <action android:name="android.intent.action.SENDTO" />
             <data android:scheme="sms" />
+        </intent>
+        <!-- The navigation rule's target: the user's maps app. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
         </intent>
     </queries>
 
