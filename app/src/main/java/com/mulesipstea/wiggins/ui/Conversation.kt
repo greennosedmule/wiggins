@@ -206,6 +206,9 @@ internal fun Bubble(entry: TranscriptEntry, onResend: (Long) -> Unit, onDetails:
                 color = colors.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, end = 8.dp),
             )
+            Delivery.UNANSWERED -> TextButton(onClick = { onResend(entry.id) }) {
+                Text("No answer: the connection changed · Ask again", color = colors.error, style = MaterialTheme.typography.labelMedium)
+            }
             Delivery.NOT_SENT -> TextButton(onClick = { onResend(entry.id) }) {
                 Text("Not sent · Retry", color = colors.error, style = MaterialTheme.typography.labelMedium)
             }

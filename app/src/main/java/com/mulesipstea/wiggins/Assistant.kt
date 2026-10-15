@@ -240,7 +240,13 @@ class Assistant(private val app: WigginsApp) {
     private var thinkingTimeout: Job? = null
 
     /** A question reached the hub and OVOS hasn't finished handling it (ovos.utterance.handled). */
-    private var turnOpen = false
+    private val _turnOpen = MutableStateFlow(false)
+    private var turnOpen: Boolean
+        get() = _turnOpen.value
+        set(value) { _turnOpen.value = value }
+
+    /** Some of this turn's reply has arrived; without it, losing the connection loses the answer. */
+    private var replyHeard = false
 
     /** The reply being built from this turn's speak messages, which OVOS may send a sentence at a time. */
     private var reply: Pair<ConversationStore, Long>? = null
@@ -376,6 +382,7 @@ class Assistant(private val app: WigginsApp) {
             app.settings.save(new)
             if (new.hubUrl.trim() != old.hubUrl.trim()) app.settings.forgetHubSpeechCheck()
             _problem.value = null
+            awaitTurnEnd()
             client.disconnect()
             retry()
         }
@@ -648,9 +655,9 @@ class Assistant(private val app: WigginsApp) {
         deliver(id)
     }
 
-    /** Sends a question again that didn't reach the hub. */
+    /** Sends a question again that didn't reach the hub, or whose answer a dropped connection lost. */
     fun resend(id: Long) {
-        if (conversation.get(id)?.delivery != Delivery.NOT_SENT) return
+        if (conversation.get(id)?.delivery !in setOf(Delivery.NOT_SENT, Delivery.UNANSWERED)) return
         conversation.setDelivery(id, Delivery.PENDING)
         retries = 0
         // Timed from the retry, not from when it first failed.
@@ -723,15 +730,27 @@ class Assistant(private val app: WigginsApp) {
         stopVoice()
     }
 
-    /** Reconnects as the current session if a connection is open or opening (the hub keeps one session per connection). */
+    /**
+     * Reconnects as the current session if a connection is open or opening (the hub keeps
+     * one session per connection), once any turn in progress has ended: the hub answers on
+     * the connection the question came on, so reconnecting now would lose the answer.
+     */
     private fun switchSession() {
-        when (connection.value) {
-            is ConnectionState.Connected, ConnectionState.Connecting, ConnectionState.Handshaking -> {
-                client.disconnect()
-                connect()
+        scope.launch {
+            awaitTurnEnd()
+            when (connection.value) {
+                is ConnectionState.Connected, ConnectionState.Connecting, ConnectionState.Handshaking -> {
+                    client.disconnect()
+                    connect()
+                }
+                else -> Unit
             }
-            else -> Unit
         }
+    }
+
+    /** Until no turn is waiting for its answer, or for the thinking timeout at most. */
+    private suspend fun awaitTurnEnd() {
+        withTimeoutOrNull(THINKING_TIMEOUT_MS) { _turnOpen.first { !it } }
     }
 
     fun clearLog() = _log.update { emptyList() }
@@ -754,6 +773,7 @@ class Assistant(private val app: WigginsApp) {
             finishReply()
             turns.sent(store to id) { details -> store.setDetails(id, details) }
             turnOwner = store to id
+            replyHeard = false
             turnOpen = true
             setThinking(true)
             return
@@ -850,8 +870,15 @@ class Assistant(private val app: WigginsApp) {
     }
 
     private fun onConnectionState(state: ConnectionState) {
-        // No answer is coming over a connection that's gone.
-        if (state is ConnectionState.Failed || state is ConnectionState.Disconnected) {
+        // No answer is coming over a connection that's gone: the hub sends it to the
+        // connection the question came on, never to a new one. A question with no reply yet
+        // says so and offers to ask again; it isn't re-sent by itself, since the hub may
+        // already have acted on it.
+        if (state !is ConnectionState.Connected && turnOpen) {
+            if (!replyHeard) turnOwner?.let { (store, id) -> store.setDelivery(id, Delivery.UNANSWERED) }
+            setThinking(false)
+            endTurn()
+        } else if (state is ConnectionState.Failed || state is ConnectionState.Disconnected) {
             setThinking(false)
             endTurn()
         }
@@ -897,6 +924,7 @@ class Assistant(private val app: WigginsApp) {
     private fun onHubEvent(event: HubEvent) {
         when (event) {
             is HubEvent.Speak -> {
+                replyHeard = true
                 touchSession()
                 setThinking(false)
                 val store = conversation
@@ -926,6 +954,8 @@ class Assistant(private val app: WigginsApp) {
             }
             // Early answers come while the utterance is still being recorded.
             is HubEvent.WaggleRequest -> scope.launch {
+                // The hub has the question and is acting on it: asking again could act twice.
+                replyHeard = true
                 val intent = event.type == Waggle.INTENT
                 val id = (event.data["id"] as? JsonPrimitive)?.contentOrNull
                 val name = (event.data[if (intent) "action" else "name"] as? JsonPrimitive)?.contentOrNull

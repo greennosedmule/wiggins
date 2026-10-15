@@ -6,9 +6,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class Who { USER, HUB }
 
-/** Whether a user's question reached the hub. TRANSCRIBING: spoken, and the hub is still transcribing it. */
+/**
+ * Whether a user's question reached the hub. TRANSCRIBING: spoken, and the hub is still
+ * transcribing it. UNANSWERED: it reached the hub, but the connection went before any of
+ * the answer came back, so the answer is lost.
+ */
 @Serializable
-enum class Delivery { SENT, PENDING, NOT_SENT, TRANSCRIBING }
+enum class Delivery { SENT, PENDING, NOT_SENT, TRANSCRIBING, UNANSWERED }
 
 /**
  * One line of the conversation: what was said (SPEC "Conversation screen"), and for a
