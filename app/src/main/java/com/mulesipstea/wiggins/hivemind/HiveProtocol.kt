@@ -199,6 +199,10 @@ class HiveProtocol(
                 put(SessionContext.PHONE_ACTIONS_KEY, context.phoneActions)
                 put(SessionContext.HISTORY_KEY, context.personaHistory)
                 put(SessionContext.TOOLS_KEY, context.personaTools)
+                put(SessionContext.WAGGLE_OFF_KEY, JsonArray(context.waggleOff.map(::JsonPrimitive)))
+                if (context.askByVoice.isNotEmpty()) {
+                    putJsonObject(SessionContext.ASK_METHODS_KEY) { put("voice", JsonArray(context.askByVoice.map(::JsonPrimitive))) }
+                }
                 extraContext.forEach { (key, value) -> put(key, value) }
             }
         }

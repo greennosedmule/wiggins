@@ -22,7 +22,10 @@ import com.mulesipstea.wiggins.waggle.Waggle
 import com.mulesipstea.wiggins.waggle.WaggleException
 import com.mulesipstea.wiggins.waggle.WaggleResponse
 import com.mulesipstea.wiggins.waggle.commands.Commands
+import com.mulesipstea.wiggins.waggle.queries.NotificationsList
+import com.mulesipstea.wiggins.waggle.queries.PhoneLocation
 import com.mulesipstea.wiggins.waggle.queries.Queries
+import com.mulesipstea.wiggins.waggle.queries.WaggleEnv
 import com.mulesipstea.wiggins.waggle.requestId
 import java.util.Locale
 import java.util.TimeZone
@@ -70,7 +73,17 @@ class PhoneActions(
      */
     private val phoneContext: () -> PhoneContext = { PhoneContext.UNLOCKED },
     private val clock: () -> Long = System::currentTimeMillis,
+    /** The notifications Waggle may read, and the phone's voice for reading them. */
+    private val notifications: Notifications = Notifications(context),
+    private val speak: suspend (List<String>) -> Unit = {},
+    /**
+     * Asks [question] aloud and listens for yes or no (SPEC "Voice confirmation"): true,
+     * false, or null for no clear answer in time. Where no screen can show an ask card, a
+     * reply is confirmed this way if the user allows it there.
+     */
+    private val confirmByVoice: suspend (String) -> Boolean? = { null },
 ) {
+    private val env = WaggleEnv(notifications, { settings.actions.first().notificationApps }, speak)
     /** A confirmation the user hasn't answered yet. */
     data class Ask(
         val key: Long,
@@ -110,7 +123,8 @@ class PhoneActions(
             askTimeoutS = ASK_TIMEOUT_S,
             unmatched = s.unmatched,
             rules = db.rules().all().first().map { it.toRule() },
-            queries = Queries.all.map { it.name }.filter { it in s.queries },
+            // A query that can't run now isn't offered: notifications need Android's access.
+            queries = Queries.all.filter { it.name in s.queries && (it !== NotificationsList || notifications.hasAccess()) }.map { it.name },
             commands = Commands.all.filter { it.available(context) }.map { it.name },
         )
     }
@@ -173,23 +187,38 @@ class PhoneActions(
             val where = phoneContext()
             val s = settings.actions.first()
             refuseIfOff(where, s)
+            // The phone's own lookup decides the app the rules see (a reply's notification).
+            val target = command.target(context, request.params, env)
+            title = command.describe(request.params, env)
             val asIntent = IntentRequest(
                 id = id, action = command.name, description = request.description ?: title, data = null, mimeType = null,
-                categories = listOfNotNull(variant), packageName = null, extras = emptyMap(),
+                categories = listOfNotNull(variant), packageName = target, extras = emptyMap(),
             )
             val decision = RuleMatcher.decide(db.rules().all().first().map { it.toRule() }, s.unmatched, asIntent)
             rule = decision.rule
             if (decision.mode == Mode.BLOCK) throw WaggleException(ErrorCode.BLOCKED, if (rule == null) "No rule matches" else "A rule blocks it")
             if (decision.mode == Mode.ASK) {
-                if (where != PhoneContext.UNLOCKED) throw WaggleException(ErrorCode.BLOCKED, "It needs a yes on the phone's screen, which isn't in use")
-                when (ask(asIntent, rule, target = null)) {
+                val answer = if (where == PhoneContext.UNLOCKED) {
+                    ask(asIntent, rule, target = null)
+                } else if (command.name in VOICE_ASKABLE && s.asksByVoice(where)) {
+                    // Nobody taps a card in the car; a reply is read back and confirmed aloud,
+                    // and the yes or no never leaves the phone as an utterance.
+                    when (withTimeoutOrNull(ASK_TIMEOUT_S * 1000L) { confirmByVoice("$title. Send it?") }) {
+                        true -> Answer.ALLOW
+                        false -> Answer.DENY
+                        null -> null
+                    }
+                } else {
+                    throw WaggleException(ErrorCode.BLOCKED, "It needs a yes on the phone's screen, which isn't in use")
+                }
+                when (answer) {
                     null -> throw WaggleException(ErrorCode.TIMEOUT, "No answer in ${ASK_TIMEOUT_S}s")
                     Answer.DENY -> throw WaggleException(ErrorCode.DECLINED, "The user said no")
                     Answer.ALLOW -> Unit
                     Answer.ALLOW_ALWAYS -> db.rules().upsert(RuleEntity.of(ruleFor(asIntent)))
                 }
             }
-            WaggleResponse.ok(id, command.run(context, request.params))
+            WaggleResponse.ok(id, command.run(context, request.params, env))
         } catch (e: WaggleException) {
             WaggleResponse.error(id, e.code, e.message)
         }
@@ -204,10 +233,17 @@ class PhoneActions(
             checkVersion(data)
             val request = QueryRequest.parse(data)
             name = request.name
-            refuseIfOff(phoneContext(), settings.actions.first())
+            val where = phoneContext()
+            val s = settings.actions.first()
+            refuseIfOff(where, s)
             val query = Queries.named(request.name) ?: throw WaggleException(ErrorCode.BAD_REQUEST, "Unknown query ${request.name}")
-            if (query.name !in settings.actions.first().queries) throw WaggleException(ErrorCode.BLOCKED, "${query.name} isn't enabled")
-            WaggleResponse.ok(id, query.run(context, request.params))
+            if (query.name !in s.queries) throw WaggleException(ErrorCode.BLOCKED, "${query.name} isn't enabled")
+            // The per-context limits, which the hub hears as waggle_off too.
+            if (query === NotificationsList && where in s.readAloudOnlyIn) {
+                throw WaggleException(ErrorCode.BLOCKED, "Notifications are only read aloud on the phone ${where.label.lowercase()}")
+            }
+            if (query === PhoneLocation && where !in s.locationIn) throw WaggleException(ErrorCode.BLOCKED, "Location is off ${where.label.lowercase()}")
+            WaggleResponse.ok(id, query.run(context, request.params, env))
         } catch (e: WaggleException) {
             WaggleResponse.error(id, e.code, e.message)
         }
@@ -240,6 +276,13 @@ class PhoneActions(
     fun setUnmatched(mode: Mode) = scope.launch { settings.setUnmatched(mode) }
     fun setQueryEnabled(name: String, enabled: Boolean) = scope.launch { settings.setQueryEnabled(name, enabled) }
     fun setActionsIn(where: PhoneContext, on: Boolean) = scope.launch { settings.setActionsIn(where, on) }
+    fun setNotificationApps(packages: Set<String>) = scope.launch { settings.setNotificationApps(packages) }
+    fun setReadAloudOnly(where: PhoneContext, on: Boolean) = scope.launch { settings.setReadAloudOnly(where, on) }
+    fun setLocationIn(where: PhoneContext, on: Boolean) = scope.launch { settings.setLocationIn(where, on) }
+    fun setVoiceAskIn(where: PhoneContext, on: Boolean) = scope.launch { settings.setVoiceAskIn(where, on) }
+
+    /** Whether Wiggins has Notification access now; granted in Android's settings. */
+    fun hasNotificationAccess() = notifications.hasAccess()
     fun clearLog() = scope.launch { db.log().clear() }
 
     /** Shows an ask card for [request] and waits for the answer; [target] is the app that would open, if any. */
@@ -310,7 +353,11 @@ class PhoneActions(
     companion object {
         private const val TAG = "PhoneActions"
         const val CLIENT_NAME = "Wiggins"
-        const val ASK_TIMEOUT_S = 15
+        /** How long an ask waits for the user, card or voice; announced in capabilities. */
+        const val ASK_TIMEOUT_S = 30
+
+        /** The commands whose ask can be answered by voice where there's no screen (WAGGLE.md `ask_methods`). */
+        val VOICE_ASKABLE = setOf("waggle.notification.reply")
         private const val LOGGED_REQUEST_LIMIT = 4_000
 
         /** The rule "Allow always" creates for an intent: as specific as the intent itself. */

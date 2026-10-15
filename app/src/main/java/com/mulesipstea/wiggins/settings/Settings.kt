@@ -101,7 +101,24 @@ data class ActionSettings(
     val queries: Set<String> = emptySet(),
     /** Where phone actions run at all (SPEC "Permissions"): unlocked and through a trusted device, until changed. */
     val contexts: Set<PhoneContext> = DEFAULT_CONTEXTS,
+    /** The apps whose notifications Waggle may read (SPEC "Notifications"); none until the user picks. */
+    val notificationApps: Set<String> = emptySet(),
+    /** Where notifications are only read aloud by the phone, never listed to the hub. Off everywhere by default. */
+    val readAloudOnlyIn: Set<PhoneContext> = emptySet(),
+    /** Where the hub may ask where the phone is (SPEC "Location"): not when locked, by default. */
+    val locationIn: Set<PhoneContext> = DEFAULT_CONTEXTS,
+    /** Where an ask the screen can't show is asked by voice instead: a reply, through a trusted device by default. */
+    val voiceAskIn: Set<PhoneContext> = setOf(PhoneContext.TRUSTED_DEVICE),
 ) {
+    /** What the phone won't run [where], so the hub leaves it alone (WAGGLE.md `waggle_off`). */
+    fun waggleOff(where: PhoneContext): List<String> = buildList {
+        if (where in readAloudOnlyIn) add("notifications.list")
+        if (where !in locationIn) add("phone.location")
+    }
+
+    /** Whether an ask [where] can be confirmed by voice instead of a card: never unlocked, where there's a screen. */
+    fun asksByVoice(where: PhoneContext) = where != PhoneContext.UNLOCKED && where in voiceAskIn
+
     companion object {
         val DEFAULT_CONTEXTS = setOf(PhoneContext.UNLOCKED, PhoneContext.TRUSTED_DEVICE)
     }
@@ -247,10 +264,31 @@ class SettingsRepository(private val context: Context) {
             // Queries that need no permission and read nothing personal start on, once, even
             // for installs that predate them; after that the user's choice stands.
             queries = queriesFrom(it[QUERIES], it[QUERY_DEFAULTS_APPLIED]),
-            contexts = it[ACTION_CONTEXTS]?.mapNotNull { c -> PhoneContext.entries.firstOrNull { e -> e.wire == c } }?.toSet()
-                ?: ActionSettings.DEFAULT_CONTEXTS,
+            contexts = contextsFrom(it[ACTION_CONTEXTS]) ?: ActionSettings.DEFAULT_CONTEXTS,
+            notificationApps = it[NOTIFICATION_APPS].orEmpty(),
+            readAloudOnlyIn = contextsFrom(it[READ_ALOUD_ONLY]) ?: emptySet(),
+            locationIn = contextsFrom(it[LOCATION_CONTEXTS]) ?: ActionSettings.DEFAULT_CONTEXTS,
+            voiceAskIn = contextsFrom(it[VOICE_ASK_CONTEXTS]) ?: setOf(PhoneContext.TRUSTED_DEVICE),
         )
     }
+
+    private fun contextsFrom(wires: Set<String>?) = wires?.mapNotNull { c -> PhoneContext.entries.firstOrNull { e -> e.wire == c } }?.toSet()
+
+    suspend fun setNotificationApps(packages: Set<String>) {
+        context.dataStore.edit { it[NOTIFICATION_APPS] = packages }
+    }
+
+    /** Turns [where] in or out of one of the per-context sets: [key] is stored, [default] applies until then. */
+    private suspend fun setContext(key: Preferences.Key<Set<String>>, default: Set<PhoneContext>, where: PhoneContext, on: Boolean) {
+        context.dataStore.edit {
+            val now = it[key] ?: default.map { c -> c.wire }.toSet()
+            it[key] = if (on) now + where.wire else now - where.wire
+        }
+    }
+
+    suspend fun setReadAloudOnly(where: PhoneContext, on: Boolean) = setContext(READ_ALOUD_ONLY, emptySet(), where, on)
+    suspend fun setLocationIn(where: PhoneContext, on: Boolean) = setContext(LOCATION_CONTEXTS, ActionSettings.DEFAULT_CONTEXTS, where, on)
+    suspend fun setVoiceAskIn(where: PhoneContext, on: Boolean) = setContext(VOICE_ASK_CONTEXTS, setOf(PhoneContext.TRUSTED_DEVICE), where, on)
 
     val persona: Flow<PersonaPermissions> = context.dataStore.data.map { prefs ->
         PersonaPermissions(
@@ -388,6 +426,10 @@ class SettingsRepository(private val context: Context) {
         val UNLOCK_PER_DRIVE = booleanPreferencesKey("hands_free_unlock_per_drive")
         val OTHER_HEADSETS = stringPreferencesKey("hands_free_other_headsets")
         val ACTION_CONTEXTS = stringSetPreferencesKey("waggle_contexts")
+        val NOTIFICATION_APPS = stringSetPreferencesKey("waggle_notification_apps")
+        val READ_ALOUD_ONLY = stringSetPreferencesKey("waggle_read_aloud_only")
+        val LOCATION_CONTEXTS = stringSetPreferencesKey("waggle_location_contexts")
+        val VOICE_ASK_CONTEXTS = stringSetPreferencesKey("waggle_voice_ask_contexts")
         val TOOL_CATALOG = stringPreferencesKey("persona_tool_catalog")
         val TRUSTED_HISTORY = stringPreferencesKey("persona_history_trusted")
         fun toolsKey(where: PhoneContext) = stringPreferencesKey("persona_tools_${where.wire}")

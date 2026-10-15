@@ -681,6 +681,8 @@ From 0.7.0, the permissions (SPEC "Permissions"), all always present:
 | `can_ask` | bool | The user can answer an ask card now (unlocked only). Waggle treats ask rules as block when false. |
 | `phone_actions` | bool | Phone actions run here at all. Waggle steps aside when false. |
 | `persona_history` | `full`, `since_lock` | How much of the conversation the persona may see. The hub may narrow it. |
+| `waggle_off` | list | Queries and commands the phone won't run here (0.9.0: `notifications.list` where notifications are read aloud only, `phone.location` where location is off). |
+| `ask_methods` | object | Only where an ask can be confirmed by voice (0.9.0): `{"voice": ["waggle.notification.reply"]}`. |
 | `persona_tools` | object | Per tool server, `"all"`, `"none"` or a list of tool names: what the user allows here. Empty until Wiggins reads the hub's catalog, which leaves the hub's per-context defaults. |
 
 None of these widen what the hub allows a client; they only narrow it.

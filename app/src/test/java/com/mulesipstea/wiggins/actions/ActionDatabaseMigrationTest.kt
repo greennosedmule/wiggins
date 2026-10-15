@@ -81,6 +81,8 @@ class ActionDatabaseMigrationTest {
                 "waggle.volume.set" to "run",
                 "waggle.ringer.set" to "run",
                 "waggle.dnd.set" to "run",
+                "waggle.notifications.read_aloud" to "run",
+                "waggle.notification.reply" to "ask",
             ),
             byAction,
         )
@@ -101,6 +103,8 @@ class ActionDatabaseMigrationTest {
                 Triple("waggle.torch.set", null, "run"),
                 Triple("waggle.volume.set", null, "run"),
                 Triple("waggle.dnd.set", null, "run"),
+                Triple("waggle.notifications.read_aloud", null, "run"),
+                Triple("waggle.notification.reply", null, "ask"),
             ),
             rules,
         )

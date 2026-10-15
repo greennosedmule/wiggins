@@ -64,6 +64,12 @@ fun PermissionsScreen(
     onOpenActions: () -> Unit,
     onBack: () -> Unit,
     startAt: PhoneContext = PhoneContext.UNLOCKED,
+    readAloudOnly: Set<PhoneContext> = emptySet(),
+    locationIn: Set<PhoneContext> = setOf(PhoneContext.UNLOCKED, PhoneContext.TRUSTED_DEVICE),
+    voiceAskIn: Set<PhoneContext> = setOf(PhoneContext.TRUSTED_DEVICE),
+    onReadAloudOnlyChange: (PhoneContext, Boolean) -> Unit = { _, _ -> },
+    onLocationChange: (PhoneContext, Boolean) -> Unit = { _, _ -> },
+    onVoiceAskChange: (PhoneContext, Boolean) -> Unit = { _, _ -> },
 ) {
     var tab by rememberSaveable { mutableStateOf(startAt) }
     Scaffold(
@@ -90,6 +96,23 @@ fun PermissionsScreen(
                         tab in actionContexts,
                     ) { onActionsChange(tab, it) }
                     TextButton(onClick = onOpenActions) { Text("Edit the rules") }
+                }
+                Card {
+                    SwitchLine(
+                        "Notifications: read aloud only",
+                        "On: the phone reads your notifications aloud itself, and the hub never sees them. " +
+                            "Off: the hub may list them, so the persona can summarize them.",
+                        tab in readAloudOnly,
+                    ) { onReadAloudOnlyChange(tab, it) }
+                    SwitchLine("Location", "The hub may ask where the phone is.", tab in locationIn) { onLocationChange(tab, it) }
+                    if (tab != PhoneContext.UNLOCKED) {
+                        SwitchLine(
+                            "Confirm replies by voice",
+                            "With no screen to tap, a reply is read back (\u201CReply to Alex on Signal: on my way. Send it?\u201D) " +
+                                "and sent only if you say yes. Off: replies that ask aren't sent here.",
+                            tab in voiceAskIn,
+                        ) { onVoiceAskChange(tab, it) }
+                    }
                 }
                 Card {
                     Text("Conversation the persona sees", style = MaterialTheme.typography.bodyLarge)

@@ -137,6 +137,7 @@ fun WigginsRoot(viewModel: MainViewModel) {
                     onQueryEnabledChange = { name, on -> actions.setQueryEnabled(name, on) },
                     onContextChange = { where, on -> actions.setActionsIn(where, on) },
                     onOpenPermissions = { permissionsFrom = Screen.ACTIONS; screen = Screen.PERMISSIONS },
+                    onNotificationAppsChange = { actions.setNotificationApps(it) },
                     onOpenLog = { screen = Screen.ACTION_LOG },
                     onBack = { screen = Screen.CHAT },
                 )
@@ -148,6 +149,12 @@ fun WigginsRoot(viewModel: MainViewModel) {
                     onToolsChange = { where, choices -> assistant.setTools(where, choices) },
                     onOpenActions = { screen = Screen.ACTIONS },
                     onBack = { screen = permissionsFrom },
+                    readAloudOnly = actionSettings.readAloudOnlyIn,
+                    locationIn = actionSettings.locationIn,
+                    voiceAskIn = actionSettings.voiceAskIn,
+                    onReadAloudOnlyChange = { where, on -> actions.setReadAloudOnly(where, on) },
+                    onLocationChange = { where, on -> actions.setLocationIn(where, on) },
+                    onVoiceAskChange = { where, on -> actions.setVoiceAskIn(where, on) },
                 )
                 Screen.ACTION_LOG -> ActionLogScreen(
                     entries = actionLog,

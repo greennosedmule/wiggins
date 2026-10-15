@@ -47,6 +47,10 @@ data class SessionContext(
     val phoneActions: Boolean = true,
     /** How much of the conversation the persona sees: `full` or `since_lock`, sent as [HISTORY_KEY]. */
     val personaHistory: String = "full",
+    /** Queries and commands the phone won't run here (WAGGLE.md), sent as [WAGGLE_OFF_KEY]. */
+    val waggleOff: List<String> = emptyList(),
+    /** Commands whose ask the phone can confirm by voice here, sent as `ask_methods.voice` when not empty. */
+    val askByVoice: List<String> = emptyList(),
     /** The persona tools the user allows here, per server (`"none"` or tool names), sent as [TOOLS_KEY]. */
     val personaTools: JsonObject = JsonObject(emptyMap()),
 ) {
@@ -94,5 +98,9 @@ data class SessionContext(
 
         /** The message-context key for [personaTools]: servers left out follow the hub's defaults. */
         const val TOOLS_KEY = "persona_tools"
+
+        /** WAGGLE.md: what the phone won't run for this utterance, and how it can ask. */
+        const val WAGGLE_OFF_KEY = "waggle_off"
+        const val ASK_METHODS_KEY = "ask_methods"
     }
 }

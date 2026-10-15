@@ -91,7 +91,7 @@ interface LogDao {
     }
 }
 
-@Database(entities = [RuleEntity::class, LogEntity::class], version = 3)
+@Database(entities = [RuleEntity::class, LogEntity::class], version = 4)
 abstract class ActionDatabase : RoomDatabase() {
     abstract fun rules(): RuleDao
     abstract fun log(): LogDao
@@ -122,10 +122,15 @@ abstract class ActionDatabase : RoomDatabase() {
             Rule("waggle.volume.set", mode = Mode.RUN),
             Rule("waggle.ringer.set", mode = Mode.RUN),
             Rule("waggle.dnd.set", mode = Mode.RUN),
+            // Added in version 4 (MIGRATION_3_4): reading notifications aloud on the phone,
+            // and replying, which asks (by voice where there's no screen).
+            Rule("waggle.notifications.read_aloud", mode = Mode.RUN),
+            Rule("waggle.notification.reply", mode = Mode.ASK),
         )
 
         /** The defaults each schema version introduced, for installs that predate them. */
-        private val RULES_ADDED_IN_3 = DEFAULT_RULES.filter { it.scheme == "geo" || it.action.startsWith("waggle.") }
+        private val RULES_ADDED_IN_4 = DEFAULT_RULES.filter { it.action.startsWith("waggle.notification") }
+        private val RULES_ADDED_IN_3 = DEFAULT_RULES.filter { (it.scheme == "geo" || it.action.startsWith("waggle.")) && it !in RULES_ADDED_IN_4 }
 
         private val RULES_ADDED_IN_2 = DEFAULT_RULES.filter {
             it.action.removePrefix(A) in setOf("SHOW_TIMERS", "DISMISS_TIMER", "SNOOZE_ALARM", "DISMISS_ALARM")
@@ -160,6 +165,11 @@ abstract class ActionDatabase : RoomDatabase() {
             }
         }
 
+        /** Version 4: the notification commands' rules, where the user has none of their own. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) = RULES_ADDED_IN_4.forEach { insertDefault(db, it, ifNoRuleForAction = true) }
+        }
+
         private fun insertDefault(db: SupportSQLiteDatabase, rule: Rule, ifNoRuleForAction: Boolean = false) {
             val values = arrayOf<Any?>(rule.action, rule.scheme, rule.packageName, rule.category, rule.mode.wire)
             if (ifNoRuleForAction) {
@@ -181,7 +191,7 @@ abstract class ActionDatabase : RoomDatabase() {
             }
             // onCreate runs only for a new database, which is created at the latest version
             // and so gets every default; the migrations bring older ones up to date.
-            return builder.addMigrations(MIGRATION_1_2, MIGRATION_2_3).addCallback(object : Callback() {
+            return builder.addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).addCallback(object : Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) = DEFAULT_RULES.forEach { insertDefault(db, it) }
             }).build()
         }

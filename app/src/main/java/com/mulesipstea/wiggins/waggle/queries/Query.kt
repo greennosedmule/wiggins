@@ -30,11 +30,26 @@ interface Query {
      * without the permission.
      */
     suspend fun run(context: Context, params: JsonObject): JsonObject
+
+    /** Runs it with what the phone holds besides Android's services; most queries need none of it. */
+    suspend fun run(context: Context, params: JsonObject, env: WaggleEnv): JsonObject = run(context, params)
 }
+
+/**
+ * What queries and commands may need besides Android's services: the notifications the
+ * user lets Waggle see, the phone's voice, and its spoken yes or no.
+ */
+class WaggleEnv(
+    val notifications: com.mulesipstea.wiggins.actions.Notifications,
+    /** The packages whose notifications Waggle may read. */
+    val notificationApps: suspend () -> Set<String>,
+    /** Speaks [lines] with the phone's current voice and returns when they're spoken. */
+    val speak: suspend (lines: List<String>) -> Unit,
+)
 
 /** The queries Wiggins implements. */
 object Queries {
-    val all: List<Query> = listOf(CalendarNext, ContactsLookup, AppsList, PhoneStatus)
+    val all: List<Query> = listOf(CalendarNext, ContactsLookup, AppsList, PhoneStatus, NotificationsList, PhoneLocation)
 
     fun named(name: String): Query? = all.firstOrNull { it.name == name }
 }

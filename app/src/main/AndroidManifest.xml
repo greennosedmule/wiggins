@@ -19,6 +19,11 @@
          "Do Not Disturb access", which the user grants there. A normal permission; the
          access itself is the special grant. -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!-- Waggle's phone.location query; asked for when the user enables it. "All the time"
+         lets the hub ask while no Wiggins screen is showing. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <queries>
         <!-- The system TTS engine, for speaking replies. -->
@@ -129,5 +134,16 @@
                 <action android:name="android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
+            <!-- Reads and replies to notifications from the apps the user picks (SPEC
+             "Notifications"), once the user grants Notification access in Android's settings. -->
+        <service
+            android:name=".actions.NotificationReader"
+            android:exported="true"
+            android:label="Wiggins"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

@@ -9,6 +9,7 @@ import com.mulesipstea.wiggins.waggle.ErrorCode
 import com.mulesipstea.wiggins.waggle.WaggleException
 import com.mulesipstea.wiggins.waggle.queries.badRequest
 import com.mulesipstea.wiggins.waggle.queries.intParam
+import com.mulesipstea.wiggins.waggle.queries.WaggleEnv
 import com.mulesipstea.wiggins.waggle.queries.stringParam
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -44,13 +45,22 @@ interface Command {
      */
     fun run(context: Context, params: JsonObject): JsonObject?
 
+    /** Runs it with what the phone holds besides Android's services; most commands need none of it. */
+    suspend fun run(context: Context, params: JsonObject, env: WaggleEnv): JsonObject? = run(context, params)
+
+    /** The app it acts through, which the rules see as the package; null for none. */
+    suspend fun target(context: Context, params: JsonObject, env: WaggleEnv): String? = null
+
     /** What it will do, for the ask card: "Do Not Disturb: on". */
     fun describe(params: JsonObject): String = label + (variant(params)?.let { ": $it" } ?: "")
+
+    /** What it will do, with what the phone knows: "Reply to Alex on Signal: “on my way”". */
+    suspend fun describe(params: JsonObject, env: WaggleEnv): String = describe(params)
 }
 
 /** The commands Wiggins implements. */
 object Commands {
-    val all: List<Command> = listOf(Torch, Volume, Ringer, DoNotDisturb)
+    val all: List<Command> = listOf(Torch, Volume, Ringer, DoNotDisturb, ReadAloud, Reply)
 
     fun named(name: String): Command? = all.firstOrNull { it.name == name }
 

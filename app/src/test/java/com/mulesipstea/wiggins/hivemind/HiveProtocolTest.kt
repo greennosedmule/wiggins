@@ -237,8 +237,9 @@ class HiveProtocolTest {
         val trusted = context.copy(locked = true, phoneContext = "trusted_device", canAsk = false, phoneActions = true)
         val nightstand = context.copy(locked = true, phoneContext = "locked", canAsk = false, phoneActions = false, personaHistory = "since_lock")
         val narrowed = context.copy(personaTools = JsonObject(mapOf("notes" to JsonPrimitive("none"))))
+        val car = trusted.copy(waggleOff = listOf("notifications.list"), askByVoice = listOf("waggle.notification.reply"))
 
-        for (ctx in listOf(context, locked, watching, normalized, trusted, nightstand, narrowed)) {
+        for (ctx in listOf(context, locked, watching, normalized, trusted, nightstand, narrowed, car)) {
             for (frames in listOf(
                 proto.utterance("what's next", ctx),
                 proto.transcribe("t1", byteArrayOf(1), ctx),
@@ -255,6 +256,9 @@ class HiveProtocolTest {
                 assertEquals(ctx.personaHistory, sent.getValue("persona_history").jsonPrimitive.content)
                 // Always a dict: servers left out follow the hub's defaults.
                 assertEquals(ctx.personaTools, sent.getValue("persona_tools"))
+                assertEquals(ctx.waggleOff.toString(), sent.getValue("waggle_off").toString().replace("\"", ""))
+                if (ctx.askByVoice.isEmpty()) assertNull(sent["ask_methods"])
+                else assertEquals(ctx.askByVoice.joinToString(",", "[", "]") { "\"$it\"" }, sent.getValue("ask_methods").jsonObject.getValue("voice").toString())
                 val session = sent.getValue("session").jsonObject
                 assertNull(session["device_locked"])
                 assertNull(session["user_watching"])

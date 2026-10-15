@@ -11,6 +11,8 @@ import android.text.format.DateFormat
 import android.util.Log
 import com.mulesipstea.wiggins.actions.ActionDatabase
 import com.mulesipstea.wiggins.actions.PhoneActions
+import com.mulesipstea.wiggins.speech.YesNo
+import com.mulesipstea.wiggins.actions.Notifications
 import com.mulesipstea.wiggins.hivemind.ConnectionState
 import com.mulesipstea.wiggins.hivemind.HiveMindClient
 import com.mulesipstea.wiggins.hivemind.HubEvent
@@ -128,7 +130,13 @@ class Assistant(private val app: WigginsApp) {
         app, scope, ActionDatabase.open(app), app.settings,
         isForeground = { foreground },
         phoneContext = { phoneContext() },
+        notifications = Notifications(app),
+        speak = { lines -> speakAndWait(lines) },
+        confirmByVoice = { question -> confirmByVoice(question) },
     )
+
+    /** The spoken yes or no being transcribed, which never becomes an utterance. */
+    private var confirming: Transcription? = null
     private val hubSpeaker = HubSpeaker(
         scope,
         request = { id, text -> client.sendSynthesize(id, text, sessionContext()) },
@@ -972,7 +980,7 @@ class Assistant(private val app: WigginsApp) {
                     sendWhenConnected(responseType, response.toJson())
                 }
             }
-            is HubEvent.Transcription -> (transcribing.keys + listOfNotNull(recording)).forEach { it.onAnswer(event.id, event.text) }
+            is HubEvent.Transcription -> (transcribing.keys + listOfNotNull(recording, confirming)).forEach { it.onAnswer(event.id, event.text) }
             is HubEvent.SpeechAudio -> {
                 val check = speechCheck
                 if (check != null && check.first == event.id) check.second.complete(true) else hubSpeaker.onAudio(event.id, event.wavBase64)
@@ -1136,6 +1144,69 @@ class Assistant(private val app: WigginsApp) {
     /** The trusted devices [lockedContextFor] decided with, for the session it starts. */
     private var decidedTrust: Set<String> = emptySet()
 
+    /**
+     * Speaks [lines] with the phone's current voice and returns once they're spoken: Waggle's
+     * read-aloud and voice asks, which the hub waits for in silence.
+     */
+    private suspend fun speakAndWait(lines: List<String>) {
+        if (lines.isEmpty()) return
+        if (speech.value.ttsMode == SpeechMode.HUB) {
+            lines.forEach { hubSpeaker.speak(it) }
+            hubSpeaker.speaking.first { !it }
+        } else {
+            lines.forEach { speaker.speakAndWait(it) }
+        }
+    }
+
+    /**
+     * Asks [question] aloud and listens for yes or no (SPEC "Voice confirmation"), once
+     * more if the answer was unclear: true, false, or null. The answer is transcribed by
+     * the hub's speech-to-text like any recording, but never sent as an utterance, so
+     * neither Waggle nor the persona hears it.
+     */
+    private suspend fun confirmByVoice(question: String): Boolean? {
+        for (attempt in 0 until 2) {
+            speakAndWait(listOf(if (attempt == 0) question else "Sorry, was that a yes or a no?"))
+            val heard = listenForAnswer() ?: continue
+            YesNo.parse(heard)?.let { return it }
+        }
+        return null
+    }
+
+    /** Records one short answer and returns its transcription, or null if nothing was heard. */
+    private suspend fun listenForAnswer(): String? {
+        if (!recorder.hasPermission()) return null
+        cancelListening()
+        val done = CompletableDeferred<String?>()
+        lateinit var request: Transcription
+        request = Transcription(
+            scope,
+            early = false,
+            send = { id, pcm -> sendAudio(request, id, pcm) },
+            onResult = { result -> done.complete((result as? Transcription.Result.Heard)?.text) },
+            newId = ::newRequestId,
+        )
+        confirming = request
+        val route = handsFree.route()
+        cue.playIfWanted(speech.value.listeningTone, route)
+        recorder.start(object : Recorder.Listener {
+            override fun onPause(pcm: () -> ByteArray) = Unit
+            override fun onResume() = Unit
+            override fun onEnd(pcm: () -> ByteArray) = request.onEnd(pcm)
+            override fun onNothing(micFailed: Boolean) {
+                request.cancel()
+                done.complete(null)
+            }
+        }, route.input)
+        return try {
+            withTimeoutOrNull(ANSWER_WAIT_MS) { done.await() }
+        } finally {
+            if (confirming === request) confirming = null
+            recorder.cancel()
+            request.cancel()
+        }
+    }
+
     /** The phone's language, timezone, units and formats, so skills answer for the phone. */
     private fun sessionContext(): SessionContext {
         val where = phoneContext()
@@ -1154,6 +1225,8 @@ class Assistant(private val app: WigginsApp) {
             phoneContext = where.wire,
             canAsk = where == PhoneContext.UNLOCKED,
             phoneActions = where in actionSettings.value.contexts,
+            waggleOff = actionSettings.value.waggleOff(where),
+            askByVoice = if (actionSettings.value.asksByVoice(where)) PhoneActions.VOICE_ASKABLE.toList() else emptyList(),
             personaHistory = persona.value.historyIn(where),
             personaTools = persona.value.toolsIn(where),
         )
@@ -1164,6 +1237,9 @@ class Assistant(private val app: WigginsApp) {
 
         /** OVOS-PERSONA-1's list query, and its answer with the hub's tool catalog. */
         const val PERSONA_LIST = "ovos.persona.list"
+
+        /** How long a spoken yes or no may take, recording and transcription together. */
+        const val ANSWER_WAIT_MS = 12_000L
         const val PERSONA_LIST_RESPONSE = "ovos.persona.list.response"
         const val IDLE_DISCONNECT_MS = 60_000L
         const val LOG_LIMIT = 500

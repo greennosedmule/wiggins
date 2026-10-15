@@ -94,7 +94,10 @@ class CommandsTest {
     }
 
     @Test fun commandsAreFoundByNameAndLabelled() {
-        assertEquals(listOf("waggle.torch.set", "waggle.volume.set", "waggle.ringer.set", "waggle.dnd.set"), Commands.all.map { it.name })
+        assertEquals(
+            listOf("waggle.torch.set", "waggle.volume.set", "waggle.ringer.set", "waggle.dnd.set", "waggle.notifications.read_aloud", "waggle.notification.reply"),
+            Commands.all.map { it.name },
+        )
         assertEquals("Flashlight", Commands.label("waggle.torch.set"))
         assertEquals(null, Commands.label("android.intent.action.VIEW"))
     }

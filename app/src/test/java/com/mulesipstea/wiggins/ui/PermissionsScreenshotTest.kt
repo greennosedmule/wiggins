@@ -92,5 +92,19 @@ class PermissionsScreenshotTest {
     @Test fun permissionsTrustedLight() = permissions("permissions-trusted", false, PhoneContext.TRUSTED_DEVICE, chosen, open = "Calendar")
     @Test fun permissionsTrustedDark() = permissions("permissions-trusted", true, PhoneContext.TRUSTED_DEVICE, chosen, open = "Notes")
     @Test fun permissionsLockedLight() = permissions("permissions-locked", false, PhoneContext.LOCKED, chosen, open = "Calendar")
+    @Test fun permissionsCarLight() = compose.run {
+        setContent {
+            WigginsTheme {
+                PermissionsScreen(
+                    persona = PersonaPermissions(), actionContexts = ActionSettings.DEFAULT_CONTEXTS,
+                    onActionsChange = { _, _ -> }, onTrustedHistoryChange = {}, onToolsChange = { _, _ -> },
+                    onOpenActions = {}, onBack = {}, startAt = PhoneContext.TRUSTED_DEVICE,
+                    readAloudOnly = setOf(PhoneContext.TRUSTED_DEVICE),
+                )
+            }
+        }
+        onRoot().captureRoboImage("build/outputs/roborazzi/permissions-car-light.png")
+    }
+
     @Test fun permissionsNoCatalogLight() = permissions("permissions-no-catalog", false, PhoneContext.UNLOCKED, PersonaPermissions())
 }

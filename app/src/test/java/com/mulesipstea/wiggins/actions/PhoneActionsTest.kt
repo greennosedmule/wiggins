@@ -43,10 +43,14 @@ class PhoneActionsTest {
     private val settings = SettingsRepository(app)
     private var foreground = true
     private var where = PhoneContext.UNLOCKED
+    private val active = mutableListOf<android.service.notification.StatusBarNotification>()
+    private var voiceAnswer: Boolean? = null
+    private val spoken = mutableListOf<String>()
 
     @Before fun setUp() {
         db = ActionDatabase.open(app, name = null)
-        actions = PhoneActions(app, scope, db, settings, isForeground = { foreground }, phoneContext = { where })
+        actions = PhoneActions(app, scope, db, settings, isForeground = { foreground }, phoneContext = { where },
+            notifications = Notifications(app) { active }, speak = { spoken += it }, confirmByVoice = { voiceAnswer })
         // An alarm clock and a dialer the intents can resolve to.
         handle("android.intent.action.SET_ALARM", "com.example.clock", "Alarm")
         handle("android.intent.action.SET_TIMER", "com.example.clock", "Timer")
@@ -58,6 +62,12 @@ class PhoneActionsTest {
             settings.setUnmatched(Mode.BLOCK)
             Queries().forEach { settings.setQueryEnabled(it, false) }
             PhoneContext.entries.forEach { settings.setActionsIn(it, it != PhoneContext.LOCKED) }
+            settings.setNotificationApps(emptySet())
+            PhoneContext.entries.forEach {
+                settings.setReadAloudOnly(it, false)
+                settings.setVoiceAskIn(it, it == PhoneContext.TRUSTED_DEVICE)
+                settings.setLocationIn(it, it != PhoneContext.LOCKED)
+            }
         }
     }
 
@@ -66,7 +76,7 @@ class PhoneActionsTest {
         scope.cancel()
     }
 
-    private fun Queries() = listOf("calendar.next", "contacts.lookup", "apps.list", "phone.status")
+    private fun Queries() = listOf("calendar.next", "contacts.lookup", "apps.list", "phone.status", "notifications.list", "phone.location")
 
     private fun handle(action: String, pkg: String, cls: String, scheme: String? = null) {
         val component = ComponentName(pkg, "$pkg.$cls")
@@ -239,6 +249,70 @@ class PhoneActionsTest {
         val commands = actions.capabilities().toJson()["commands"].toString()
         // No flash on Robolectric's phone, and no Do Not Disturb access yet.
         assertEquals("[\"waggle.volume.set\",\"waggle.ringer.set\"]", commands)
+    }
+
+    private fun chat(title: String, from: String, text: String) {
+        val pending = android.app.PendingIntent.getBroadcast(app, active.size, Intent("org.example.REPLY").setPackage(app.packageName), android.app.PendingIntent.FLAG_MUTABLE)
+        val reply = androidx.core.app.NotificationCompat.Action.Builder(0, "Reply", pending)
+            .addRemoteInput(androidx.core.app.RemoteInput.Builder("reply_text").build()).build()
+        val style = androidx.core.app.NotificationCompat.MessagingStyle(androidx.core.app.Person.Builder().setName("Me").build())
+            .setConversationTitle(title).addMessage(text, 1_000, androidx.core.app.Person.Builder().setName(from).build())
+        val n = androidx.core.app.NotificationCompat.Builder(app, "c").setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title).setStyle(style).addAction(reply).build()
+        @Suppress("DEPRECATION")
+        active += android.service.notification.StatusBarNotification("org.example.chat", "org.example.chat", active.size + 1, null, 0, 0, 0, n, android.os.Process.myUserHandle(), 1_000)
+    }
+
+    /** Notifications (SPEC "Notifications"): only picked apps; a reply asks by default, and the rules see its app. */
+    @Test fun listingAndReplyingFollowTheRules() = runBlocking {
+        chat("Alex", "Alex", "Running late")
+        settings.setQueryEnabled("notifications.list", true)
+        val none = actions.onQuery(json("""{"id":"n1","name":"notifications.list","params":{}}"""))
+        assertEquals("[]", none?.data?.get("notifications").toString()) // no apps picked yet
+        settings.setNotificationApps(setOf("org.example.chat"))
+        val listed = actions.onQuery(json("""{"id":"n2","name":"notifications.list","params":{"from":"alex"}}"""))
+        assertTrue(listed?.data?.get("notifications").toString().contains("Running late"))
+        // Allow replies for this app only, and the reply goes straight through.
+        db.rules().upsert(RuleEntity.of(com.mulesipstea.wiggins.waggle.Rule("waggle.notification.reply", packageName = "org.example.chat", mode = Mode.RUN)))
+        assertEquals(true, actions.onCommand(json("""{"id":"n3","name":"waggle.notification.reply","params":{"to":"Alex","text":"On my way"}}"""))?.ok)
+        assertEquals("On my way", android.app.RemoteInput.getResultsFromIntent(shadowOf(app).broadcastIntents.last())?.getCharSequence("reply_text").toString())
+        assertEquals(ErrorCode.NOT_FOUND, actions.onCommand(json("""{"id":"n4","name":"waggle.notification.reply","params":{"to":"Sam","text":"Hi"}}"""))?.error)
+        assertEquals(ErrorCode.BAD_REQUEST, actions.onCommand(json("""{"id":"n5","name":"waggle.notification.reply","params":{"text":"Hi"}}"""))?.error)
+    }
+
+    /** Through a trusted device, a reply that asks is read back and sent only on a spoken yes. */
+    @Test fun aReplyIsConfirmedByVoiceWhereThereIsNoScreen() = runBlocking {
+        chat("Alex", "Alex", "Running late")
+        settings.setNotificationApps(setOf("org.example.chat"))
+        db.rules().upsert(RuleEntity.of(com.mulesipstea.wiggins.waggle.Rule("waggle.notification.reply", mode = Mode.ASK)))
+        where = PhoneContext.TRUSTED_DEVICE
+        val sentBefore = shadowOf(app).broadcastIntents.size
+        voiceAnswer = false
+        assertEquals(ErrorCode.DECLINED, actions.onCommand(json("""{"id":"v1","name":"waggle.notification.reply","params":{"to":"Alex","text":"On my way"}}"""))?.error)
+        voiceAnswer = null
+        assertEquals(ErrorCode.TIMEOUT, actions.onCommand(json("""{"id":"v2","name":"waggle.notification.reply","params":{"to":"Alex","text":"On my way"}}"""))?.error)
+        assertEquals(sentBefore, shadowOf(app).broadcastIntents.size)
+        voiceAnswer = true
+        assertEquals(true, actions.onCommand(json("""{"id":"v3","name":"waggle.notification.reply","params":{"to":"Alex","text":"On my way"}}"""))?.ok)
+        assertTrue(actions.asks.value.isEmpty()) // never a card
+        // With voice asks off there, it's refused.
+        settings.setVoiceAskIn(PhoneContext.TRUSTED_DEVICE, false)
+        assertEquals(ErrorCode.BLOCKED, actions.onCommand(json("""{"id":"v4","name":"waggle.notification.reply","params":{"to":"Alex","text":"x"}}"""))?.error)
+    }
+
+    @Test fun readAloudSpeaksOnThePhone() = runBlocking {
+        chat("Alex", "Alex", "Running late")
+        settings.setNotificationApps(setOf("org.example.chat"))
+        val response = actions.onCommand(json("""{"id":"r1","name":"waggle.notifications.read_aloud","params":{}}"""))
+        assertEquals("{\"count\":1}", response?.data.toString())
+        assertEquals(1, spoken.size)
+        assertTrue(spoken.single().contains("Running late"))
+    }
+
+    @Test fun readAloudOnlyContextsKeepTheListFromTheHub() = runBlocking {
+        settings.setQueryEnabled("notifications.list", true)
+        settings.setReadAloudOnly(PhoneContext.UNLOCKED, true)
+        assertEquals(ErrorCode.BLOCKED, actions.onQuery(json("""{"id":"o1","name":"notifications.list","params":{}}"""))?.error)
     }
 
     @Test fun queriesAreOffUntilEnabled() = runBlocking {

@@ -40,7 +40,8 @@ This repo is public: use the placeholders the docs already use (`hub.example.com
     `ClockRequests`, the ask card's sentence for Clock intents ("Dismisses the alarm at
     6:30 AM"), read from the extras the way the stock Clock reads them.
     `actions/`: `PhoneActions` runs requests within the rules; Room holds the rules and
-    action log.
+    action log. `Notifications` reads and replies through the notification listener
+    (`NotificationReader`); `waggle/commands/` holds what the phone does itself.
   - `settings/`: DataStore settings; `SecretStore` (Tink, keyed in Android Keystore)
     encrypts the key, password, tokens and Noise keys.
   - `net/`: `EntraSignIn` (AppAuth) and `ClientCertificates` (mTLS).
@@ -189,8 +190,12 @@ export JAVA_HOME=~/Android/jdk ANDROID_HOME=~/Android/Sdk
     hold the end until `ovos.utterance.handled`.
 - **`device_locked`** in every uplink's message context, true unless the phone is
   unlocked. Never omit it: the hub may treat a Wiggins message without it as locked.
-- **`phone_context`, `can_ask`, `phone_actions`, `persona_history` and
-  `persona_tools`** in every uplink's message context too (SPEC "Permissions"). An
+- **`phone_context`, `can_ask`, `phone_actions`, `persona_history`, `persona_tools`
+  and `waggle_off`** in every uplink's message context too (SPEC "Permissions"), and
+  `ask_methods` where a reply can be confirmed by voice.
+- **A spoken yes or no never becomes an utterance** (SPEC "Voice confirmation"): it's
+  transcribed like any recording and decided on the phone, so Waggle and the persona
+  can't answer their own question. An
   older hub ignores them; a newer one narrows what it allows by them, never widens.
 - **`user_watching`** in every uplink's message context: true only from a visible Wiggins
   screen on an unlocked phone, not over a hands-free link. With true, the hub doesn't

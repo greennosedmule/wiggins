@@ -1,5 +1,8 @@
 package com.mulesipstea.wiggins.ui
 
+import android.Manifest
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
@@ -21,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,6 +51,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.mulesipstea.wiggins.actions.NotificationReader
+import com.mulesipstea.wiggins.actions.Notifications
 import com.mulesipstea.wiggins.actions.RuleEntity
 import com.mulesipstea.wiggins.settings.ActionSettings
 import com.mulesipstea.wiggins.settings.PhoneContext
@@ -60,6 +66,8 @@ private val QUERY_DETAILS = mapOf(
     "calendar.next" to ("Upcoming events" to "Lets the hub read your next calendar events, to answer \"what's next?\""),
     "contacts.lookup" to ("Contact lookup" to "Lets the hub look up a contact's phone numbers by name, to call or text them. It never gets the whole address book."),
     "apps.list" to ("Installed apps" to "Lets the hub see your launcher apps' names, to open one by name."),
+    "notifications.list" to ("Notifications to the hub" to "Lets the hub list the notifications of the apps you picked above, for the persona to read or summarize."),
+    "phone.location" to ("Location" to "Lets the hub ask where the phone is, as coordinates. Off when the phone is locked, unless you change that in Permissions."),
     "phone.status" to ("Phone status" to "Lets the hub read the battery, whether you're on Wi-Fi or mobile data, the ringer and Do Not Disturb. Nothing personal."),
 )
 
@@ -82,14 +90,22 @@ fun PhoneActionsScreen(
     onBack: () -> Unit,
     onContextChange: (PhoneContext, Boolean) -> Unit = { _, _ -> },
     onOpenPermissions: () -> Unit = {},
+    onNotificationAppsChange: (Set<String>) -> Unit = {},
 ) {
     val context = LocalContext.current
     // Granted or revoked in Android's settings, so checked again whenever this screen comes back.
     var dndAccess by remember { mutableStateOf(DoNotDisturb.hasAccess(context)) }
+    val notifications = remember { Notifications(context) }
+    var notificationAccess by remember { mutableStateOf(notifications.hasAccess()) }
+    var backgroundLocation by remember { mutableStateOf(hasBackgroundLocation(context)) }
     LifecycleResumeEffect(Unit) {
         dndAccess = DoNotDisturb.hasAccess(context)
+        notificationAccess = notifications.hasAccess()
+        backgroundLocation = hasBackgroundLocation(context)
         onPauseOrDispose {}
     }
+    // "All the time" is a second step after the foreground grant; Android shows it in its settings.
+    val backgroundPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { backgroundLocation = it }
     var editing by remember { mutableStateOf<RuleEntity?>(null) }
     var confirmReset by remember { mutableStateOf(false) }
     // A query that needs a permission is enabled once the permission is granted.
@@ -167,6 +183,23 @@ fun PhoneActionsScreen(
                     }
                 }
             }
+            Section(
+                "Notifications",
+                "Lets the hub read the notifications of the apps you pick, and reply to messages through them. " +
+                    "Where it can't show them to the hub (Permissions), the phone reads them aloud itself.",
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Notification access", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            if (notificationAccess) "Granted." else "Android grants it in its settings. Wiggins reads only the apps you pick below.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    if (!notificationAccess) TextButton(onClick = { openNotificationAccess(context) }) { Text("Grant") }
+                }
+                NotificationApps(settings.notificationApps, onNotificationAppsChange)
+            }
             Section("Queries", "What the hub may read from the phone. Each is off until you turn it on, except phone status.") {
                 Queries.all.forEach { query ->
                     val (title, detail) = QUERY_DETAILS[query.name] ?: (query.name to "")
@@ -189,6 +222,16 @@ fun PhoneActionsScreen(
                             Text(detail, style = MaterialTheme.typography.bodySmall)
                         }
                         Switch(checked = enabled, onCheckedChange = null)
+                    }
+                }
+                if ("phone.location" in settings.queries && !backgroundLocation) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Location works while Wiggins is open. Allow it all the time to answer when it isn't.",
+                            Modifier.weight(1f).padding(end = 12.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        TextButton(onClick = { backgroundPermission.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) }) { Text("Allow") }
                     }
                 }
             }
@@ -322,3 +365,43 @@ private fun Section(title: String, subtitle: String, content: @Composable () -> 
         }
     }
 }
+
+private fun hasBackgroundLocation(context: Context) =
+    context.checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+private fun openNotificationAccess(context: Context) {
+    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+        .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, ComponentName(context, NotificationReader::class.java).flattenToString())
+    runCatching { context.startActivity(intent) }.onFailure { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+}
+
+/** The apps whose notifications the hub may read: launcher apps, ticked; collapsed to a count. */
+@Composable
+private fun NotificationApps(picked: Set<String>, onChange: (Set<String>) -> Unit) {
+    val context = LocalContext.current
+    var open by remember { mutableStateOf(false) }
+    val apps = remember(open) {
+        if (!open) emptyList() else runCatching {
+            val pm = context.packageManager
+            pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), PackageManager.ResolveInfoFlags.of(0))
+                .mapNotNull { info -> info.activityInfo?.packageName?.takeIf { it != context.packageName }?.let { it to info.loadLabel(pm).toString() } }
+                .distinctBy { it.first }.sortedBy { it.second.lowercase() }
+        }.getOrDefault(emptyList())
+    }
+    TextButton(onClick = { open = !open }) {
+        Text(if (picked.isEmpty()) "Pick apps (none yet)" else "Apps: ${picked.size} picked")
+    }
+    if (open) {
+        apps.forEach { (pkg, label) ->
+            val on = pkg in picked
+            Row(
+                Modifier.fillMaxWidth().toggleable(value = on, role = Role.Checkbox) { onChange(if (it) picked + pkg else picked - pkg) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = on, onCheckedChange = null)
+                Text(label, Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
